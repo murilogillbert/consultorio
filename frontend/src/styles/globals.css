@@ -1,0 +1,196 @@
+/* ============================================
+   GLOBAL STYLES
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import './variables.css';
+@import './reset.css';
+@import './animations.css';
+
+/* ---- Root Layout ---- */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Utility Classes ---- */
+.container {
+  max-width: var(--max-content);
+  margin: 0 auto;
+  padding: 0 var(--space-8);
+  width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* ---- Typography classes ---- */
+.text-display {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+.text-hero {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+.text-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+.text-section {
+  font-family: var(--font-display);
+  font-size: var(--text-section);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+.text-body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+}
+
+.text-muted {
+  color: var(--color-text-secondary);
+}
+
+.text-caption {
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* ---- Card base ---- */
+.card {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+
+.card-elevated {
+  background: var(--color-overlay-white);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-modal);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-modal);
+}
+
+/* ---- Divider ---- */
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border-default);
+  margin: var(--space-6) 0;
+}
+
+/* ---- Grid system ---- */
+.grid {
+  display: grid;
+  gap: var(--gutter);
+}
+
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-12 { grid-template-columns: repeat(12, 1fr); }
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .container {
+    padding: 0 var(--space-4);
+  }
+}
+
+@media (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ---- Section ---- */
+.section {
+  padding: var(--space-12) 0;
+}
+
+.section-dark {
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-white);
+}
+
+/* ---- Empty State ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16) var(--space-8);
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.empty-state svg {
+  width: 48px;
+  height: 48px;
+  color: var(--color-accent-emerald);
+  opacity: 0.6;
+}
+
+.empty-state p {
+  color: var(--color-text-muted);
+  font-size: var(--text-ui);
+}
+
+/* ---- Toast container ---- */
+.toast-container {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.toast-container > * {
+  pointer-events: auto;
+}
+
+/* ---- Backdrop ---- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay-dark);
+  backdrop-filter: blur(8px);
+  z-index: var(--z-modal-backdrop);
+  animation: backdropIn var(--transition-normal) ease forwards;
+}

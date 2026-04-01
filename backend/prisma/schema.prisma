@@ -1,0 +1,635 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String             @id @default(uuid())
+  name                   String
+  email                  String             @unique
+  passwordHash           String
+  role                   String             @default("PATIENT")
+  active                 Boolean            @default(true)
+  avatarUrl              String?
+  phone                  String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  publishedAnnouncements Announcement[]     @relation("AnnouncementPublisher")
+  announcementReads      AnnouncementRead[]
+  channelMembers         ChannelMember[]
+  assignedConversations  Conversation[]     @relation("AssignedTo")
+  conversationNotes      ConversationNote[]
+  usagesCreated          EquipmentUsage[]   @relation("UsageCreator")
+  sentMessages           InternalMessage[]  @relation("MessageSender")
+  candidaciesReviewed    JobCandidacy[]     @relation("CandidacyReviewer")
+  messageReads           MessageRead[]
+  patient                Patient?
+  pinnedMessages         PinnedMessage[]
+  professional           Professional?
+  systemUsers            SystemUser[]
+}
+
+model Clinic {
+  id                  String               @id @default(uuid())
+  name                String
+  cnpj                String?
+  address             String?
+  phone               String?
+  email               String?
+  description         String?
+  logoUrl             String?
+  instagram           String?
+  facebook            String?
+  youtube             String?
+  linkedin            String?
+  tiktok              String?
+  whatsapp            String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  announcements       Announcement[]
+  units               ClinicUnit[]
+  equipments          Equipment[]
+  insurancePlans      InsurancePlan[]
+  integrationSettings IntegrationSettings?
+  jobOpenings         JobOpening[]
+  rooms               Room[]
+  sliderBanners       SliderBanner[]
+  systemUsers         SystemUser[]
+  workingHours        WorkingHour[]
+}
+
+model ClinicUnit {
+  id        String   @id @default(uuid())
+  clinicId  String
+  name      String
+  address   String?
+  phone     String?
+  lat       Float?
+  lng       Float?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+}
+
+model WorkingHour {
+  id        String  @id @default(uuid())
+  clinicId  String
+  dayOfWeek Int
+  opens     String
+  closes    String
+  closed    Boolean @default(false)
+  clinic    Clinic  @relation(fields: [clinicId], references: [id])
+}
+
+model SystemUser {
+  id        String   @id @default(uuid())
+  clinicId  String
+  userId    String
+  role      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  @@unique([clinicId, userId])
+}
+
+model Room {
+  id                String           @id @default(uuid())
+  clinicId          String
+  name              String
+  type              String
+  active            Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  appointments      Appointment[]
+  currentEquipments Equipment[]      @relation("CurrentRoom")
+  defaultEquipments Equipment[]      @relation("DefaultRoom")
+  equipmentUsages   EquipmentUsage[]
+  clinic            Clinic           @relation(fields: [clinicId], references: [id])
+}
+
+model InsurancePlan {
+  id                   String             @id @default(uuid())
+  clinicId             String
+  name                 String
+  active               Boolean            @default(true)
+  documentsRequired    String?
+  createdAt            DateTime           @default(now())
+  appointmentInsurance Appointment[]
+  clinic               Clinic             @relation(fields: [clinicId], references: [id])
+  serviceInsurances    ServiceInsurance[]
+}
+
+model Service {
+  id               String                @id @default(uuid())
+  name             String
+  description      String?
+  shortDescription String?
+  category         String?
+  duration         Int
+  price            Float
+  preparation      String?
+  onlineBooking    Boolean               @default(true)
+  active           Boolean               @default(true)
+  imageUrl         String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  appointments     Appointment[]
+  professionals    ProfessionalService[]
+  equipments       ServiceEquipment[]
+  insurances       ServiceInsurance[]
+}
+
+model ServiceInsurance {
+  id              String        @id @default(uuid())
+  serviceId       String
+  insurancePlanId String
+  insurancePlan   InsurancePlan @relation(fields: [insurancePlanId], references: [id])
+  service         Service       @relation(fields: [serviceId], references: [id])
+
+  @@unique([serviceId, insurancePlanId])
+}
+
+model Professional {
+  id             String                      @id @default(uuid())
+  userId         String                      @unique
+  crm            String?
+  councilType    String?
+  specialty      String?
+  bio            String?
+  languages      String?
+  active         Boolean                     @default(true)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  appointments   Appointment[]
+  blocks         Block[]
+  user           User                        @relation(fields: [userId], references: [id])
+  certifications ProfessionalCertification[]
+  educations     ProfessionalEducation[]
+  reviews        ProfessionalReview[]
+  services       ProfessionalService[]
+  schedules      Schedule[]
+}
+
+model ProfessionalService {
+  professionalId String
+  serviceId      String
+  service        Service      @relation(fields: [serviceId], references: [id])
+  professional   Professional @relation(fields: [professionalId], references: [id])
+
+  @@id([professionalId, serviceId])
+}
+
+model ProfessionalEducation {
+  id             String       @id @default(uuid())
+  professionalId String
+  institution    String
+  degree         String
+  field          String?
+  year           Int?
+  professional   Professional @relation(fields: [professionalId], references: [id])
+}
+
+model ProfessionalCertification {
+  id             String       @id @default(uuid())
+  professionalId String
+  name           String
+  institution    String?
+  year           Int?
+  professional   Professional @relation(fields: [professionalId], references: [id])
+}
+
+model ProfessionalReview {
+  id             String       @id @default(uuid())
+  professionalId String
+  appointmentId  String?      @unique
+  rating         Int
+  comment        String?
+  public         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  professional   Professional @relation(fields: [professionalId], references: [id])
+}
+
+model Schedule {
+  id             String       @id @default(uuid())
+  professionalId String
+  dayOfWeek      Int
+  startTime      String
+  endTime        String
+  active         Boolean      @default(true)
+  professional   Professional @relation(fields: [professionalId], references: [id])
+}
+
+model Block {
+  id             String       @id @default(uuid())
+  professionalId String
+  startTime      DateTime
+  endTime        DateTime
+  reason         String?
+  professional   Professional @relation(fields: [professionalId], references: [id])
+}
+
+model Patient {
+  id           String        @id @default(uuid())
+  userId       String        @unique
+  cpf          String?       @unique
+  phone        String?
+  birthDate    DateTime?
+  address      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+  user         User          @relation(fields: [userId], references: [id])
+}
+
+model Appointment {
+  id                 String           @id @default(uuid())
+  patientId          String
+  professionalId     String
+  serviceId          String
+  roomId             String?
+  insurancePlanId    String?
+  status             String           @default("SCHEDULED")
+  origin             String           @default("ONLINE")
+  startTime          DateTime
+  endTime            DateTime
+  notes              String?
+  cancellationReason String?
+  reminderSent       Boolean          @default(false)
+  checkinAt          DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  insurancePlan      InsurancePlan?   @relation(fields: [insurancePlanId], references: [id])
+  room               Room?            @relation(fields: [roomId], references: [id])
+  service            Service          @relation(fields: [serviceId], references: [id])
+  professional       Professional     @relation(fields: [professionalId], references: [id])
+  patient            Patient          @relation(fields: [patientId], references: [id])
+  equipmentUsages    EquipmentUsage[]
+  payments           Payment[]
+}
+
+model Payment {
+  id             String      @id @default(uuid())
+  appointmentId  String
+  amount         Float
+  method         String
+  status         String      @default("PENDING")
+  gatewayId      String?
+  gatewayPayload String?
+  paidAt         DateTime?
+  dueAt          DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  appointment    Appointment @relation(fields: [appointmentId], references: [id])
+}
+
+model Equipment {
+  id            String             @id @default(uuid())
+  clinicId      String
+  name          String
+  category      String
+  serialNumber  String?
+  isMobile      Boolean            @default(true)
+  defaultRoomId String?
+  currentRoomId String?
+  status        String             @default("AVAILABLE")
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  currentRoom   Room?              @relation("CurrentRoom", fields: [currentRoomId], references: [id])
+  defaultRoom   Room?              @relation("DefaultRoom", fields: [defaultRoomId], references: [id])
+  clinic        Clinic             @relation(fields: [clinicId], references: [id])
+  usages        EquipmentUsage[]
+  services      ServiceEquipment[]
+}
+
+model EquipmentUsage {
+  id            String       @id @default(uuid())
+  equipmentId   String
+  roomId        String
+  appointmentId String?
+  usedById      String
+  origin        String
+  startsAt      DateTime
+  endsAt        DateTime
+  status        String       @default("SCHEDULED")
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  usedBy        User         @relation("UsageCreator", fields: [usedById], references: [id])
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  room          Room         @relation(fields: [roomId], references: [id])
+  equipment     Equipment    @relation(fields: [equipmentId], references: [id])
+}
+
+model ServiceEquipment {
+  id          String    @id @default(uuid())
+  serviceId   String
+  equipmentId String
+  isRequired  Boolean   @default(true)
+  quantity    Int       @default(1)
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  service     Service   @relation(fields: [serviceId], references: [id])
+
+  @@unique([serviceId, equipmentId])
+}
+
+model SliderBanner {
+  id        String    @id @default(uuid())
+  clinicId  String
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  videoUrl  String?
+  ctaLabel  String?
+  ctaUrl    String?
+  order     Int       @default(0)
+  active    Boolean   @default(true)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  clinic    Clinic    @relation(fields: [clinicId], references: [id])
+}
+
+model JobOpening {
+  id               String         @id @default(uuid())
+  clinicId         String
+  title            String
+  area             String?
+  regime           String?
+  location         String?
+  hours            String?
+  requirements     String?
+  responsibilities String?
+  benefits         String?
+  active           Boolean        @default(true)
+  expiresAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  candidacies      JobCandidacy[]
+  clinic           Clinic         @relation(fields: [clinicId], references: [id])
+}
+
+model JobCandidacy {
+  id           String      @id @default(uuid())
+  jobOpeningId String?
+  name         String
+  email        String
+  phone        String?
+  message      String?
+  resumeUrl    String?
+  status       String      @default("PENDING")
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  reviewedBy   User?       @relation("CandidacyReviewer", fields: [reviewedById], references: [id])
+  jobOpening   JobOpening? @relation(fields: [jobOpeningId], references: [id])
+}
+
+model InternalChannel {
+  id          String            @id @default(uuid())
+  clinicId    String
+  name        String
+  description String?
+  type        String            @default("CHANNEL")
+  adminOnly   Boolean           @default(false)
+  createdById String?
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  members     ChannelMember[]
+  messages    InternalMessage[]
+}
+
+model ChannelMember {
+  id        String          @id @default(uuid())
+  channelId String
+  userId    String
+  joinedAt  DateTime        @default(now())
+  user      User            @relation(fields: [userId], references: [id])
+  channel   InternalChannel @relation(fields: [channelId], references: [id])
+
+  @@unique([channelId, userId])
+}
+
+model InternalMessage {
+  id         String            @id @default(uuid())
+  channelId  String
+  senderId   String
+  content    String?
+  type       String            @default("TEXT")
+  fileUrl    String?
+  fileName   String?
+  fileType   String?
+  replyToId  String?
+  contextRef String?
+  createdAt  DateTime          @default(now())
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  replyTo    InternalMessage?  @relation("MessageThread", fields: [replyToId], references: [id])
+  replies    InternalMessage[] @relation("MessageThread")
+  sender     User              @relation("MessageSender", fields: [senderId], references: [id])
+  channel    InternalChannel   @relation(fields: [channelId], references: [id])
+  mentions   MessageMention[]
+  reads      MessageRead[]
+  pins       PinnedMessage[]
+}
+
+model MessageRead {
+  id        String          @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime        @default(now())
+  user      User            @relation(fields: [userId], references: [id])
+  message   InternalMessage @relation(fields: [messageId], references: [id])
+
+  @@unique([messageId, userId])
+}
+
+model PinnedMessage {
+  id         String          @id @default(uuid())
+  messageId  String
+  pinnedById String
+  pinnedAt   DateTime        @default(now())
+  pinnedBy   User            @relation(fields: [pinnedById], references: [id])
+  message    InternalMessage @relation(fields: [messageId], references: [id])
+}
+
+model MessageMention {
+  id        String          @id @default(uuid())
+  messageId String
+  userId    String
+  message   InternalMessage @relation(fields: [messageId], references: [id])
+
+  @@unique([messageId, userId])
+}
+
+model Announcement {
+  id            String             @id @default(uuid())
+  clinicId      String
+  publishedById String
+  title         String
+  content       String
+  fileUrl       String?
+  urgency       String             @default("NORMAL")
+  audience      String             @default("ALL")
+  audienceIds   String?
+  active        Boolean            @default(true)
+  expiresAt     DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  publishedBy   User               @relation("AnnouncementPublisher", fields: [publishedById], references: [id])
+  clinic        Clinic             @relation(fields: [clinicId], references: [id])
+  reads         AnnouncementRead[]
+}
+
+model AnnouncementRead {
+  id             String       @id @default(uuid())
+  announcementId String
+  userId         String
+  readAt         DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id])
+  announcement   Announcement @relation(fields: [announcementId], references: [id])
+
+  @@unique([announcementId, userId])
+}
+
+model Contact {
+  id            String         @id @default(uuid())
+  clinicId      String
+  name          String?
+  phone         String?
+  email         String?
+  instagramId   String?
+  patientId     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
+}
+
+model Conversation {
+  id              String                @id @default(uuid())
+  clinicId        String
+  contactId       String
+  channel         String
+  channelThreadId String?
+  status          String                @default("OPEN")
+  assignedToId    String?
+  unreadCount     Int                   @default(0)
+  lastMessageAt   DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  assignedTo      User?                 @relation("AssignedTo", fields: [assignedToId], references: [id])
+  contact         Contact               @relation(fields: [contactId], references: [id])
+  notes           ConversationNote[]
+  payments        ConversationPayment[]
+  messages        ExternalMessage[]
+}
+
+model ExternalMessage {
+  id               String                      @id @default(uuid())
+  conversationId   String
+  channelMessageId String?
+  direction        String
+  type             String                      @default("TEXT")
+  content          String?
+  metadata         String?
+  sentById         String?
+  readAt           DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime                    @default(now())
+  conversation     Conversation                @relation(fields: [conversationId], references: [id])
+  attachments      ExternalMessageAttachment[]
+}
+
+model ExternalMessageAttachment {
+  id        String          @id @default(uuid())
+  messageId String
+  fileUrl   String
+  fileName  String?
+  fileType  String?
+  fileSize  Int?
+  message   ExternalMessage @relation(fields: [messageId], references: [id])
+}
+
+model ConversationNote {
+  id             String       @id @default(uuid())
+  conversationId String
+  authorId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  author         User         @relation(fields: [authorId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
+model ConversationPayment {
+  id             String       @id @default(uuid())
+  conversationId String
+  amount         Float
+  method         String
+  status         String       @default("PENDING")
+  gatewayId      String?
+  pixCode        String?
+  boletoUrl      String?
+  paymentLinkUrl String?
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
+model IntegrationSettings {
+  id                   String    @id @default(uuid())
+  clinicId             String    @unique
+  gmailClientId        String?
+  gmailClientSecret    String?
+  gmailAccessToken     String?
+  gmailRefreshToken    String?
+  gmailTokenExpiresAt  DateTime?
+  gmailConnected       Boolean   @default(false)
+  pubsubProjectId      String?
+  pubsubTopicName      String?
+  pubsubServiceAccount String?
+  pubsubWatchExpiresAt DateTime?
+  waPhoneNumberId      String?
+  waWabaId             String?
+  waAccessToken        String?
+  waVerifyToken        String?
+  waAppSecret          String?
+  waConnected          Boolean   @default(false)
+  igAccountId          String?
+  igPageId             String?
+  igAccessToken        String?
+  igTokenExpiresAt     DateTime?
+  igConnected          Boolean   @default(false)
+  mpAccessTokenProd    String?
+  mpAccessTokenSandbox String?
+  mpPublicKeyProd      String?
+  mpWebhookSecret      String?
+  mpConnected          Boolean   @default(false)
+  updatedAt            DateTime  @updatedAt
+  clinic               Clinic    @relation(fields: [clinicId], references: [id])
+}
+
+model Campaign {
+  id           String                   @id @default(uuid())
+  clinicId     String
+  name         String
+  channel      String
+  startDate    DateTime
+  endDate      DateTime?
+  cost         Float?
+  active       Boolean                  @default(true)
+  createdAt    DateTime                 @default(now())
+  attributions AppointmentAttribution[]
+}
+
+model AppointmentAttribution {
+  id            String    @id @default(uuid())
+  appointmentId String    @unique
+  campaignId    String?
+  source        String
+  campaign      Campaign? @relation(fields: [campaignId], references: [id])
+}

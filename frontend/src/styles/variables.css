@@ -1,0 +1,113 @@
+/* ============================================
+   DESIGN SYSTEM — CSS VARIABLES
+   Clinic Management System
+   ============================================ */
+
+:root {
+  /* ---- Colors ---- */
+  --color-bg-primary: #F5F0E8;
+  --color-bg-secondary: #EDE8DF;
+  --color-bg-dark: #1A1A1A;
+  --color-bg-white: #FFFFFF;
+  --color-bg-unread: #FAF6EF;
+
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #4A4A4A;
+  --color-text-muted: #9A9590;
+  --color-text-white: #FFFFFF;
+
+  --color-accent-gold: #C9A84C;
+  --color-accent-gold-40: rgba(201, 168, 76, 0.4);
+  --color-accent-gold-60: rgba(201, 168, 76, 0.6);
+  --color-accent-emerald: #2D6A4F;
+  --color-accent-danger: #8B2020;
+  --color-accent-warning: #A0622A;
+
+  --color-border-default: #D4CFC6;
+  --color-border-accent: rgba(201, 168, 76, 0.6);
+
+  --color-overlay-white: rgba(255, 255, 255, 0.9);
+  --color-overlay-dark: rgba(26, 26, 26, 0.5);
+
+  /* ---- Shadows ---- */
+  --shadow-card: 0 2px 8px rgba(26, 26, 26, 0.08);
+  --shadow-modal: 0 4px 20px rgba(26, 26, 26, 0.12);
+  --shadow-navbar: 0 2px 12px rgba(26, 26, 26, 0.1);
+  --shadow-elevated: 0 8px 32px rgba(26, 26, 26, 0.14);
+
+  /* ---- Border Radii ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* ---- Spacing (base 8px) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- Typography ---- */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-body: 'DM Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  --text-caption: 12px;
+  --text-sm: 13px;
+  --text-body: 14px;
+  --text-ui: 16px;
+  --text-lg: 18px;
+  --text-section: 20px;
+  --text-xl: 24px;
+  --text-title: 28px;
+  --text-hero: 32px;
+  --text-display: 40px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* ---- Layout ---- */
+  --max-content: 1280px;
+  --gutter: 24px;
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
+  --navbar-height: 72px;
+
+  /* ---- Component sizes ---- */
+  --btn-height: 40px;
+  --btn-height-lg: 48px;
+  --input-height: 40px;
+  --icon-size: 20px;
+  --avatar-sm: 32px;
+  --avatar-md: 48px;
+  --avatar-lg: 80px;
+  --avatar-xl: 120px;
+
+  /* ---- Transitions ---- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* ---- Z-index scale ---- */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-navbar: 300;
+  --z-sidebar: 350;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-toast: 600;
+  --z-floating: 700;
+}
