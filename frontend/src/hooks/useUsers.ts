@@ -15,6 +15,7 @@ export interface SystemUser {
     phone?: string
     active: boolean
   }
+  permissions?: Record<string, boolean>
 }
 
 export function useSystemUsers(clinicId?: string) {

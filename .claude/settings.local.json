@@ -4,7 +4,18 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npx kill-port:*)",
       "Bash(taskkill //F //IM \"ts-node-dev\")",
-      "Bash(taskkill //F //IM \"node.exe\" //FI \"WINDOWTITLE eq ts-node*\")"
+      "Bash(taskkill //F //IM \"node.exe\" //FI \"WINDOWTITLE eq ts-node*\")",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(npx prisma:*)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":3333\")",
+      "Bash(cmd /c \"taskkill /PID 15288 /F\")",
+      "Bash(cmd /c \"tasklist | findstr node\")",
+      "Bash(cmd /c \"cd /d \"\"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend\"\" && npx prisma generate\")",
+      "Bash(echo \"exit:$?\")",
+      "Bash(taskkill /F /IM \"node.exe\" /T)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

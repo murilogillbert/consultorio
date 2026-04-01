@@ -1,39 +1,40 @@
 import { useState } from 'react'
-import { Download, Search, UserCheck, CreditCard, XCircle, Calendar, MessageSquare, Clock, ArrowRightLeft } from 'lucide-react'
+import { useMovementData } from '../../hooks/useDashboard'
+import { useAuth } from '../../contexts/AuthContext'
+import { Loader2, Download, Search, UserCheck, CreditCard, XCircle, Calendar, MessageSquare, Clock, ArrowRightLeft, AlertCircle } from 'lucide-react'
 
-const events = [
-  { time: '07:12', type: 'arrival', description: 'João Silva realizou check-in', professional: 'Dra. Maria Santos', icon: UserCheck },
-  { time: '07:30', type: 'arrival', description: 'Início de atendimento — João Silva', professional: 'Dra. Maria Santos', icon: Clock },
-  { time: '08:05', type: 'arrival', description: 'Fim de atendimento — João Silva', professional: 'Dra. Maria Santos', icon: UserCheck },
-  { time: '08:15', type: 'payment', description: 'Cobrança emitida — R$ 250,00 (PIX)', professional: '—', icon: CreditCard },
-  { time: '08:16', type: 'payment', description: 'Pagamento confirmado via webhook — PIX', professional: '—', icon: CreditCard },
-  { time: '09:00', type: 'arrival', description: 'Maria Oliveira realizou check-in', professional: 'Dra. Ana Costa', icon: UserCheck },
-  { time: '09:05', type: 'arrival', description: 'Início de atendimento — Maria Oliveira', professional: 'Dra. Ana Costa', icon: Clock },
-  { time: '09:30', type: 'cancel', description: 'Cancelamento — Pedro Santos (motivo: imprevisto pessoal)', professional: 'Dr. Carlos Mendes', icon: XCircle },
-  { time: '09:35', type: 'arrival', description: 'Remarcação de Pedro Santos para 02/04 às 10h', professional: 'Dr. Carlos Mendes', icon: ArrowRightLeft },
-  { time: '10:00', type: 'arrival', description: 'Ana Lima realizou check-in', professional: 'Dr. Carlos Mendes', icon: UserCheck },
-  { time: '10:15', type: 'payment', description: 'Cobrança emitida — R$ 450,00 (Cartão)', professional: '—', icon: CreditCard },
-  { time: '10:20', type: 'arrival', description: 'Mensagem recebida via WhatsApp de Carlos Ferreira', professional: '—', icon: MessageSquare },
-  { time: '11:00', type: 'arrival', description: 'Novo agendamento — Lucia Souza para 30/03 às 14h', professional: 'Dra. Maria Santos', icon: Calendar },
-  { time: '11:30', type: 'payment', description: 'Pagamento confirmado — R$ 450,00 (Cartão)', professional: '—', icon: CreditCard },
-  { time: '14:00', type: 'arrival', description: 'Roberta Costa realizou check-in', professional: 'Dr. Pedro Lima', icon: UserCheck },
-]
-
-const eventTypeColors: Record<string, string> = {
-  arrival: 'arrival',
-  payment: 'payment',
-  cancel: 'cancel',
+const iconMap: Record<string, any> = {
+  arrival: UserCheck,
+  payment: CreditCard,
+  cancel: XCircle,
+  CHECK_IN: UserCheck,
+  PAYMENT_CONFIRMED: CreditCard,
+  APPOINTMENT_CANCELLED: XCircle,
+  NEW_APPOINTMENT: Calendar,
+  MESSAGE_RECEIVED: MessageSquare,
 }
 
 export default function MovimentoPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const { user } = useAuth()
+  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const { data: events = [], isLoading } = useMovementData(clinicId, selectedDate)
 
-  const filtered = events.filter(e => {
+  const eventTypeColors: Record<string, string> = {
+    arrival: 'arrival',
+    payment: 'payment',
+    cancel: 'cancel',
+  }
+
+  const filtered = events.filter((e: any) => {
     if (typeFilter !== 'all' && e.type !== typeFilter) return false
     if (search && !e.description.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
+
+  if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" /></div>
 
   return (
     <div className="animate-fade-in">
@@ -46,7 +47,13 @@ export default function MovimentoPage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', flexWrap: 'wrap', alignItems: 'center' }}>
-        <input type="date" className="input-field" style={{ width: 'auto' }} defaultValue="2026-03-28" />
+        <input 
+          type="date" 
+          className="input-field" 
+          style={{ width: 'auto' }} 
+          value={selectedDate} 
+          onChange={e => setSelectedDate(e.target.value)} 
+        />
         <div className="search-input-wrapper" style={{ maxWidth: 280 }}>
           <Search size={16} />
           <input className="input-field" placeholder="Buscar evento..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -74,11 +81,12 @@ export default function MovimentoPage() {
       {/* Event Log */}
       <div className="card" style={{ padding: 0 }}>
         <div className="event-log">
-          {filtered.map((event, i) => {
-            const Icon = event.icon
+          {filtered.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-muted)' }}>Nenhum evento registrado.</div>}
+          {filtered.map((event: any, i: number) => {
+            const Icon = iconMap[event.icon] || AlertCircle
             return (
               <div key={i} className="event-row">
-                <span className="event-time">{event.time} — 28/03/2026</span>
+                <span className="event-time">{event.time} — {new Date(selectedDate).toLocaleDateString('pt-BR')}</span>
                 <div className={`event-icon ${eventTypeColors[event.type] || 'arrival'}`}>
                   <Icon size={14} />
                 </div>

@@ -5,6 +5,7 @@ import {
   LogOut, Bell, MessageCircle, Shield
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useMyClinic } from '../hooks/useClinics'
 
 interface InternalLayoutProps {
   environment: 'reception' | 'admin'
@@ -23,6 +24,7 @@ const receptionLinks = [
   { to: '/recepcao', icon: LayoutDashboard, label: 'Visão Geral', end: true },
   { to: '/recepcao/agenda', icon: CalendarDays, label: 'Agenda' },
   { to: '/recepcao/mensagens', icon: MessageSquare, label: 'Mensagens', badge: 3 },
+  { to: '/recepcao/pacientes', icon: Users, label: 'Pacientes' },
   { to: '/recepcao/profissionais', icon: Users, label: 'Profissionais' },
   { to: '/recepcao/servicos', icon: Stethoscope, label: 'Serviços' },
 ]
@@ -52,6 +54,7 @@ const roleLabels: Record<string, string> = {
 export default function InternalLayout({ environment }: InternalLayoutProps) {
   const links = environment === 'reception' ? receptionLinks : adminLinks
   const { user, signOut } = useAuth()
+  const { data: clinic } = useMyClinic()
   const navigate = useNavigate()
   const userName = user?.name || 'Usuário'
   const userRole = user?.role ? roleLabels[user.role] : ''
@@ -67,7 +70,7 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
       <aside className="sidebar">
         <div className="sidebar-logo">
           <ClinicLogoMini />
-          <span>Vitalis</span>
+          <span>{clinic?.name || 'Vitalis'}</span>
         </div>
 
         <nav className="sidebar-nav">
@@ -79,17 +82,18 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
                 </div>
               )
             }
-            const Icon = item.icon
+            const navItem = item as any
+            const Icon = navItem.icon
             return (
               <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
+                key={navItem.to}
+                to={navItem.to}
+                end={navItem.end}
                 className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
               >
                 <Icon size={20} />
-                <span>{item.label}</span>
-                {item.badge && <span className="badge-count">{item.badge}</span>}
+                <span>{navItem.label}</span>
+                {navItem.badge && <span className="badge-count">{navItem.badge}</span>}
               </NavLink>
             )
           })}
@@ -143,17 +147,18 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
       {/* Mobile bottom bar */}
       <div className="mobile-bottombar">
         {(environment === 'reception' ? receptionLinks : adminLinks.filter(l => 'to' in l).slice(0, 5)).map((item) => {
-          if ('section' in item) return null
-          const Icon = item.icon
+          const navItem = item as any
+          if (navItem.section) return null
+          const Icon = navItem.icon
           return (
             <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
+              key={navItem.to}
+              to={navItem.to}
+              end={navItem.end}
               className={({ isActive }) => isActive ? 'active' : ''}
             >
               <Icon size={22} />
-              <span>{item.label}</span>
+              <span>{navItem.label}</span>
             </NavLink>
           )
         })}

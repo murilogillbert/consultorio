@@ -21,8 +21,24 @@ export class ServicesService {
     return service
   }
 
-  async executeCreate(data: Prisma.ServiceCreateInput): Promise<Service> {
-    return this.servicesRepository.create(data)
+  async executeCreate(data: any): Promise<Service> {
+    const { insuranceIds, professionalIds, roomId, ...rest } = data
+
+    const createData: any = { ...rest }
+
+    if (insuranceIds && Array.isArray(insuranceIds) && insuranceIds.length > 0) {
+      createData.insurances = {
+        create: insuranceIds.map((id: string) => ({ insurancePlanId: id }))
+      }
+    }
+
+    if (professionalIds && Array.isArray(professionalIds) && professionalIds.length > 0) {
+      createData.professionals = {
+        create: professionalIds.map((id: string) => ({ professionalId: id }))
+      }
+    }
+
+    return this.servicesRepository.create(createData)
   }
 
   async executeUpdate(id: string, data: any): Promise<Service> {

@@ -36,6 +36,19 @@ export class AppointmentsController {
     }
   }
 
+  async updateStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params as { id: string }
+      const { status } = req.body
+      const appointmentsRepository = new AppointmentsRepository()
+      const appointmentsService = new AppointmentsService(appointmentsRepository)
+      const result = await appointmentsService.executeUpdateStatus(id, status)
+      res.status(200).json(result)
+    } catch (err) {
+      next(err)
+    }
+  }
+
   async cancel(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params as { id: string }

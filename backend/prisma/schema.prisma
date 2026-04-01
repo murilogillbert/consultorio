@@ -16,6 +16,8 @@ model User {
   active                 Boolean            @default(true)
   avatarUrl              String?
   phone                  String?
+  otpCode                String?
+  otpExpiresAt           DateTime?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   publishedAnnouncements Announcement[]     @relation("AnnouncementPublisher")
@@ -31,6 +33,7 @@ model User {
   pinnedMessages         PinnedMessage[]
   professional           Professional?
   systemUsers            SystemUser[]
+  auditLogs              AuditLog[]
 }
 
 model Clinic {
@@ -60,6 +63,8 @@ model Clinic {
   sliderBanners       SliderBanner[]
   systemUsers         SystemUser[]
   workingHours        WorkingHour[]
+  campaigns           Campaign[]
+  auditLogs           AuditLog[]
 }
 
 model ClinicUnit {
@@ -86,14 +91,15 @@ model WorkingHour {
 }
 
 model SystemUser {
-  id        String   @id @default(uuid())
-  clinicId  String
-  userId    String
-  role      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  id          String   @id @default(uuid())
+  clinicId    String
+  userId      String
+  role        String
+  active      Boolean  @default(true)
+  permissions Json?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
 
   @@unique([clinicId, userId])
 }
@@ -163,6 +169,7 @@ model Professional {
   specialty      String?
   bio            String?
   languages      String?
+  commissionPct  Float                       @default(50)
   active         Boolean                     @default(true)
   createdAt      DateTime                    @default(now())
   updatedAt      DateTime                    @updatedAt
@@ -241,6 +248,10 @@ model Patient {
   phone        String?
   birthDate    DateTime?
   address      String?
+  bloodType    String?
+  allergies    String?
+  notes        String?
+  active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
@@ -256,6 +267,7 @@ model Appointment {
   insurancePlanId    String?
   status             String           @default("SCHEDULED")
   origin             String           @default("ONLINE")
+  source             String?
   startTime          DateTime
   endTime            DateTime
   notes              String?
@@ -620,10 +632,24 @@ model Campaign {
   channel      String
   startDate    DateTime
   endDate      DateTime?
+  budget       Float?
   cost         Float?
   active       Boolean                  @default(true)
   createdAt    DateTime                 @default(now())
   attributions AppointmentAttribution[]
+  clinic       Clinic                   @relation(fields: [clinicId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  clinicId    String
+  userId      String?
+  action      String
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
 }
 
 model AppointmentAttribution {

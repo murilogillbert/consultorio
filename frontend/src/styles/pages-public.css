@@ -879,3 +879,332 @@
   .professionals-carousel { grid-template-columns: repeat(2, 1fr); }
   .services-carousel { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ============================================
+   PATIENT PORTAL — Minhas Consultas
+   ============================================ */
+
+/* ── CTA section na HomePage ── */
+.patient-portal-cta-section {
+  padding: var(--space-20) 0;
+  background: linear-gradient(135deg, #0f2818 0%, #1a3d29 60%, #0f2818 100%);
+  color: #fff;
+}
+
+.patient-portal-cta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-16);
+  align-items: center;
+}
+
+.patient-portal-cta-text h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  color: #fff;
+  margin-bottom: var(--space-4);
+  line-height: 1.25;
+}
+
+.patient-portal-cta-text p {
+  color: rgba(255,255,255,0.75);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: var(--space-6);
+}
+
+.patient-portal-cta-features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.patient-portal-cta-feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: rgba(255,255,255,0.9);
+  font-size: 0.9rem;
+}
+
+.patient-portal-cta-feature svg {
+  color: var(--color-accent-emerald);
+  flex-shrink: 0;
+}
+
+/* ── Mockup card ── */
+.patient-portal-cta-mockup {
+  display: flex;
+  justify-content: center;
+}
+
+.patient-portal-mockup-card {
+  background: var(--color-bg-primary);
+  border-radius: 16px;
+  padding: var(--space-6);
+  width: 320px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mockup-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.mockup-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--color-accent-brand);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+  flex-shrink: 0;
+}
+
+.mockup-name { font-weight: 600; font-size: 14px; color: var(--color-text-primary); }
+.mockup-email { font-size: 12px; color: var(--color-text-muted); }
+
+.mockup-appointment {
+  background: var(--color-bg-secondary);
+  border-radius: 10px;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mockup-appointment-name { font-weight: 600; font-size: 13px; color: var(--color-text-primary); }
+.mockup-appointment-date { font-size: 12px; color: var(--color-text-muted); }
+
+.mockup-chat-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
+}
+
+/* ── Portal wrapper ── */
+.patient-portal-wrapper {
+  min-height: calc(100vh - var(--navbar-height));
+  padding: var(--space-12) var(--space-4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--color-bg-secondary);
+}
+
+/* ── Auth card ── */
+.patient-auth-card {
+  background: var(--color-bg-primary);
+  border-radius: 16px;
+  padding: var(--space-10);
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.patient-auth-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent-brand) 12%, transparent);
+  color: var(--color-accent-brand);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.patient-auth-card h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.patient-auth-card p {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.patient-auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  text-align: left;
+}
+
+.patient-otp-input {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 12px;
+  font-family: var(--font-mono, monospace);
+}
+
+.patient-auth-hint {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.patient-auth-hint.success { color: var(--color-accent-emerald); }
+.patient-auth-hint.error { color: var(--color-accent-danger); }
+
+/* ── Dashboard ── */
+.patient-dashboard {
+  background: var(--color-bg-primary);
+  border-radius: 16px;
+  padding: var(--space-8);
+  width: 100%;
+  max-width: 720px;
+  box-shadow: var(--shadow-lg);
+}
+
+.patient-dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.patient-dashboard-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--color-text-primary);
+  margin: 0 0 4px;
+}
+
+.patient-dashboard-sub {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.patient-section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.patient-appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.patient-appointment-card {
+  background: var(--color-bg-secondary);
+  border-radius: 12px;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border-default);
+  transition: border-color 0.2s;
+}
+
+.patient-appointment-card:hover {
+  border-color: var(--color-accent-brand);
+}
+
+.patient-appointment-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.patient-appointment-service {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+}
+
+.patient-appointment-pro {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.patient-appointment-meta {
+  display: flex;
+  gap: var(--space-4);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: var(--space-2);
+}
+
+.patient-appointment-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.patient-appointment-notes {
+  margin-top: var(--space-2);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.patient-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Chat ── */
+.patient-chat {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+  background: var(--color-bg-secondary);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-default);
+}
+
+.patient-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── Responsivo ── */
+@media (max-width: 768px) {
+  .patient-portal-cta-grid {
+    grid-template-columns: 1fr;
+  }
+  .patient-portal-cta-mockup { display: none; }
+  .patient-dashboard { padding: var(--space-5); }
+  .patient-auth-card { padding: var(--space-6); }
+}

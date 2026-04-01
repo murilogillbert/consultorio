@@ -29,6 +29,26 @@ export class PatientsRepository extends BaseRepository<Patient, Prisma.PatientCr
       include: { user: true }
     })
   }
+
+  async search(query: string): Promise<Patient[]> {
+    return prisma.patient.findMany({
+      where: {
+        OR: [
+          { cpf: { contains: query, mode: 'insensitive' } },
+          { user: { name: { contains: query, mode: 'insensitive' } } },
+          { user: { email: { contains: query, mode: 'insensitive' } } }
+        ]
+      },
+      include: { user: true }
+    })
+  }
+
+  async listAll(): Promise<Patient[]> {
+    return prisma.patient.findMany({
+      include: { user: true },
+      orderBy: { user: { name: 'asc' } }
+    })
+  }
 }
 
 export class AppointmentsRepository extends BaseRepository<Appointment, Prisma.AppointmentCreateInput, Prisma.AppointmentUpdateInput> {

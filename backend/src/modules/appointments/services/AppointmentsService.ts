@@ -50,6 +50,14 @@ export class AppointmentsService {
     return this.appointmentsRepository.update(id, data)
   }
 
+  async executeUpdateStatus(id: string, status: string): Promise<Appointment> {
+    const appointment = await this.appointmentsRepository.findById(id)
+    if (!appointment) {
+      throw new AppError('Agendamento não encontrado', 404)
+    }
+    return this.appointmentsRepository.update(id, { status: status as any })
+  }
+
   async executeCancel(id: string, reason: string): Promise<Appointment> {
     const appointment = await this.appointmentsRepository.findById(id)
     if (!appointment) {

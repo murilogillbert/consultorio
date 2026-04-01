@@ -7,6 +7,18 @@ import { useInsurances, useCreateInsurance, useUpdateInsurance, useDeleteInsuran
 import { useChannels, useCreateChannel, useUpdateChannel, useDeleteChannel } from '../../hooks/useChannels'
 import { useSystemUsers, useCreateSystemUser, useUpdateSystemUser, useDeleteSystemUser } from '../../hooks/useUsers'
 
+const PERMISSIONS_LIST = [
+  { key: 'agenda.view', label: 'Ver Agenda' },
+  { key: 'agenda.manage', label: 'Gerenciar Agenda' },
+  { key: 'patients.view', label: 'Ver Pacientes' },
+  { key: 'patients.manage', label: 'Gerenciar Pacientes' },
+  { key: 'billing.view', label: 'Ver Financeiro' },
+  { key: 'billing.manage', label: 'Gerenciar Financeiro' },
+  { key: 'settings.view', label: 'Ver Configurações' },
+  { key: 'settings.manage', label: 'Gerenciar Configurações' },
+  { key: 'chat.access', label: 'Acesso ao Chat' },
+]
+
 const tabs = [
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'notifications', label: 'Notificações', icon: Bell },
@@ -27,13 +39,13 @@ export default function ConfiguracoesPage() {
   const [clinicForm, setClinicForm] = useState({ name: '', cnpj: '', address: '', phone: '', email: '', instagram: '', facebook: '' })
   const [clinicSaveMsg, setClinicSaveMsg] = useState('')
 
-  const [notificationSettings, setNotificationSettings] = useState({
-    reminderHours: 24,
-    defaultChannel: 'WhatsApp',
-    confirmation: true,
-    reminder: true,
-    afterCare: true,
-    birthday: true
+  const NOTIF_KEY = 'clinic_notification_settings'
+  const [notificationSettings, setNotificationSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(NOTIF_KEY)
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return { reminderHours: 24, defaultChannel: 'WhatsApp', confirmation: true, reminder: true, afterCare: true, birthday: true }
   })
   const [notifSaveMsg, setNotifSaveMsg] = useState('')
 
@@ -67,7 +79,7 @@ export default function ConfiguracoesPage() {
   const updateSystemUser = useUpdateSystemUser()
   const deleteSystemUser = useDeleteSystemUser()
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
-  const [userForm, setUserForm] = useState({ name: '', email: '', role: 'STAFF', active: true })
+  const [userForm, setUserForm] = useState({ name: '', email: '', role: 'STAFF', active: true, permissions: {} as Record<string, boolean> })
 
   useEffect(() => {
     if (clinic) {
@@ -94,13 +106,12 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  const handleSaveNotifications = async () => {
-    setNotifSaveMsg('')
+  const handleSaveNotifications = () => {
     try {
-      // Logic for saving notifications would go here
-      setNotifSaveMsg('Configurações de notificações salvas!')
+      localStorage.setItem(NOTIF_KEY, JSON.stringify(notificationSettings))
+      setNotifSaveMsg('Configurações salvas!')
     } catch {
-      setNotifSaveMsg('Erro ao salvar notificações.')
+      setNotifSaveMsg('Erro ao salvar configurações.')
     }
   }
 
@@ -137,9 +148,9 @@ export default function ConfiguracoesPage() {
   const handleSaveUser = async () => {
     if (!clinic) return
     if (editingUserId === 'new') {
-      await createSystemUser.mutateAsync({ clinicId: clinic.id, name: userForm.name, email: userForm.email, role: userForm.role, password: 'password123' })
+      await createSystemUser.mutateAsync({ clinicId: clinic.id, name: userForm.name, email: userForm.email, role: userForm.role, password: 'password123', permissions: userForm.permissions })
     } else if (editingUserId) {
-      await updateSystemUser.mutateAsync({ id: editingUserId, role: userForm.role, active: userForm.active })
+      await updateSystemUser.mutateAsync({ id: editingUserId, role: userForm.role, active: userForm.active, permissions: userForm.permissions })
     }
     setEditingUserId(null)
   }
@@ -329,14 +340,14 @@ export default function ConfiguracoesPage() {
           )}
 
           {activeTab === 'integrations' && (
-            <IntegrationsPanel />
+            <IntegrationsPanel clinicId={clinic?.id} />
           )}
 
           {activeTab === 'users' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)' }}>Usuários do Sistema</h3>
-                <button className="btn btn-primary btn-sm" onClick={() => { setEditingUserId('new'); setUserForm({ name: '', email: '', role: 'STAFF', active: true }) }}>
+                <button className="btn btn-primary btn-sm" onClick={() => { setEditingUserId('new'); setUserForm({ name: '', email: '', role: 'STAFF', active: true, permissions: {} }) }}>
                   <Plus size={14} /> Novo Usuário
                 </button>
               </div>
@@ -372,6 +383,27 @@ export default function ConfiguracoesPage() {
                       </div>
                     )}
                   </div>
+
+                  <div style={{ marginBottom: 'var(--space-6)' }}>
+                    <label className="input-label" style={{ marginBottom: 'var(--space-3)' }}>Permissões Granulares</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+                      {PERMISSIONS_LIST.map(p => (
+                        <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={!!userForm.permissions[p.key]} 
+                            onChange={e => {
+                              setUserForm({
+                                ...userForm,
+                                permissions: { ...userForm.permissions, [p.key]: e.target.checked }
+                              })
+                            }} 
+                          />
+                          {p.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                   {editingUserId === 'new' && <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>Uma senha padrão <code>password123</code> será gerada.</p>}
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => setEditingUserId(null)}>Cancelar</button>
@@ -399,7 +431,7 @@ export default function ConfiguracoesPage() {
                       </td>
                       <td>
                         <div className="row-actions">
-                          <button className="btn btn-icon btn-sm" onClick={() => { setEditingUserId(su.id); setUserForm({ name: su.user.name, email: su.user.email, role: su.role, active: su.active }) }}><Edit size={14} /></button>
+                          <button className="btn btn-icon btn-sm" onClick={() => { setEditingUserId(su.id); setUserForm({ name: su.user.name, email: su.user.email, role: su.role, active: su.active, permissions: (su.permissions as Record<string, boolean>) || {} }) }}><Edit size={14} /></button>
                           <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Remover acesso?')) await deleteSystemUser.mutateAsync(su.id) }}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                         </div>
                       </td>

@@ -17,6 +17,32 @@ export class ClinicRepository extends BaseRepository<Clinic, Prisma.ClinicCreate
       },
     })
   }
+
+  async findFirstByUserId(userId: string): Promise<Clinic | null> {
+    return prisma.clinic.findFirst({
+      where: {
+        systemUsers: {
+          some: {
+            userId,
+          },
+        },
+      },
+    })
+  }
+
+  async findIntegrationsByClinic(clinicId: string) {
+    return prisma.integrationSettings.findUnique({
+      where: { clinicId },
+    })
+  }
+
+  async updateIntegrations(clinicId: string, data: any) {
+    return prisma.integrationSettings.upsert({
+      where: { clinicId },
+      update: data,
+      create: { clinicId, ...data },
+    })
+  }
 }
 
 export class ClinicUnitRepository extends BaseRepository<ClinicUnit, Prisma.ClinicUnitCreateInput, Prisma.ClinicUnitUpdateInput> {

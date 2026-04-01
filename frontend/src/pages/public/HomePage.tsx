@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ChevronLeft, ChevronRight, Clock, Star, MapPin, Phone,
+  ChevronLeft, ChevronRight, Clock, MapPin, Phone,
   MessageCircle, Camera, Globe, Video, Share2,
-  Heart, Activity, Stethoscope, Brain, Eye, Bone, Baby
+  Heart, Activity, Stethoscope, Brain, Eye, Bone, Baby,
+  CalendarDays, MessageSquare, ShieldCheck
 } from 'lucide-react'
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'
@@ -190,6 +191,63 @@ export default function HomePage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* Minhas Consultas CTA */}
+      <section className="patient-portal-cta-section">
+        <div className="container">
+          <div className="patient-portal-cta-grid">
+            <div className="patient-portal-cta-text">
+              <h2>Acesse suas consultas de qualquer lugar</h2>
+              <p>
+                Veja seus agendamentos, histórico de consultas e converse diretamente
+                com nossa equipe — tudo em um só lugar, sem precisar ligar.
+              </p>
+              <div className="patient-portal-cta-features">
+                <div className="patient-portal-cta-feature">
+                  <CalendarDays size={20} />
+                  <span>Próximas consultas e histórico</span>
+                </div>
+                <div className="patient-portal-cta-feature">
+                  <MessageSquare size={20} />
+                  <span>Chat direto com a recepção</span>
+                </div>
+                <div className="patient-portal-cta-feature">
+                  <ShieldCheck size={20} />
+                  <span>Acesso seguro via código no email</span>
+                </div>
+              </div>
+              <Link to="/minhas-consultas" className="btn btn-primary btn-lg" style={{ marginTop: 8 }}>
+                <CalendarDays size={18} /> Acessar Minhas Consultas
+              </Link>
+            </div>
+            <div className="patient-portal-cta-mockup">
+              <div className="patient-portal-mockup-card">
+                <div className="mockup-header">
+                  <div className="mockup-avatar">JM</div>
+                  <div>
+                    <div className="mockup-name">João Mendes</div>
+                    <div className="mockup-email">joao@email.com</div>
+                  </div>
+                </div>
+                <div className="mockup-appointment">
+                  <span className="badge badge-emerald" style={{ fontSize: 11 }}>Confirmada</span>
+                  <div className="mockup-appointment-name">Consulta Geral</div>
+                  <div className="mockup-appointment-date">Seg, 14 Abr — 09:00</div>
+                </div>
+                <div className="mockup-appointment" style={{ opacity: 0.5 }}>
+                  <span className="badge badge-gold" style={{ fontSize: 11 }}>Agendada</span>
+                  <div className="mockup-appointment-name">Cardiologia</div>
+                  <div className="mockup-appointment-date">Sex, 18 Abr — 14:30</div>
+                </div>
+                <div className="mockup-chat-preview">
+                  <MessageSquare size={12} />
+                  <span>Recepção: Sua consulta foi confirmada!</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

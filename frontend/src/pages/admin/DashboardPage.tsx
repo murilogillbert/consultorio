@@ -3,16 +3,43 @@ import { TrendingUp, TrendingDown, Bell, Send, Bold, Italic, Link2, Upload, Tras
 import { useAppointments } from '../../hooks/useAppointments'
 import { useDashboardMetrics } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
+import {
+  useAnnouncements,
+  useCreateAnnouncement,
+  useDeleteAnnouncement,
+  useResendAnnouncement,
+  type AnnouncementUrgency,
+  type AnnouncementAudience,
+} from '../../hooks/useAnnouncements'
+import { useChannels } from '../../hooks/useChannels'
 
-const publishedAvisos = [
-  { title: 'Novo protocolo de higienização', urgency: 'important', date: '27/03/2026', readRate: { read: 12, total: 15 } },
-  { title: 'Confraternização da equipe', urgency: 'normal', date: '25/03/2026', readRate: { read: 15, total: 15 } },
-  { title: 'Manutenção programada', urgency: 'urgent', date: '24/03/2026', readRate: { read: 8, total: 15 } },
+const URGENCY_LABEL: Record<AnnouncementUrgency, string> = {
+  NORMAL: 'Normal',
+  IMPORTANT: 'Importante',
+  URGENT: 'Urgente',
+}
+
+const URGENCY_CSS: Record<AnnouncementUrgency, string> = {
+  NORMAL: 'normal',
+  IMPORTANT: 'important',
+  URGENT: 'urgent',
+}
+
+const AUDIENCE_OPTIONS: { value: AnnouncementAudience; label: string }[] = [
+  { value: 'ALL', label: 'Todos os funcionários' },
+  { value: 'STAFF', label: 'Somente Recepção / Staff' },
+  { value: 'PROFESSIONALS', label: 'Somente Profissionais' },
+  { value: 'SPECIFIC', label: 'Canais específicos...' },
 ]
 
 export default function DashboardPage() {
-  const [urgency, setUrgency] = useState('normal')
+  const [urgency, setUrgency] = useState<AnnouncementUrgency>('NORMAL')
+  const [audience, setAudience] = useState<AnnouncementAudience>('ALL')
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([])
+  const [title, setTitle] = useState('')
   const [aviso, setAviso] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
+  const [publishError, setPublishError] = useState('')
 
   const { user } = useAuth()
   const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
@@ -24,12 +51,52 @@ export default function DashboardPage() {
   const { data: monthAppointments = [] } = useAppointments(monthStart + 'T00:00:00', monthEnd + 'T23:59:59')
   const { data: dashData, isLoading } = useDashboardMetrics(clinicId)
 
+  // Announcements
+  const { data: announcements = [], isLoading: loadingAvisos } = useAnnouncements(clinicId)
+  const createAnnouncement = useCreateAnnouncement()
+  const deleteAnnouncement = useDeleteAnnouncement()
+  const resendAnnouncement = useResendAnnouncement()
+
+  // Channels for targeted announcements
+  const { data: channels = [] } = useChannels(clinicId)
+
   const totalAppointments = dashData?.metrics.totalAgendamentos || monthAppointments.length
   const completedAppointments = dashData?.metrics.concluidosAgendamentos || monthAppointments.filter(a => a.status === 'COMPLETED').length
   const completionRate = dashData?.metrics.taxaOcupacao || (totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0)
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
-  
+
+  const handlePublish = async () => {
+    setPublishError('')
+    if (!title.trim() || !aviso.trim()) {
+      setPublishError('Título e conteúdo são obrigatórios.')
+      return
+    }
+    if (audience === 'SPECIFIC' && selectedChannelIds.length === 0) {
+      setPublishError('Selecione ao menos um canal para destino específico.')
+      return
+    }
+    try {
+      await createAnnouncement.mutateAsync({
+        clinicId,
+        title: title.trim(),
+        content: aviso.trim(),
+        urgency,
+        audience,
+        audienceIds: audience === 'SPECIFIC' ? selectedChannelIds.join(',') : undefined,
+        expiresAt: expiresAt || undefined,
+      })
+      setTitle('')
+      setAviso('')
+      setExpiresAt('')
+      setUrgency('NORMAL')
+      setAudience('ALL')
+      setSelectedChannelIds([])
+    } catch (err: any) {
+      setPublishError(err?.response?.data?.message || 'Erro ao publicar aviso.')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="animate-fade-in" style={{ padding: 'var(--space-8)' }}>
@@ -55,7 +122,13 @@ export default function DashboardPage() {
         </div>
 
         <div className="input-group" style={{ marginBottom: 'var(--space-4)' }}>
-          <input className="input-field" placeholder="Título do aviso" style={{ fontWeight: 500 }} />
+          <input
+            className="input-field"
+            placeholder="Título do aviso"
+            style={{ fontWeight: 500 }}
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+          />
         </div>
 
         <textarea
@@ -67,59 +140,136 @@ export default function DashboardPage() {
         />
 
         <div className="publisher-controls">
-          <select className="input-field" style={{ width: 200 }}>
-            <option>Todos os funcionários</option>
-            <option>Somente Recepção</option>
-            <option>Somente Profissionais</option>
-            <option>Selecionar pessoas...</option>
+          <select
+            className="input-field"
+            style={{ width: 220 }}
+            value={audience}
+            onChange={e => setAudience(e.target.value as AnnouncementAudience)}
+          >
+            {AUDIENCE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
 
-          <input type="date" className="input-field" style={{ width: 'auto' }} placeholder="Data de expiração" />
+          {audience === 'SPECIFIC' && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {channels.length === 0 && (
+                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Nenhum canal cadastrado.</span>
+              )}
+              {channels.map(ch => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  className={`badge ${selectedChannelIds.includes(ch.id) ? 'badge-emerald' : 'badge-muted'}`}
+                  style={{ cursor: 'pointer', border: 'none', padding: '4px 10px', borderRadius: 'var(--radius-pill)' }}
+                  onClick={() => setSelectedChannelIds(prev =>
+                    prev.includes(ch.id) ? prev.filter(id => id !== ch.id) : [...prev, ch.id]
+                  )}
+                >
+                  #{ch.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <input
+            type="date"
+            className="input-field"
+            style={{ width: 'auto' }}
+            value={expiresAt}
+            onChange={e => setExpiresAt(e.target.value)}
+            title="Data de expiração (opcional)"
+          />
 
           <div className="urgency-selector">
-            {[
-              { v: 'normal', l: 'Normal' },
-              { v: 'important', l: 'Importante' },
-              { v: 'urgent', l: 'Urgente' },
-            ].map(u => (
-              <button key={u.v} className={`urgency-pill ${u.v}${urgency === u.v ? ' selected' : ''}`}
-                onClick={() => setUrgency(u.v)}>
+            {([
+              { v: 'NORMAL' as AnnouncementUrgency, l: 'Normal' },
+              { v: 'IMPORTANT' as AnnouncementUrgency, l: 'Importante' },
+              { v: 'URGENT' as AnnouncementUrgency, l: 'Urgente' },
+            ]).map(u => (
+              <button
+                key={u.v}
+                className={`urgency-pill ${URGENCY_CSS[u.v]}${urgency === u.v ? ' selected' : ''}`}
+                onClick={() => setUrgency(u.v)}
+              >
                 {u.l}
               </button>
             ))}
           </div>
 
-          <button className="btn btn-primary" style={{ marginLeft: 'auto' }}>
-            <Send size={16} /> Publicar
+          <button
+            className="btn btn-primary"
+            style={{ marginLeft: 'auto' }}
+            onClick={handlePublish}
+            disabled={createAnnouncement.isPending}
+          >
+            <Send size={16} /> {createAnnouncement.isPending ? 'Publicando...' : 'Publicar'}
           </button>
         </div>
 
+        {publishError && (
+          <p style={{ color: 'var(--color-accent-danger)', fontSize: 13, marginTop: 'var(--space-2)' }}>{publishError}</p>
+        )}
+
         {/* Published list */}
         <div className="announcement-published-list">
-          <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)' }}>Avisos Publicados</h4>
-          {publishedAvisos.map((a, i) => (
-            <div key={i} className="published-announcement">
-              <div className={`announcement-urgency ${a.urgency}`} style={{ width: 4, height: 32, borderRadius: 2, flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 500, fontSize: 14 }}>{a.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{a.date}</div>
-              </div>
-              <div className="read-rate" style={{ width: 160 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                  {a.readRate.read} de {a.readRate.total} leram
+          <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+            Avisos Publicados
+          </h4>
+
+          {loadingAvisos && (
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Carregando avisos...</p>
+          )}
+
+          {!loadingAvisos && announcements.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Nenhum aviso publicado ainda.</p>
+          )}
+
+          {announcements.map((a) => {
+            const totalReaders = a._count?.reads ?? a.reads?.length ?? 0
+            const urgencyCss = URGENCY_CSS[a.urgency] || 'normal'
+            const dateLabel = new Date(a.createdAt).toLocaleDateString('pt-BR')
+
+            return (
+              <div key={a.id} className="published-announcement">
+                <div
+                  className={`announcement-urgency ${urgencyCss}`}
+                  style={{ width: 4, height: 32, borderRadius: 2, flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 500, fontSize: 14 }}>{a.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                    {dateLabel} · {URGENCY_LABEL[a.urgency]} · {AUDIENCE_OPTIONS.find(o => o.value === a.audience)?.label || a.audience}
+                  </div>
                 </div>
-                <div className="progress-bar">
-                  <div className="progress-bar-fill" style={{ width: `${(a.readRate.read / a.readRate.total) * 100}%` }} />
+                <div className="read-rate" style={{ width: 120 }}>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                    {totalReaders} leram
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-bar-fill" style={{ width: totalReaders > 0 ? '60%' : '0%' }} />
+                  </div>
                 </div>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  title="Reenviar"
+                  onClick={() => resendAnnouncement.mutate(a.id)}
+                  disabled={resendAnnouncement.isPending}
+                >
+                  <RefreshCw size={13} />
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--color-accent-danger)' }}
+                  title="Arquivar"
+                  onClick={() => deleteAnnouncement.mutate(a.id)}
+                  disabled={deleteAnnouncement.isPending}
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
-              <button className="btn btn-ghost btn-sm" title="Reenviar">
-                <RefreshCw size={13} />
-              </button>
-              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-accent-danger)' }} title="Arquivar">
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -130,7 +280,7 @@ export default function DashboardPage() {
           <span className="metric-value">{formatCurrency(dashData?.metrics.faturamentoMes || 0)}</span>
           {(dashData?.metrics.faturamentoMudanca !== undefined) && (
             <span className={`metric-change ${dashData.metrics.faturamentoMudanca >= 0 ? 'positive' : 'negative'}`} style={dashData.metrics.faturamentoMudanca < 0 ? { color: 'var(--color-accent-danger)' } : {}}>
-              {dashData.metrics.faturamentoMudanca >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />} 
+              {dashData.metrics.faturamentoMudanca >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
               {dashData.metrics.faturamentoMudanca > 0 ? '+' : ''}{dashData.metrics.faturamentoMudanca.toFixed(1)}% vs mês anterior
             </span>
           )}

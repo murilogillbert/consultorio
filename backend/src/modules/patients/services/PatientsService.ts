@@ -10,7 +10,11 @@ export class PatientsService {
   }
 
   async executeList(): Promise<Patient[]> {
-    return this.patientsRepository.list(false)
+    return this.patientsRepository.listAll()
+  }
+
+  async executeSearch(query: string): Promise<Patient[]> {
+    return this.patientsRepository.search(query)
   }
 
   async executeCreate(data: Prisma.PatientUncheckedCreateInput): Promise<Patient> {

@@ -13,6 +13,7 @@ import publicRoutes from './publicRoutes'
 import insuranceRoutes from './insuranceRoutes'
 import messagingRoutes from './messagingRoutes'
 import metricsRoutes from './metricsRoutes'
+import announcementsRoutes from './announcementsRoutes'
 
 const r = Router()
 
@@ -33,5 +34,6 @@ r.use('/schedules', schedulesRoutes)
 r.use('/insurances', insuranceRoutes)
 r.use('/messaging', messagingRoutes)
 r.use('/metrics', metricsRoutes)
+r.use('/announcements', announcementsRoutes)
 
 export default r

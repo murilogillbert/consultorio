@@ -1,4 +1,4 @@
-import { ClinicRepository } from '../repositories/clinicRepository'
+import { ClinicRepository } from '../repositories/ClinicRepository'
 import { AppError } from '../../../shared/errors/AppError'
 import { Prisma } from '@prisma/client'
 
@@ -37,5 +37,91 @@ export class ClinicService {
     }
 
     return this.clinicRepository.update(id, data)
+  }
+
+  async executeGetByUserId(userId: string) {
+    const clinic = await this.clinicRepository.findFirstByUserId(userId)
+
+    if (!clinic) {
+      throw new AppError('Nenhuma clínica encontrada para este usuário', 404)
+    }
+
+    return clinic
+  }
+
+  async getIntegrations(clinicId: string) {
+    return this.clinicRepository.findIntegrationsByClinic(clinicId)
+  }
+
+  async updateIntegrations(clinicId: string, data: any) {
+    return this.clinicRepository.updateIntegrations(clinicId, data)
+  }
+
+  async testIntegration(clinicId: string, type: string) {
+    const settings = await this.clinicRepository.findIntegrationsByClinic(clinicId)
+    if (!settings) {
+      throw new AppError('Configurações de integração não encontradas', 404)
+    }
+
+    if (type === 'whatsapp') {
+      const token = settings.waAccessToken
+      const phoneId = settings.waPhoneNumberId
+      if (!token || !phoneId) {
+        throw new AppError('Token ou Phone Number ID não configurados', 422)
+      }
+      const url = `https://graph.facebook.com/v19.0/${phoneId}?access_token=${token}`
+      const resp = await fetch(url)
+      const json = await resp.json() as any
+      if (!resp.ok || json.error) {
+        await this.clinicRepository.updateIntegrations(clinicId, { waConnected: false })
+        throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
+      }
+      await this.clinicRepository.updateIntegrations(clinicId, { waConnected: true })
+      return { ok: true, message: 'WhatsApp conectado com sucesso', detail: json.display_phone_number || json.name }
+    }
+
+    if (type === 'instagram') {
+      const token = settings.igAccessToken
+      const pageId = settings.igPageId
+      if (!token || !pageId) {
+        throw new AppError('Token ou Page ID não configurados', 422)
+      }
+      const url = `https://graph.facebook.com/v19.0/${pageId}?fields=name,instagram_business_account&access_token=${token}`
+      const resp = await fetch(url)
+      const json = await resp.json() as any
+      if (!resp.ok || json.error) {
+        await this.clinicRepository.updateIntegrations(clinicId, { igConnected: false })
+        throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
+      }
+      await this.clinicRepository.updateIntegrations(clinicId, { igConnected: true })
+      return { ok: true, message: 'Instagram conectado com sucesso', detail: json.name }
+    }
+
+    if (type === 'mercadopago') {
+      const token = settings.mpAccessTokenProd
+      if (!token) {
+        throw new AppError('Access Token de produção não configurado', 422)
+      }
+      const url = `https://api.mercadopago.com/v1/payment_methods`
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      const json = await resp.json() as any
+      if (!resp.ok || json.error) {
+        await this.clinicRepository.updateIntegrations(clinicId, { mpConnected: false })
+        throw new AppError(json.message || 'Token inválido ou sem permissão', 400)
+      }
+      await this.clinicRepository.updateIntegrations(clinicId, { mpConnected: true })
+      return { ok: true, message: 'Mercado Pago conectado com sucesso' }
+    }
+
+    if (type === 'gmail') {
+      // Gmail exige OAuth flow; verificamos se há token salvo
+      const hasToken = !!settings.gmailAccessToken || !!settings.gmailRefreshToken
+      if (!hasToken) {
+        throw new AppError('Gmail ainda não autenticado via OAuth. Salve as credenciais e autorize o acesso.', 422)
+      }
+      return { ok: true, message: 'Credenciais do Gmail estão salvas. Para validar o acesso complete o fluxo OAuth.' }
+    }
+
+    throw new AppError(`Tipo de integração desconhecido: ${type}`, 400)
   }
 }

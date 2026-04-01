@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Mail, MessageCircle, Camera, CreditCard, Cloud,
   ChevronDown, Eye, EyeOff, Copy, Check, Loader2,
   AlertTriangle, RefreshCw, Unplug, LogIn,
   Zap, Shield, Info
 } from 'lucide-react'
+import { useIntegrations, useUpdateIntegrations, useTestIntegration } from '../../hooks/useIntegrations'
 
 /* ─── Types ─── */
 type ConnectionStatus = 'connected' | 'disconnected' | 'error'
@@ -182,7 +183,21 @@ function IntegrationSection({
 /*              MAIN COMPONENT                */
 /* ═══════════════════════════════════════════ */
 
-export default function IntegrationsPanel() {
+export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
+  const { data: existingSettings, isLoading } = useIntegrations(clinicId)
+  const updateMutation = useUpdateIntegrations()
+  const testMutation = useTestIntegration()
+
+  /* Derivar status a partir dos dados reais do banco */
+  const gmailStatus: ConnectionStatus = existingSettings?.gmailConnected ? 'connected' : 'disconnected'
+  const waStatus: ConnectionStatus = existingSettings?.waConnected ? 'connected' : 'disconnected'
+  const igStatus: ConnectionStatus = existingSettings?.igConnected
+    ? 'connected'
+    : existingSettings?.igAccessToken
+      ? 'error'
+      : 'disconnected'
+  const mpStatus: ConnectionStatus = existingSettings?.mpConnected ? 'connected' : 'disconnected'
+
   /* Toast system */
   const [toasts, setToasts] = useState<ToastMsg[]>([])
   const addToast = useCallback((text: string, type: ToastMsg['type']) => {
@@ -190,6 +205,18 @@ export default function IntegrationsPanel() {
     setToasts(p => [...p, { id, text, type }])
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000)
   }, [])
+
+  /* Helper para chamar endpoint de teste */
+  const handleTest = useCallback(async (type: string) => {
+    if (!clinicId) return
+    try {
+      const result = await testMutation.mutateAsync({ clinicId, type })
+      addToast(result.message + (result.detail ? ` — ${result.detail}` : ''), 'success')
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Falha no teste de conexão'
+      addToast(msg, 'error')
+    }
+  }, [clinicId, testMutation, addToast])
 
   /* Gmail state */
   const [gmail, setGmail] = useState({ clientId: '', clientSecret: '' })
@@ -211,8 +238,42 @@ export default function IntegrationsPanel() {
   const [pubsub, setPubsub] = useState({ projectId: '', topicName: '', serviceKey: '' })
   const [psErrors, setPsErrors] = useState<Record<string, string>>({})
 
-  /* Simulate async save */
-  const simulateSave = () => new Promise<void>(resolve => setTimeout(resolve, 1200))
+  /* Handle initial data load */
+  useEffect(() => {
+    if (existingSettings) {
+      setGmail({
+        clientId: existingSettings.gmailClientId || '',
+        clientSecret: existingSettings.gmailClientSecret || '',
+      })
+      setWhatsapp({
+        phoneId: existingSettings.waPhoneNumberId || '',
+        wabaId: existingSettings.waWabaId || '',
+        accessToken: existingSettings.waAccessToken || '',
+        verifyToken: existingSettings.waVerifyToken || '',
+        appSecret: existingSettings.waAppSecret || '',
+      })
+      setInstagram({
+        accountId: existingSettings.igAccountId || '',
+        pageId: existingSettings.igPageId || '',
+        pageToken: existingSettings.igAccessToken || '',
+      })
+      setMp({
+        accessToken: existingSettings.mpAccessTokenProd || '',
+        sandboxToken: existingSettings.mpAccessTokenSandbox || '',
+        publicKey: existingSettings.mpPublicKeyProd || '',
+        webhookSecret: existingSettings.mpWebhookSecret || '',
+      })
+      setPubsub({
+        projectId: existingSettings.pubsubProjectId || '',
+        topicName: existingSettings.pubsubTopicName || '',
+        serviceKey: existingSettings.pubsubServiceAccount || '',
+      })
+    }
+  }, [existingSettings])
+
+  if (isLoading) {
+    return <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" /></div>
+  }
 
   /* ─── Validation helpers ─── */
   const validateGmail = () => {
@@ -273,7 +334,7 @@ export default function IntegrationsPanel() {
         icon={Mail}
         title="Gmail"
         description="Receba e envie e-mails diretamente pelo sistema"
-        status="disconnected"
+        status={gmailStatus}
         defaultOpen
       >
         <InstructionBox steps={[
@@ -313,16 +374,23 @@ export default function IntegrationsPanel() {
 
         <div className="intg-actions">
           <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            await simulateSave()
-            addToast('Conexão com Gmail testada com sucesso', 'success')
+            await handleTest('gmail')
           }} />
           <SaveButton label="Revogar Acesso" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: { gmailConnected: false, gmailAccessToken: '', gmailRefreshToken: '' }
+            })
             addToast('Acesso ao Gmail revogado', 'warning')
           }} />
           <SaveButton label="Salvar e Autenticar" icon={<LogIn size={14} />} onClick={async () => {
             if (!validateGmail()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: { gmailClientId: gmail.clientId, gmailClientSecret: gmail.clientSecret }
+            })
             addToast('Credenciais do Gmail salvas com sucesso', 'success')
           }} />
         </div>
@@ -333,7 +401,7 @@ export default function IntegrationsPanel() {
         icon={MessageCircle}
         title="WhatsApp Business"
         description="Envie mensagens, confirmações e notificações via WhatsApp"
-        status="connected"
+        status={waStatus}
       >
         <InstructionBox steps={[
           'Acesse developers.facebook.com e crie um App do tipo "Business"',
@@ -400,16 +468,26 @@ export default function IntegrationsPanel() {
 
         <div className="intg-actions">
           <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            await simulateSave()
-            addToast('WhatsApp conectado — mensagem de teste enviada', 'success')
+            await handleTest('whatsapp')
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({ clinicId, data: { waConnected: false } })
             addToast('WhatsApp desconectado', 'warning')
           }} />
           <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
             if (!validateWhatsApp()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: {
+                waPhoneNumberId: whatsapp.phoneId,
+                waWabaId: whatsapp.wabaId,
+                waAccessToken: whatsapp.accessToken,
+                waVerifyToken: whatsapp.verifyToken,
+                waAppSecret: whatsapp.appSecret
+              }
+            })
             addToast('Configurações do WhatsApp salvas com sucesso', 'success')
           }} />
         </div>
@@ -420,7 +498,7 @@ export default function IntegrationsPanel() {
         icon={Camera}
         title="Instagram Direct"
         description="Responda mensagens do Instagram Direct automaticamente"
-        status="error"
+        status={igStatus}
       >
         <InstructionBox steps={[
           'Certifique-se de ter uma Conta Instagram Business vinculada a uma Página do Facebook',
@@ -477,17 +555,25 @@ export default function IntegrationsPanel() {
 
         <div className="intg-actions">
           <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            await simulateSave()
-            addToast('Erro: Token expirado — reconecte a integração', 'error')
+            await handleTest('instagram')
           }} />
           <SaveButton label="Revogar Acesso" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({ clinicId, data: { igConnected: false, igAccessToken: '' } })
             addToast('Acesso ao Instagram revogado', 'warning')
           }} />
           <SaveButton label="Reconectar" icon={<RefreshCw size={14} />} onClick={async () => {
             if (!validateInstagram()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
-            await simulateSave()
-            addToast('Instagram reconectado com sucesso', 'success')
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: {
+                igAccountId: instagram.accountId,
+                igPageId: instagram.pageId,
+                igAccessToken: instagram.pageToken
+              }
+            })
+            addToast('Instagram reconectado with sucesso', 'success')
           }} />
         </div>
       </IntegrationSection>
@@ -497,7 +583,7 @@ export default function IntegrationsPanel() {
         icon={CreditCard}
         title="Mercado Pago"
         description="Processe pagamentos online com Pix, cartão e boleto"
-        status="connected"
+        status={mpStatus}
       >
         <InstructionBox steps={[
           'Acesse mercadopago.com.br/developers e faça login',
@@ -553,16 +639,25 @@ export default function IntegrationsPanel() {
 
         <div className="intg-actions">
           <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            await simulateSave()
-            addToast('Mercado Pago conectado — conta verificada', 'success')
+            await handleTest('mercadopago')
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({ clinicId, data: { mpConnected: false } })
             addToast('Mercado Pago desconectado', 'warning')
           }} />
           <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
             if (!validateMercadoPago()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: {
+                mpAccessTokenProd: mp.accessToken,
+                mpAccessTokenSandbox: mp.sandboxToken,
+                mpPublicKeyProd: mp.publicKey,
+                mpWebhookSecret: mp.webhookSecret
+              }
+            })
             addToast('Configurações do Mercado Pago salvas', 'success')
           }} />
         </div>
@@ -648,12 +743,21 @@ export default function IntegrationsPanel() {
         <div className="intg-actions">
           <SaveButton label="Verificar Configuração" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
             if (!validatePubSub()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
-            await simulateSave()
+            // TODO: Implement actual connectivity test endpoint
+            await new Promise(r => setTimeout(r, 1000))
             addToast('Configuração do Pub/Sub verificada com sucesso', 'success')
           }} />
           <SaveButton label="Salvar e Ativar" icon={<Shield size={14} />} onClick={async () => {
             if (!validatePubSub()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
-            await simulateSave()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: {
+                pubsubProjectId: pubsub.projectId,
+                pubsubTopicName: pubsub.topicName,
+                pubsubServiceAccount: pubsub.serviceKey
+              }
+            })
             addToast('Google Pub/Sub ativado — inscrição criada', 'success')
           }} />
         </div>

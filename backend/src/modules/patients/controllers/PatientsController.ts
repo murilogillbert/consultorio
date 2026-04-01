@@ -26,10 +26,16 @@ export class PatientsController {
 
   async index(req: Request, res: Response, next: NextFunction) {
     try {
+      const { q } = req.query as { q?: string }
       const patientsRepository = new PatientsRepository()
       const patientsService = new PatientsService(patientsRepository)
 
-      const result = await patientsService.executeList()
+      let result
+      if (q) {
+        result = await patientsService.executeSearch(q)
+      } else {
+        result = await patientsService.executeList()
+      }
 
       res.status(200).json(result)
     } catch (err) {

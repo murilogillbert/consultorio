@@ -15,12 +15,27 @@ export interface Patient {
   }
 }
 
-export function usePatients() {
+export function usePatients(query?: string) {
   return useQuery({
-    queryKey: ['patients'],
+    queryKey: ['patients', query],
     queryFn: async () => {
-      const { data } = await api.get<Patient[]>('/patients')
+      const url = query ? `/patients?q=${query}` : '/patients'
+      const { data } = await api.get<Patient[]>(url)
       return data
+    }
+  })
+}
+
+export function useUpdatePatient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<Patient> & { id: string }) => {
+      const response = await api.put(`/patients/${id}`, data)
+      return response.data
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] })
+      queryClient.invalidateQueries({ queryKey: ['patients', id] })
     }
   })
 }

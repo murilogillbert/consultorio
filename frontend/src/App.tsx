@@ -8,11 +8,13 @@ import ProfissionaisPage from './pages/public/ProfissionaisPage'
 import SobrePage from './pages/public/SobrePage'
 import TrabalheConoscoPage from './pages/public/TrabalheConoscoPage'
 import AgendamentoPage from './pages/public/AgendamentoPage'
+import MinhasConsultasPage from './pages/public/MinhasConsultasPage'
 import RecDashboard from './pages/reception/DashboardPage'
 import RecAgenda from './pages/reception/AgendaPage'
 import RecMensagens from './pages/reception/MensagensPage'
 import RecProfissionais from './pages/reception/ProfissionaisPage'
 import RecServicos from './pages/reception/ServicosPage'
+import RecPatients from './pages/reception/PatientsPage'
 import AdminDashboard from './pages/admin/DashboardPage'
 import AdminProfissionais from './pages/admin/ProfissionaisPage'
 import AdminServicos from './pages/admin/ServicosPage'
@@ -35,6 +37,7 @@ export default function App() {
         <Route path="/sobre" element={<SobrePage />} />
         <Route path="/trabalhe-conosco" element={<TrabalheConoscoPage />} />
         <Route path="/agendar" element={<AgendamentoPage />} />
+        <Route path="/minhas-consultas" element={<MinhasConsultasPage />} />
       </Route>
 
       {/* Auth */}
@@ -48,6 +51,7 @@ export default function App() {
           <Route path="/recepcao/mensagens" element={<RecMensagens />} />
           <Route path="/recepcao/profissionais" element={<RecProfissionais />} />
           <Route path="/recepcao/servicos" element={<RecServicos />} />
+          <Route path="/recepcao/pacientes" element={<RecPatients />} />
         </Route>
       </Route>
 

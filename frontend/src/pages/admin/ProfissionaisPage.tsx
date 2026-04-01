@@ -3,6 +3,7 @@ import { Search, Plus, Edit, Power, Camera, X } from 'lucide-react'
 import { useProfessionals, useCreateProfessional, useUpdateProfessional } from '../../hooks/useProfessionals'
 import { useRooms } from '../../hooks/useRooms'
 import { useInsurances } from '../../hooks/useInsurances'
+import { useSystemUsers } from '../../hooks/useUsers'
 import ComboBox from '../../components/ComboBox'
 
 const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -29,8 +30,14 @@ export default function ProfissionaisPage() {
   const { data: professionals = [], isLoading } = useProfessionals()
   const { data: rooms = [] } = useRooms()
   const { data: insurancePlans = [] } = useInsurances()
+  const { data: systemUsers = [] } = useSystemUsers()
   const createMutation = useCreateProfessional()
   const updateMutation = useUpdateProfessional()
+
+  // System users not yet linked as professionals
+  const availableUsers = systemUsers.filter(
+    su => !professionals.some(p => p.userId === su.user?.id)
+  )
 
   const toggleSlot = (day: number, time: number) => {
     const key = `${day}-${time}`
@@ -83,6 +90,14 @@ export default function ProfissionaisPage() {
       setScheduleSlots({})
     } catch (err: any) {
       setFormError(err?.response?.data?.message || 'Erro ao salvar profissional.')
+    }
+  }
+
+  const handleToggleActive = async (pro: typeof professionals[0]) => {
+    try {
+      await updateMutation.mutateAsync({ id: pro.id, active: !pro.active })
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Erro ao alterar status do profissional.')
     }
   }
 
@@ -185,8 +200,8 @@ export default function ProfissionaisPage() {
                             <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(pro)}>
                               <Edit size={14} color="var(--color-accent-emerald)" />
                             </button>
-                            <button className="btn btn-icon btn-sm" title="Desativar">
-                              <Power size={14} color="var(--color-accent-danger)" />
+                            <button className="btn btn-icon btn-sm" title={pro.active ? 'Desativar' : 'Ativar'} onClick={() => handleToggleActive(pro)} disabled={updateMutation.isPending}>
+                              <Power size={14} color={pro.active ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)'} />
                             </button>
                           </div>
                         </td>
@@ -219,14 +234,20 @@ export default function ProfissionaisPage() {
 
             <div className="form-2col">
               <div className="input-group">
-                <label className="input-label">Nome Completo <span className="required">*</span></label>
-                <input 
-                  className="input-field" 
-                  placeholder="Nome do profissional" 
-                  value={formData.name}
-                  onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  disabled={!!editingId}
-                />
+                <label className="input-label">Usuário do Sistema <span className="required">*</span></label>
+                {editingId ? (
+                  <input className="input-field" value={formData.name} disabled />
+                ) : (
+                  <ComboBox
+                    placeholder="Selecione o usuário..."
+                    options={availableUsers.map(su => ({ value: su.user?.id || su.userId, label: `${su.user?.name || ''} (${su.user?.email || ''})` }))}
+                    value={formData.userId}
+                    onChange={val => {
+                      const found = availableUsers.find(su => (su.user?.id || su.userId) === val)
+                      setFormData(prev => ({ ...prev, userId: val, name: found?.user?.name || '' }))
+                    }}
+                  />
+                )}
               </div>
               <div className="input-group">
                 <label className="input-label">Registro <span className="required">*</span></label>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, NavLink } from 'react-router-dom'
 import { Menu, X, MessageCircle, Phone, ExternalLink } from 'lucide-react'
+import { useClinics } from '../hooks/useClinics'
 
 function ClinicLogo() {
   return (
@@ -16,6 +17,9 @@ export default function PublicLayout() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [floatingOpen, setFloatingOpen] = useState(false)
+  const { data: clinics } = useClinics()
+  const clinic = clinics?.[0]
+  const clinicName = clinic?.name || 'Clínica Vitalis'
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80)
@@ -26,7 +30,7 @@ export default function PublicLayout() {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/servicos', label: 'Serviços' },
-    { to: '/profissionais', label: 'Profissionais' },
+    { to: '/profissionais', label: 'Equipe Médica' },
     { to: '/sobre', label: 'Sobre' },
     { to: '/trabalhe-conosco', label: 'Trabalhe Conosco' },
   ]
@@ -38,9 +42,9 @@ export default function PublicLayout() {
         <div className="container">
           <Link to="/" className="navbar-logo">
             <ClinicLogo />
-            <span>Clínica Vitalis</span>
+            <span>{clinicName}</span>
           </Link>
-
+          
           <div className="navbar-links">
             {navLinks.map(link => (
               <NavLink
@@ -110,7 +114,7 @@ export default function PublicLayout() {
             <div className="footer-col">
               <div className="footer-description">
                 <ClinicLogo />
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-accent-emerald)' }}>Clínica Vitalis</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{clinicName}</span>
               </div>
               <p>
                 Cuidado médico de excelência há mais de 20 anos. Nossa missão é
@@ -127,20 +131,20 @@ export default function PublicLayout() {
             </div>
             <div className="footer-col">
               <h4>Contato</h4>
-              <a href="tel:+5511999999999">(11) 99999-9999</a>
-              <a href="mailto:contato@clinicavitalis.com.br">contato@clinicavitalis.com.br</a>
-              <p style={{ marginTop: '8px' }}>Rua da Saúde, 1234 — São Paulo, SP</p>
+              <a href={`tel:${clinic?.phone || '+5511999999999'}`}>{clinic?.phone || '(11) 99999-9999'}</a>
+              <a href={`mailto:${clinic?.email || 'contato@clinicavitalis.com.br'}`}>{clinic?.email || 'contato@clinicavitalis.com.br'}</a>
+              <p style={{ marginTop: '8px' }}>{clinic?.address || 'Rua da Saúde, 1234 — São Paulo, SP'}</p>
             </div>
             <div className="footer-col">
               <h4>Legal</h4>
               <a href="#">Política de Privacidade</a>
               <a href="#">Termos de Uso</a>
-              <p style={{ marginTop: '8px', fontSize: '12px' }}>CNPJ: 12.345.678/0001-99</p>
-              <p style={{ fontSize: '12px' }}>CRM: 123456</p>
+              <p style={{ marginTop: '8px', fontSize: '12px' }}>CNPJ: {clinic?.cnpj || '12.345.678/0001-99'}</p>
+              <p style={{ fontSize: '12px' }}>Site oficial da sua clínica.</p>
             </div>
           </div>
           <div className="footer-bottom">
-            <p>© {new Date().getFullYear()} Clínica Vitalis. Todos os direitos reservados.</p>
+            <p>© {new Date().getFullYear()} {clinicName}. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>

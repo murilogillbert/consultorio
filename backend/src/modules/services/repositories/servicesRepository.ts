@@ -21,8 +21,12 @@ export class ServicesRepository extends BaseRepository<Service, Prisma.ServiceCr
   async listActive(): Promise<Service[]> {
     return prisma.service.findMany({
       where: { active: true },
-      orderBy: { name: 'asc' }
-    })
+      orderBy: { name: 'asc' },
+      include: {
+        professionals: { include: { professional: { include: { user: true } } } },
+        insurances: { include: { insurancePlan: true } }
+      }
+    }) as any
   }
 }
 

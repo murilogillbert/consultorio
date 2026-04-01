@@ -30,6 +30,16 @@ export function useClinics() {
   })
 }
 
+export function useMyClinic() {
+  return useQuery({
+    queryKey: ['clinics', 'me'],
+    queryFn: async () => {
+      const { data } = await api.get<Clinic>('/clinics/me')
+      return data
+    }
+  })
+}
+
 export function useClinic(id: string | undefined) {
   return useQuery({
     queryKey: ['clinics', id],
