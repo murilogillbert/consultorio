@@ -67,3 +67,15 @@ export function useSendConversationMessage() {
     },
   })
 }
+
+export function useMarkConversationRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (conversationId: string) => {
+      await api.patch(`/messaging/conversations/${conversationId}/read`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}

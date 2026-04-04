@@ -4,6 +4,7 @@ import { useAppointments, useCreateAppointment, useCancelAppointment, useUpdateA
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useServices } from '../../hooks/useServices'
 import { usePatients } from '../../hooks/usePatients'
+import ComboBox from '../../components/ComboBox'
 import type { Appointment } from '../../hooks/useAppointments'
 
 const timeSlots = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
@@ -17,22 +18,23 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export default function AgendaPage() {
-  const [view, setView] = useState<'day' | 'week' | 'month'>('day')
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [showCancelled, setShowCancelled] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<null | Appointment>(null)
   const [profSearch, setProfSearch] = useState('')
+  const [profFilter, setProfFilter] = useState('')
   const [showNewModal, setShowNewModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [formError, setFormError] = useState('')
+  const [isRecurring, setIsRecurring] = useState(false)
 
   // New appointment form
   const [newForm, setNewForm] = useState({
     patientId: '',
     professionalId: '',
     serviceId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: selectedDate,
     startTime: '08:00',
     duration: '30',
     notes: '',
@@ -50,13 +52,26 @@ export default function AgendaPage() {
   const cancelAppointment = useCancelAppointment()
   const updateStatus = useUpdateAppointmentStatus()
 
-  const filteredProfs = profSearch
-    ? professionals.filter(p => (p.user?.name || '').toLowerCase().includes(profSearch.toLowerCase()))
-    : professionals
+  // Filter columns by search AND specialized filter
+  const displayedProfs = professionals.filter(p => {
+    const matchesSearch = !profSearch || (p.user?.name || '').toLowerCase().includes(profSearch.toLowerCase())
+    const matchesFilter = !profFilter || p.id === profFilter
+    return matchesSearch && matchesFilter
+  })
 
   const dayAppts = appointments.filter(
     a => showCancelled || a.status !== 'CANCELLED'
   )
+
+  const handleCellClick = (profId: string, time: string) => {
+    setNewForm({
+      ...newForm,
+      professionalId: profId,
+      startTime: time,
+      date: selectedDate
+    })
+    setShowNewModal(true)
+  }
 
   const handleCreateAppointment = async () => {
     setFormError('')
@@ -64,7 +79,6 @@ export default function AgendaPage() {
       setFormError('Preencha paciente, profissional e serviço.')
       return
     }
-    const [h, m] = newForm.startTime.split(':').map(Number)
     const startDt = new Date(`${newForm.date}T${newForm.startTime}:00`)
     const endDt = new Date(startDt.getTime() + parseInt(newForm.duration) * 60000)
     try {
@@ -76,9 +90,11 @@ export default function AgendaPage() {
         endTime: endDt.toISOString(),
         notes: newForm.notes || undefined,
         origin: 'RECEPTION',
-      })
+        repeat: isRecurring, // Pass to backend expansion
+      } as any)
       setShowNewModal(false)
-      setNewForm({ patientId: '', professionalId: '', serviceId: '', date: newForm.date, startTime: '08:00', duration: '30', notes: '' })
+      setIsRecurring(false)
+      setNewForm({ patientId: '', professionalId: '', serviceId: '', date: selectedDate, startTime: '08:00', duration: '30', notes: '' })
     } catch (err: any) {
       setFormError(err?.response?.data?.message || 'Erro ao criar agendamento.')
     }
@@ -113,34 +129,47 @@ export default function AgendaPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button className="btn btn-icon btn-sm" style={{ border: '1px solid var(--color-border-default)' }}
             onClick={() => {
-              const d = new Date(selectedDate); d.setDate(d.getDate() - 1)
+              const d = new Date(selectedDate + 'T12:00:00'); d.setDate(d.getDate() - 1)
               setSelectedDate(d.toISOString().split('T')[0])
             }}>
             <ChevronLeft size={16} />
           </button>
-          <span style={{ fontWeight: 500, minWidth: 160, textAlign: 'center' }}>
-            {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </span>
+          <input
+            type="date"
+            className="input-field"
+            style={{ width: 'auto', padding: '4px 8px', height: 32, fontSize: 13, fontWeight: 500 }}
+            value={selectedDate}
+            onChange={e => setSelectedDate(e.target.value)}
+          />
           <button className="btn btn-icon btn-sm" style={{ border: '1px solid var(--color-border-default)' }}
             onClick={() => {
-              const d = new Date(selectedDate); d.setDate(d.getDate() + 1)
+              const d = new Date(selectedDate + 'T12:00:00'); d.setDate(d.getDate() + 1)
               setSelectedDate(d.toISOString().split('T')[0])
             }}>
             <ChevronRight size={16} />
           </button>
         </div>
 
+        <div style={{ width: 220 }}>
+          <ComboBox
+            placeholder="Filtrar por Profissional"
+            options={professionals.map(p => ({ value: p.id, label: p.user?.name || 'Profissional' }))}
+            value={profFilter}
+            onChange={val => setProfFilter(val)}
+          />
+        </div>
+
         <div className="search-input-wrapper" style={{ maxWidth: 200 }}>
           <Search size={16} />
           <input
             className="input-field"
-            placeholder="Profissional..."
+            placeholder="Busca rápida..."
             value={profSearch}
             onChange={e => setProfSearch(e.target.value)}
           />
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
           <input type="checkbox" checked={showCancelled} onChange={e => setShowCancelled(e.target.checked)}
             style={{ accentColor: 'var(--color-accent-emerald)' }} />
           Exibir cancelados
@@ -149,24 +178,16 @@ export default function AgendaPage() {
         <button className="btn btn-primary btn-sm" onClick={() => setShowNewModal(true)} style={{ marginLeft: 'auto' }}>
           <Plus size={14} /> Novo Agendamento
         </button>
-
-        <div className="view-toggle">
-          {(['day', 'week', 'month'] as const).map(v => (
-            <button key={v} className={v === view ? 'active' : ''} onClick={() => setView(v)}>
-              {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Calendar Grid — Day View */}
-      <div style={{ display: 'flex', gap: 0 }}>
-        <div className="calendar-grid" style={{ flex: 1 }}>
+      <div style={{ display: 'flex', gap: 0, overflow: 'hidden' }}>
+        <div className="calendar-grid" style={{ flex: 1, minWidth: 0 }}>
           {/* Header */}
-          <div className="calendar-header" style={{ '--cols': Math.max(1, filteredProfs.length) } as React.CSSProperties}>
+          <div className="calendar-header" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>
             <div className="calendar-header-cell" style={{ width: 60 }}>Hora</div>
-            {filteredProfs.length > 0
-              ? filteredProfs.map((p, i) => (
+            {displayedProfs.length > 0
+              ? displayedProfs.map((p, i) => (
                   <div key={i} className="calendar-header-cell">{p.user?.name || 'Profissional'}</div>
                 ))
               : <div className="calendar-header-cell">Nenhum profissional{profSearch ? ' encontrado' : ' cadastrado'}</div>}
@@ -175,17 +196,17 @@ export default function AgendaPage() {
           {/* Time rows */}
           <div className="calendar-body" style={{ position: 'relative' }}>
             {timeSlots.map((time, ri) => (
-              <div key={ri} className="calendar-row" style={{ '--cols': Math.max(1, filteredProfs.length) } as React.CSSProperties}>
+              <div key={ri} className="calendar-row" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>
                 <div className="calendar-time-label">{time}</div>
-                {filteredProfs.map((_, ci) => (
-                  <div key={ci} className="calendar-cell" />
+                {displayedProfs.map((p, ci) => (
+                  <div key={ci} className="calendar-cell" onClick={() => handleCellClick(p.id, time)} />
                 ))}
               </div>
             ))}
 
             {/* Appointment blocks */}
             {dayAppts.map((appt, ai) => {
-              const profIndex = filteredProfs.findIndex(p => p.id === appt.professionalId)
+              const profIndex = displayedProfs.findIndex(p => p.id === appt.professionalId)
               if (profIndex === -1) return null
 
               const startDate = new Date(appt.startTime)
@@ -210,8 +231,8 @@ export default function AgendaPage() {
                   style={{
                     top: slotIndex * 48 + 2,
                     height: Math.max(1, durationSlots) * 48 - 4,
-                    left: `calc(60px + ${profIndex} * ((100% - 60px) / ${filteredProfs.length}) + 2px)`,
-                    width: `calc((100% - 60px) / ${filteredProfs.length} - 4px)`,
+                    left: `calc(60px + ${profIndex} * ((100% - 60px) / ${displayedProfs.length}) + 2px)`,
+                    width: `calc((100% - 60px) / ${displayedProfs.length} - 4px)`,
                   }}
                   onClick={() => setSelectedAppointment(appt)}
                 >
@@ -225,7 +246,7 @@ export default function AgendaPage() {
 
         {/* Detail Drawer */}
         {selectedAppointment && (
-          <div style={{ width: 320, borderLeft: '1px solid var(--color-border-default)', padding: 'var(--space-6)', background: 'var(--color-bg-primary)', animation: 'slideInRight 250ms ease' }}>
+          <div className="appointment-drawer">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}>Detalhes</h3>
               <button className="modal-close" onClick={() => { setSelectedAppointment(null); setShowCancelConfirm(false) }}>
@@ -235,31 +256,38 @@ export default function AgendaPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Paciente</span>
-                <p style={{ fontWeight: 500 }}>{selectedAppointment.patient?.user?.name || selectedAppointment.patient?.name || '—'}</p>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Paciente</span>
+                <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{selectedAppointment.patient?.user?.name || selectedAppointment.patient?.name || '—'}</p>
               </div>
               <div>
-                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Serviço</span>
-                <p style={{ fontWeight: 500 }}>{selectedAppointment.service?.name || '—'}</p>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Serviço</span>
+                <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{selectedAppointment.service?.name || '—'}</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Horário</span>
+                  <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                    {new Date(selectedAppointment.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
+                  <span className={`badge badge-${selectedAppointment.status === 'CONFIRMED' ? 'emerald' : selectedAppointment.status === 'SCHEDULED' ? 'gold' : selectedAppointment.status === 'CANCELLED' ? 'danger' : 'muted'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
+                    {STATUS_LABEL[selectedAppointment.status] || selectedAppointment.status}
+                  </span>
+                </div>
               </div>
               <div>
-                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Horário</span>
-                <p style={{ fontWeight: 500 }}>
-                  {new Date(selectedAppointment.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  {' — '}
-                  {new Date(selectedAppointment.endTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profissional</span>
+                <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{selectedAppointment.professional?.user?.name || '—'}</p>
               </div>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Status</span>
-                <span className={`badge badge-${selectedAppointment.status === 'CONFIRMED' ? 'emerald' : selectedAppointment.status === 'SCHEDULED' ? 'gold' : selectedAppointment.status === 'CANCELLED' ? 'danger' : 'muted'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
-                  {STATUS_LABEL[selectedAppointment.status] || selectedAppointment.status}
-                </span>
-              </div>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Profissional</span>
-                <p style={{ fontWeight: 500 }}>{selectedAppointment.professional?.user?.name || '—'}</p>
-              </div>
+
+              {selectedAppointment.notes && (
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notas</span>
+                  <p style={{ fontSize: 13, background: 'var(--color-bg-secondary)', padding: '8px 12px', borderRadius: 8, marginTop: 4 }}>{selectedAppointment.notes}</p>
+                </div>
+              )}
 
               <hr className="divider" />
 
@@ -279,23 +307,23 @@ export default function AgendaPage() {
               {selectedAppointment.status !== 'CANCELLED' && (
                 <>
                   {showCancelConfirm ? (
-                    <div>
+                    <div style={{ background: 'rgba(var(--color-danger-rgb), 0.05)', padding: 12, borderRadius: 12, border: '1px solid var(--color-accent-danger)' }}>
                       <input
                         className="input-field"
                         placeholder="Motivo (opcional)"
                         value={cancelReason}
                         onChange={e => setCancelReason(e.target.value)}
-                        style={{ marginBottom: 8 }}
+                        style={{ marginBottom: 8, fontSize: 13 }}
                       />
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setShowCancelConfirm(false)}>Voltar</button>
-                        <button className="btn btn-sm" style={{ background: 'var(--color-accent-danger)', color: '#fff' }} onClick={handleCancel} disabled={cancelAppointment.isPending}>
-                          Confirmar Cancelamento
+                        <button className="btn btn-ghost btn-sm" onClick={() => setShowCancelConfirm(false)} style={{ flex: 1 }}>Voltar</button>
+                        <button className="btn btn-sm btn-danger" style={{ flex: 1.5 }} onClick={handleCancel} disabled={cancelAppointment.isPending}>
+                          Confirmar
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-accent-danger)' }} onClick={() => setShowCancelConfirm(true)}>
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-accent-danger)', marginTop: 8 }} onClick={() => setShowCancelConfirm(true)}>
                       <XCircle size={14} /> Cancelar Agendamento
                     </button>
                   )}
@@ -321,7 +349,7 @@ export default function AgendaPage() {
                   <select className="input-field" value={newForm.patientId} onChange={e => setNewForm({ ...newForm, patientId: e.target.value })}>
                     <option value="">Selecione...</option>
                     {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.user?.name || p.name || p.id}</option>
+                      <option key={p.id} value={p.id}>{p.user?.name || p.id}</option>
                     ))}
                   </select>
                 </div>
@@ -363,6 +391,19 @@ export default function AgendaPage() {
                 <div className="input-group full-span">
                   <label className="input-label">Observações</label>
                   <textarea className="input-field" value={newForm.notes} onChange={e => setNewForm({ ...newForm, notes: e.target.value })} style={{ minHeight: 60 }} />
+                </div>
+
+                <div className="input-group full-span" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                  <input
+                    type="checkbox"
+                    id="recurring"
+                    checked={isRecurring}
+                    onChange={e => setIsRecurring(e.target.checked)}
+                    style={{ width: 18, height: 18, accentColor: 'var(--color-accent-emerald)', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="recurring" style={{ fontSize: 14, fontWeight: 500, cursor: 'pointer', userSelect: 'none' }}>
+                    Agendamento Recorrente (Repetir semanalmente por 90 dias)
+                  </label>
                 </div>
               </div>
               {formError && <p style={{ color: 'var(--color-accent-danger)', fontSize: 13, marginTop: 8 }}>{formError}</p>}

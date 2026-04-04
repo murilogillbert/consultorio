@@ -16,8 +16,24 @@ export interface Clinic {
   linkedin?: string
   tiktok?: string
   whatsapp?: string
+  mission?: string
+  vision?: string
+  values?: string
+  milestones?: { year: string; title: string; description: string }[]
+  galleryUrls?: string[]
+  themeColors?: Record<string, string>
   createdAt: string
   updatedAt: string
+}
+
+export function usePublicClinic() {
+  return useQuery({
+    queryKey: ['clinics', 'public'],
+    queryFn: async () => {
+      const { data } = await api.get<Clinic[]>('/clinics')
+      return data[0] // Return the first clinic as the "public" profile
+    }
+  })
 }
 
 export function useClinics() {

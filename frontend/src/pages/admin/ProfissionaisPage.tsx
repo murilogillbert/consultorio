@@ -1,6 +1,7 @@
-import { useState, Fragment } from 'react'
+import { useState, useRef, Fragment } from 'react'
 import { Search, Plus, Edit, Power, Camera, X } from 'lucide-react'
 import { useProfessionals, useCreateProfessional, useUpdateProfessional } from '../../hooks/useProfessionals'
+import { useUpload } from '../../hooks/useUpload'
 import { useRooms } from '../../hooks/useRooms'
 import { useInsurances } from '../../hooks/useInsurances'
 import { useSystemUsers } from '../../hooks/useUsers'
@@ -26,6 +27,9 @@ export default function ProfissionaisPage() {
     insuranceIds: [] as string[]
   })
   const [formError, setFormError] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const { uploadFile, uploading } = useUpload()
 
   const { data: professionals = [], isLoading } = useProfessionals()
   const { data: rooms = [] } = useRooms()
@@ -126,6 +130,7 @@ export default function ProfissionaisPage() {
       })
     }
     setScheduleSlots(newScheduleSlots)
+    setAvatarPreview(pro.user?.avatarUrl || null)
     setShowForm(true)
   }
 
@@ -155,7 +160,7 @@ export default function ProfissionaisPage() {
                 />
               </div>
             </div>
-            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomId: '', insuranceIds: [] }); setShowForm(true); }}>
+            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomId: '', insuranceIds: [] }); setAvatarPreview(null); setShowForm(true); }}>
               <Plus size={16} /> Novo Profissional
             </button>
           </div>
@@ -184,7 +189,11 @@ export default function ProfissionaisPage() {
                       <tr key={pro.id}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div className="avatar avatar-sm avatar-placeholder">{initials}</div>
+                            <div className="avatar avatar-sm avatar-placeholder" style={{ overflow: 'hidden' }}>
+                              {pro.user?.avatarUrl ? (
+                                <img src={pro.user.avatarUrl} alt={name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                              ) : initials}
+                            </div>
                             <span style={{ fontWeight: 500 }}>{name}</span>
                           </div>
                         </td>
@@ -226,10 +235,35 @@ export default function ProfissionaisPage() {
           <div className="card">
             {/* Photo */}
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-              <div className="avatar avatar-xl avatar-placeholder" style={{ margin: '0 auto var(--space-3)', cursor: 'pointer', position: 'relative' }}>
-                <Camera size={32} />
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const result = await uploadFile(file)
+                    setAvatarPreview(result.fileUrl)
+                    if (editingId) {
+                      await updateMutation.mutateAsync({ id: editingId, avatarUrl: result.fileUrl })
+                    }
+                  } catch { /* handled by uploading state */ }
+                }}
+              />
+              <div
+                className="avatar avatar-xl avatar-placeholder"
+                style={{ margin: '0 auto var(--space-3)', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <Camera size={32} />
+                )}
               </div>
-              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Clique para upload da foto</p>
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{uploading ? 'Enviando...' : 'Clique para upload da foto'}</p>
             </div>
 
             <div className="form-2col">

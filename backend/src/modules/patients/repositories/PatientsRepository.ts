@@ -49,11 +49,36 @@ export class PatientsRepository extends BaseRepository<Patient, Prisma.PatientCr
       orderBy: { user: { name: 'asc' } }
     })
   }
+  
+  async findByUserEmail(email: string): Promise<Patient | null> {
+    return prisma.patient.findFirst({
+      where: { user: { email } },
+      include: { user: true }
+    })
+  }
+
+  async updateOtp(userId: string, otpCode: string, otpExpiresAt: Date): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { otpCode, otpExpiresAt }
+    })
+  }
 }
 
 export class AppointmentsRepository extends BaseRepository<Appointment, Prisma.AppointmentCreateInput, Prisma.AppointmentUpdateInput> {
   constructor() {
     super(prisma.appointment)
+  }
+
+  async findById(id: string): Promise<Appointment | null> {
+    return prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        patient: { include: { user: true } },
+        professional: { include: { user: true } },
+        service: true,
+      }
+    }) as any
   }
 
   async findInRange(start: Date, end: Date): Promise<Appointment[]> {

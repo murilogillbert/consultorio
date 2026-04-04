@@ -17,6 +17,8 @@ export default function PatientsPage() {
   const updatePatient = useUpdatePatient()
 
   const [formData, setFormData] = useState({
+    name: '',
+    email: '',
     userId: '',
     cpf: '',
     phone: '',
@@ -28,6 +30,8 @@ export default function PatientsPage() {
   const handleEdit = (patient: any) => {
     setEditingPatient(patient)
     setFormData({
+      name: patient.user?.name || '',
+      email: patient.user?.email || '',
       userId: patient.userId,
       cpf: patient.cpf || '',
       phone: patient.phone || '',
@@ -42,13 +46,13 @@ export default function PatientsPage() {
     e.preventDefault()
     try {
       if (editingPatient) {
-        await updatePatient.mutateAsync({ id: editingPatient.id, ...formData })
+        await updatePatient.mutateAsync({ id: editingPatient.id, cpf: formData.cpf, phone: formData.phone, birthDate: formData.birthDate, address: formData.address, notes: formData.notes })
       } else {
-        await createPatient.mutateAsync(formData)
+        await createPatient.mutateAsync({ name: formData.name, email: formData.email, cpf: formData.cpf, phone: formData.phone, birthDate: formData.birthDate, address: formData.address, notes: formData.notes })
       }
       setShowModal(false)
       setEditingPatient(null)
-      setFormData({ userId: '', cpf: '', phone: '', birthDate: '', address: '', notes: '' })
+      setFormData({ name: '', email: '', userId: '', cpf: '', phone: '', birthDate: '', address: '', notes: '' })
     } catch (err) {
       alert('Erro ao salvar paciente.')
     }
@@ -144,15 +148,16 @@ export default function PatientsPage() {
             <form onSubmit={handleSave}>
               <div className="form-2col" style={{ marginBottom: 'var(--space-4)' }}>
                 {!editingPatient && (
-                  <div className="input-group full-span">
-                    <label className="input-label">Vincular a Usuário Existente (Opcional)</label>
-                    <select className="input-field" value={formData.userId} onChange={e => setFormData({ ...formData, userId: e.target.value })}>
-                      <option value="">Selecione um usuário...</option>
-                      {systemUsers.map((su: any) => (
-                        <option key={su.user.id} value={su.user.id}>{su.user.name} ({su.user.email})</option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div className="input-group">
+                      <label className="input-label">Nome Completo <span className="required">*</span></label>
+                      <input className="input-field" placeholder="Nome do paciente" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">E-mail <span className="required">*</span></label>
+                      <input className="input-field" type="email" placeholder="email@exemplo.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    </div>
+                  </>
                 )}
                 <div className="input-group">
                   <label className="input-label">CPF</label>

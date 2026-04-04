@@ -14,12 +14,18 @@ import insuranceRoutes from './insuranceRoutes'
 import messagingRoutes from './messagingRoutes'
 import metricsRoutes from './metricsRoutes'
 import announcementsRoutes from './announcementsRoutes'
+import hrRoutes from './hrRoutes'
+import uploadRoutes from './uploadRoutes'
+import bannerRoutes from './bannerRoutes'
+import whatsappRoutes from './whatsappRoutes'
 
 const r = Router()
 
 // Public routes (no auth)
 r.use('/auth', authRoutes)
 r.use('/public', publicRoutes)
+r.use('/banners/public', bannerRoutes) // Allow public access to banners
+r.use('/webhooks', whatsappRoutes)
 
 // Protected / Main Routes
 r.use('/users', usersRoutes)
@@ -35,5 +41,8 @@ r.use('/insurances', insuranceRoutes)
 r.use('/messaging', messagingRoutes)
 r.use('/metrics', metricsRoutes)
 r.use('/announcements', announcementsRoutes)
+r.use('/hr', hrRoutes)
+r.use('/banners', bannerRoutes)
+r.use('/uploads', uploadRoutes)
 
 export default r

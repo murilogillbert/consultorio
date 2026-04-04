@@ -9,29 +9,8 @@ import {
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'
 
-const slides = [
-  {
-    title: 'Cuidado Médico de Excelência',
-    subtitle: 'Tecnologia de ponta aliada a um atendimento humanizado para você e sua família.',
-    cta: 'Agendar Consulta',
-    ctaLink: '/agendar',
-    gradient: 'linear-gradient(135deg, #2D6A4F 0%, #1A1A1A 100%)',
-  },
-  {
-    title: 'Check-Up Completo',
-    subtitle: 'Pacotes especiais de check-up com acompanhamento personalizado e resultados rápidos.',
-    cta: 'Saiba Mais',
-    ctaLink: '/servicos',
-    gradient: 'linear-gradient(135deg, #C9A84C 0%, #2D6A4F 100%)',
-  },
-  {
-    title: 'Equipe Multidisciplinar',
-    subtitle: 'Mais de 30 especialidades médicas reunidas em um só lugar para seu completo bem-estar.',
-    cta: 'Conheça a Equipe',
-    ctaLink: '/profissionais',
-    gradient: 'linear-gradient(135deg, #1A1A1A 0%, #2D6A4F 80%)',
-  },
-]
+import { usePublicClinic } from '../../hooks/useClinics'
+import { useBanners } from '../../hooks/useBanners'
 
 const serviceIcons = [Stethoscope, Heart, Brain, Eye, Bone, Baby]
 
@@ -53,59 +32,94 @@ function formatPrice(cents: number): string {
 export default function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [activeCategory, setActiveCategory] = useState('Todos')
+  const { data: clinic } = usePublicClinic()
+  const { data: banners = [], isLoading: loadingBanners } = useBanners(clinic?.id)
   const { data: services = [], isLoading: loadingServices } = useServices()
   const { data: professionals = [], isLoading: loadingProfessionals } = useProfessionals()
 
   const nextSlide = useCallback(() => {
-    setCurrentSlide(prev => (prev + 1) % slides.length)
-  }, [])
+    if (banners.length === 0) return
+    setCurrentSlide(prev => (prev + 1) % banners.length)
+  }, [banners.length])
 
   const prevSlide = () => {
-    setCurrentSlide(prev => (prev - 1 + slides.length) % slides.length)
+    if (banners.length === 0) return
+    setCurrentSlide(prev => (prev - 1 + banners.length) % banners.length)
   }
 
   useEffect(() => {
-    const interval = setInterval(nextSlide, 5000)
-    return () => clearInterval(interval)
-  }, [nextSlide])
+    if (banners.length > 1) {
+      const interval = setInterval(nextSlide, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [nextSlide, banners.length])
 
   const filteredServices = activeCategory === 'Todos'
     ? services
     : services.filter(s => s.category === activeCategory)
 
+  // Default slide if no banners exist
+  const displayBanners = banners.length > 0 ? banners : [
+    {
+      id: 'default',
+      title: 'Cuidado Médico de Excelência',
+      subtitle: 'Tecnologia de ponta aliada a um atendimento humanizado para você e sua família.',
+      ctaLabel: 'Agendar Consulta',
+      ctaUrl: '/agendar',
+      imageUrl: 'linear-gradient(135deg, #2D6A4F 0%, #1A1A1A 100%)', // Using gradient as fallback
+    }
+  ]
+
   return (
     <>
       {/* Hero Slider */}
       <section className="hero-slider">
-        {slides.map((slide, i) => (
-          <div key={i} className={`hero-slide${i === currentSlide ? ' active' : ''}`}>
-            <div className="hero-slide-bg" style={{ background: slide.gradient }} />
+        {loadingBanners ? (
+          <div className="hero-slide active">
+            <div className="hero-slide-bg" style={{ background: 'var(--color-bg-secondary)' }} />
+            <div className="hero-slide-content"><h1>Carregando...</h1></div>
+          </div>
+        ) : displayBanners.map((slide, i) => (
+          <div key={slide.id} className={`hero-slide${i === currentSlide ? ' active' : ''}`}>
+            <div 
+              className="hero-slide-bg" 
+              style={{ 
+                background: slide.imageUrl?.startsWith('linear-gradient') ? slide.imageUrl : `url(${slide.imageUrl}) center/cover no-repeat`,
+                backgroundColor: slide.imageUrl?.startsWith('http') ? 'transparent' : 'var(--color-primary-dark)'
+              }} 
+            />
             <div className="hero-slide-overlay" />
             <div className="hero-slide-content">
               <h1>{slide.title}</h1>
               <p>{slide.subtitle}</p>
-              <Link to={slide.ctaLink} className="btn btn-primary btn-lg">
-                {slide.cta}
-              </Link>
+              {slide.ctaUrl && (
+                <Link to={slide.ctaUrl} className="btn btn-primary btn-lg">
+                  {slide.ctaLabel || 'Saiba Mais'}
+                </Link>
+              )}
             </div>
           </div>
         ))}
-        <button className="hero-arrow hero-arrow-left" onClick={prevSlide} aria-label="Anterior">
-          <ChevronLeft size={20} />
-        </button>
-        <button className="hero-arrow hero-arrow-right" onClick={nextSlide} aria-label="Próximo">
-          <ChevronRight size={20} />
-        </button>
-        <div className="hero-dots">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              className={`hero-dot${i === currentSlide ? ' active' : ''}`}
-              onClick={() => setCurrentSlide(i)}
-              aria-label={`Slide ${i + 1}`}
-            />
-          ))}
-        </div>
+        {banners.length > 1 && (
+          <>
+            <button className="hero-arrow hero-arrow-left" onClick={prevSlide} aria-label="Anterior">
+              <ChevronLeft size={20} />
+            </button>
+            <button className="hero-arrow hero-arrow-right" onClick={nextSlide} aria-label="Próximo">
+              <ChevronRight size={20} />
+            </button>
+            <div className="hero-dots">
+              {banners.map((_, i) => (
+                <button
+                  key={i}
+                  className={`hero-dot${i === currentSlide ? ' active' : ''}`}
+                  onClick={() => setCurrentSlide(i)}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {/* Services */}
@@ -265,8 +279,8 @@ export default function HomePage() {
             <div className="map-info">
               <h3>Nossa Localização</h3>
               <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-6)' }}>
-                Rua da Saúde, 1234 — Jardim Paulista<br />
-                São Paulo, SP — CEP 01310-100
+                {clinic?.address || 'Carregando endereço...'}<br />
+                São Paulo, SP
               </p>
               <table className="hours-table">
                 <tbody>
@@ -276,7 +290,7 @@ export default function HomePage() {
                 </tbody>
               </table>
               <a
-                href="https://maps.google.com"
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clinic?.address || '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-secondary"
@@ -296,8 +310,8 @@ export default function HomePage() {
             <div className="contact-item">
               <Phone size={28} />
               <h4>Telefone</h4>
-              <p>(11) 99999-9999</p>
-              <a href="tel:+5511999999999" className="btn btn-secondary" style={{ borderColor: 'var(--color-accent-gold)', color: 'var(--color-accent-gold)' }}>
+              <p>{clinic?.phone || '(11) 99999-9999'}</p>
+              <a href={`tel:${clinic?.phone?.replace(/\D/g, '')}`} className="btn btn-secondary" style={{ borderColor: 'var(--color-accent-gold)', color: 'var(--color-accent-gold)' }}>
                 Ligar Agora
               </a>
             </div>
@@ -306,7 +320,7 @@ export default function HomePage() {
               <h4>WhatsApp</h4>
               <p>Atendimento rápido</p>
               <a
-                href="https://wa.me/5511999999999?text=Olá, gostaria de agendar uma consulta"
+                href={`https://wa.me/${clinic?.whatsapp?.replace(/\D/g, '') || '5511999999999'}?text=Olá, gostaria de agendar uma consulta`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-primary"
@@ -319,10 +333,10 @@ export default function HomePage() {
               <h4>Redes Sociais</h4>
               <p>Siga nossas novidades</p>
               <div className="social-icons">
-                <a href="#" className="social-icon" title="Instagram"><Camera size={18} /></a>
-                <a href="#" className="social-icon" title="Facebook"><Globe size={18} /></a>
-                <a href="#" className="social-icon" title="YouTube"><Video size={18} /></a>
-                <a href="#" className="social-icon" title="LinkedIn"><Share2 size={18} /></a>
+                {clinic?.instagram && <a href={clinic.instagram} className="social-icon" title="Instagram"><Camera size={18} /></a>}
+                {clinic?.facebook && <a href={clinic.facebook} className="social-icon" title="Facebook"><Globe size={18} /></a>}
+                {clinic?.youtube && <a href={clinic.youtube} className="social-icon" title="YouTube"><Video size={18} /></a>}
+                {clinic?.linkedin && <a href={clinic.linkedin} className="social-icon" title="LinkedIn"><Share2 size={18} /></a>}
               </div>
             </div>
           </div>

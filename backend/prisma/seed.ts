@@ -19,7 +19,21 @@ async function main() {
       address: 'Av. Paulista, 1000 - São Paulo, SP',
       email: 'contato@clinicavitalis.com.br',
       phone: '(11) 99999-9999',
-      description: 'Cuidando da sua saúde com excelência.',
+      description: 'Mais de 20 anos cuidando da saúde de milhares de famílias com excelência, dedicação e tecnologia de ponta.',
+      mission: 'Proporcionar saúde e bem-estar com atendimento humanizado, ético e baseado em evidências científicas.',
+      vision: 'Ser referência nacional em excelência médica, inovação e experiência do paciente até 2030.',
+      values: 'Ética, empatia, excelência, inovação contínua e compromisso com o bem-estar de cada paciente.',
+      milestones: [
+        { year: '2004', title: 'Fundação', description: 'Inauguração da primeira unidade no Jardim Paulista.' },
+        { year: '2008', title: 'Expansão', description: 'Ampliação para 10 especialidades.' },
+        { year: '2013', title: 'Certificação ISO', description: 'Obtenção da certificação ISO 9001.' },
+        { year: '2024', title: 'Telemedicina', description: 'Lançamento da plataforma digital.' },
+      ],
+      galleryUrls: [
+        'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=2653&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=2670&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1538108197022-77983637651a?q=80&w=2641&auto=format&fit=crop'
+      ],
       integrationSettings: {
         create: {
           gmailConnected: false,
@@ -29,6 +43,32 @@ async function main() {
         },
       },
     },
+  })
+
+  // 1b. Cria Banners Iniciais
+  await prisma.sliderBanner.createMany({
+    data: [
+      {
+        clinicId: mainClinic.id,
+        title: 'Cuidado Médico de Excelência',
+        subtitle: 'Tecnologia de ponta aliada a um atendimento humanizado para você e sua família.',
+        imageUrl: 'https://images.unsplash.com/photo-1631217818242-27497086816e?q=80&w=2670&auto=format&fit=crop',
+        ctaLabel: 'Agendar Consulta',
+        ctaUrl: '/agendar',
+        order: 0,
+        active: true
+      },
+      {
+        clinicId: mainClinic.id,
+        title: 'Equipe Multidisciplinar',
+        subtitle: 'Mais de 30 especialidades médicas reunidas em um só lugar para seu completo bem-estar.',
+        imageUrl: 'https://images.unsplash.com/photo-1576091160550-217359f4ecf8?q=80&w=2670&auto=format&fit=crop',
+        ctaLabel: 'Conheça a Equipe',
+        ctaUrl: '/profissionais',
+        order: 1,
+        active: true
+      }
+    ]
   })
 
   // 2. Cria Usuário Admin

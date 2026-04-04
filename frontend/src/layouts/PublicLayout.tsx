@@ -3,7 +3,10 @@ import { Outlet, Link, NavLink } from 'react-router-dom'
 import { Menu, X, MessageCircle, Phone, ExternalLink } from 'lucide-react'
 import { useClinics } from '../hooks/useClinics'
 
-function ClinicLogo() {
+function ClinicLogo({ logoUrl }: { logoUrl?: string | null }) {
+  if (logoUrl) {
+    return <img src={logoUrl} alt="Logo" style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'contain' }} />
+  }
   return (
     <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
       <rect width="40" height="40" rx="10" fill="#2D6A4F" />
@@ -31,6 +34,7 @@ export default function PublicLayout() {
     { to: '/', label: 'Home' },
     { to: '/servicos', label: 'Serviços' },
     { to: '/profissionais', label: 'Equipe Médica' },
+    { to: '/minhas-consultas', label: 'Minhas Consultas' },
     { to: '/sobre', label: 'Sobre' },
     { to: '/trabalhe-conosco', label: 'Trabalhe Conosco' },
   ]
@@ -41,7 +45,7 @@ export default function PublicLayout() {
       <nav className={`public-navbar${scrolled ? ' scrolled' : ''}`}>
         <div className="container">
           <Link to="/" className="navbar-logo">
-            <ClinicLogo />
+            <ClinicLogo logoUrl={clinic?.logoUrl} />
             <span>{clinicName}</span>
           </Link>
           
@@ -113,7 +117,7 @@ export default function PublicLayout() {
           <div className="footer-grid">
             <div className="footer-col">
               <div className="footer-description">
-                <ClinicLogo />
+                <ClinicLogo logoUrl={clinic?.logoUrl} />
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{clinicName}</span>
               </div>
               <p>

@@ -1,4 +1,3 @@
-import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
@@ -78,9 +77,10 @@ export interface PatientAppointment {
 export function usePatientAppointments() {
   const token = getPatientToken()
   return useQuery({
-    queryKey: ['patientAppointments', token],
+    queryKey: ['patientAppointments'],
     queryFn: () => patientApi().get<PatientAppointment[]>('/public/patient/appointments'),
     enabled: !!token,
+    staleTime: 0,
   })
 }
 
@@ -97,21 +97,21 @@ export interface PatientConversation {
 export function usePatientConversation() {
   const token = getPatientToken()
   return useQuery({
-    queryKey: ['patientConversation', token],
+    queryKey: ['patientConversation'],
     queryFn: () => patientApi().get<PatientConversation>('/public/patient/conversation'),
     enabled: !!token,
     refetchInterval: 8000,
+    staleTime: 0,
   })
 }
 
 export function useSendPatientMessage() {
   const qc = useQueryClient()
-  const token = getPatientToken()
   return useMutation({
     mutationFn: (content: string) =>
       patientApi().post('/public/patient/conversation/message', { content }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['patientConversation', token] })
+      qc.invalidateQueries({ queryKey: ['patientConversation'] })
     },
   })
 }

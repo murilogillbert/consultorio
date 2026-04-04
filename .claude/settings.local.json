@@ -15,7 +15,16 @@
       "Bash(echo \"exit:$?\")",
       "Bash(taskkill /F /IM \"node.exe\" /T)",
       "Bash(npx tsc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(grep -r \"JobOpening\\\\|JobCandidacy\\\\|SliderBanner\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src' --include=*.ts -l)",
+      "Bash(grep -r \"banner\\\\|slider\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src' --include=*.ts -i -l)",
+      "Bash(find backend/src/routes -name \"*.ts\" -exec wc -l {})",
+      "Bash(grep -r \"avatarUrl\\\\|logoUrl\\\\|imageUrl\\\\|fileUrl\\\\|resumeUrl\\\\|galleryUrls\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src' --include=*.ts)",
+      "Bash(grep -rn \"storageConfig\\\\|multer\\\\|upload\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src' --include=*.ts)",
+      "Bash(grep -rn \"static\\\\|serve\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src' --include=*.ts)",
+      "Bash(grep -r \"upload\\\\|Upload\\\\|FormData\\\\|logoUrl\\\\|avatarUrl\\\\|imageUrl\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src' --include=*.ts --include=*.tsx --include=*.js --include=*.jsx)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(grep -n \"r\\\\.post\\\\|r\\\\.put\\\\|r\\\\.patch\" \"/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src/routes\"/*.ts)"
     ]
   }
 }

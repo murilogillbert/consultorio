@@ -76,20 +76,20 @@ export default function ComboBox({
         <div className="combobox-values">
           {multiple && Array.isArray(value) && value.length > 0 ? (
             <div className="combobox-tags">
-              {selectedLabels && Array.isArray(selectedLabels) && selectedLabels.map(opt => (
+              {(selectedLabels as Option[]).map(opt => (
                 <span key={opt.value} className="combobox-tag">
                   {opt.label}
-                  <button onClick={(e) => { e.stopPropagation(); removeValue(opt.value); }}>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); removeValue(opt.value); }}>
                     <X size={12} />
                   </button>
                 </span>
               ))}
             </div>
           ) : (
-            <span className={!value || (Array.isArray(value) && value.length === 0) ? 'placeholder' : ''}>
-              {multiple 
-                ? (Array.isArray(value) && value.length > 0 ? `${value.length} selecionados` : placeholder)
-                : (selectedLabels && !Array.isArray(selectedLabels) ? selectedLabels.label : placeholder)
+            <span className={(!value || (Array.isArray(value) && value.length === 0)) ? 'placeholder' : ''}>
+              {(selectedLabels && !Array.isArray(selectedLabels)) 
+                ? selectedLabels.label 
+                : placeholder
               }
             </span>
           )}

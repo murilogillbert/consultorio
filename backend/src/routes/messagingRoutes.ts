@@ -53,4 +53,11 @@ r.post('/conversations/:id/messages', ensureAuthenticated, async (req, res, next
   } catch (err) { next(err) }
 })
 
+r.patch('/conversations/:id/read', ensureAuthenticated, async (req, res, next) => {
+  try {
+    await internalChatService.markConversationAsRead(req.params.id)
+    res.status(200).json({ ok: true })
+  } catch (err) { next(err) }
+})
+
 export default r

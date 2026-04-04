@@ -60,4 +60,11 @@ export class InternalChatService {
     })
     return msg
   }
+
+  async markConversationAsRead(conversationId: string) {
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { unreadCount: 0 },
+    })
+  }
 }

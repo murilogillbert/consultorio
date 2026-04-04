@@ -11,7 +11,10 @@ interface InternalLayoutProps {
   environment: 'reception' | 'admin'
 }
 
-function ClinicLogoMini() {
+function ClinicLogoMini({ logoUrl }: { logoUrl?: string | null }) {
+  if (logoUrl) {
+    return <img src={logoUrl} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'contain' }} />
+  }
   return (
     <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
       <rect width="40" height="40" rx="10" fill="#2D6A4F" />
@@ -35,6 +38,7 @@ const adminLinks = [
   { section: 'GERENCIAR' },
   { to: '/admin/profissionais', icon: Users, label: 'Profissionais' },
   { to: '/admin/servicos', icon: Stethoscope, label: 'Serviços' },
+  { to: '/admin/recrutamento', icon: Users, label: 'Recrutamento' },
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
   { section: 'ANALYTICS' },
   { to: '/admin/metricas/profissionais', icon: BarChart3, label: 'Métr. Profissionais' },
@@ -69,7 +73,7 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <ClinicLogoMini />
+          <ClinicLogoMini logoUrl={clinic?.logoUrl} />
           <span>{clinic?.name || 'Vitalis'}</span>
         </div>
 

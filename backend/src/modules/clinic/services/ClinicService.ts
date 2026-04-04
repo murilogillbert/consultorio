@@ -16,7 +16,7 @@ export class ClinicService {
   }
 
   async executeList() {
-    return this.clinicRepository.list(false)
+    return this.clinicRepository.list()
   }
 
   async executeFindById(id: string) {

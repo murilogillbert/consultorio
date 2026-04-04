@@ -9,6 +9,7 @@ export interface Appointment {
   startTime: string
   endTime: string
   status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  notes?: string
   patient?: { name: string; user?: { name: string } }
   service?: { name: string }
   professional?: { user?: { name: string } }

@@ -3,7 +3,7 @@ import { Search, Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical,
 import { useAuth } from '../../contexts/AuthContext'
 import { useChannels } from '../../hooks/useChannels'
 import { useChannelMessages, useSendChannelMessage } from '../../hooks/useInternalMessages'
-import { useConversations, useConversationMessages, useSendConversationMessage } from '../../hooks/useConversations'
+import { useConversations, useConversationMessages, useSendConversationMessage, useMarkConversationRead } from '../../hooks/useConversations'
 
 const channelIcon = (ch: string) => {
   if (ch === 'whatsapp' || ch === 'WHATSAPP') return <WhatsAppIcon size={14} color="var(--color-accent-emerald)" />
@@ -34,6 +34,7 @@ export default function MensagensPage() {
   const { data: conversations = [], isLoading: loadingConvos } = useConversations(clinicId)
   const { data: externalMessages = [], isLoading: loadingExtMsgs } = useConversationMessages(selectedConvoId)
   const sendExternal = useSendConversationMessage()
+  const markRead = useMarkConversationRead()
 
   // Auto-select first channel / conversation
   useEffect(() => {
@@ -124,7 +125,7 @@ export default function MensagensPage() {
                   <div
                     key={c.id}
                     className={`conversation-row${selectedConvoId === c.id ? ' active' : ''}`}
-                    onClick={() => setSelectedConvoId(c.id)}
+                    onClick={() => { setSelectedConvoId(c.id); if (c.unreadCount > 0) markRead.mutate(c.id) }}
                   >
                     <div className="avatar avatar-sm avatar-placeholder">{initials}</div>
                     <div className="conversation-info">

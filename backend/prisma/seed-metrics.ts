@@ -73,7 +73,48 @@ async function main() {
     })
   }
 
-  console.log('✅ Dados de métricas gerados!')
+  // 3. Garantir que o email murilogillbert@gmail.com exista para o teste sugerido
+  const testEmail = 'murilogillbert@gmail.com'
+  let testUser = await prisma.user.findUnique({ where: { email: testEmail } })
+  if (!testUser) {
+    testUser = await prisma.user.create({
+      data: {
+        name: 'Murilo Gilbert',
+        email: testEmail,
+        passwordHash: 'not-needed-for-otp',
+        role: 'PATIENT',
+        phone: '(11) 98888-7777'
+      }
+    })
+  }
+
+  let testPatient = await prisma.patient.findUnique({ where: { userId: testUser.id } })
+  if (!testPatient) {
+    testPatient = await prisma.patient.create({
+      data: {
+        userId: testUser.id,
+        cpf: '999.888.777-66',
+        phone: '(11) 98888-7777'
+      }
+    })
+  }
+
+  // Agendar uma consulta para o Murilo
+  await prisma.appointment.create({
+    data: {
+      patientId: testPatient.id,
+      professionalId: professionals[0].id,
+      serviceId: services[0].id,
+      roomId: rooms[0].id,
+      startTime: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 10, 0),
+      endTime: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 10, 30),
+      status: 'CONFIRMED',
+      source: 'Google Ads',
+      origin: 'ONLINE'
+    }
+  })
+
+  console.log('✅ Dados de métricas e usuário de teste gerados!')
 }
 
 main()

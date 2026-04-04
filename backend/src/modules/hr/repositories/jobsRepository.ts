@@ -7,9 +7,23 @@ export class JobOpeningRepository extends BaseRepository<JobOpening, Prisma.JobO
     super(prisma.jobOpening)
   }
 
+  async list(activeOnly = true): Promise<JobOpening[]> {
+    return prisma.jobOpening.findMany({
+      where: activeOnly ? { active: true } : {},
+      orderBy: { createdAt: 'desc' },
+      include: { candidacies: { select: { id: true } } }
+    })
+  }
+
   async listActive(): Promise<JobOpening[]> {
     return prisma.jobOpening.findMany({
-      where: { active: true, expiresAt: { gte: new Date() } },
+      where: {
+        active: true,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gte: new Date() } }
+        ]
+      },
       orderBy: { createdAt: 'desc' }
     })
   }

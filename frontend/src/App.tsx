@@ -24,6 +24,7 @@ import AdminMetricasServicos from './pages/admin/MetricasServicosPage'
 import AdminFaturamento from './pages/admin/FaturamentoPage'
 import AdminMarketing from './pages/admin/MarketingPage'
 import AdminMovimento from './pages/admin/MovimentoPage'
+import AdminRecrutamento from './pages/admin/RecrutamentoPage'
 import LoginPage from './pages/auth/LoginPage'
 
 export default function App() {
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/admin/faturamento" element={<AdminFaturamento />} />
           <Route path="/admin/marketing" element={<AdminMarketing />} />
           <Route path="/admin/movimento" element={<AdminMovimento />} />
+          <Route path="/admin/recrutamento" element={<AdminRecrutamento />} />
         </Route>
       </Route>
 

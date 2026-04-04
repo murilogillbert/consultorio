@@ -7,6 +7,12 @@ export class ClinicRepository extends BaseRepository<Clinic, Prisma.ClinicCreate
     super(prisma.clinic)
   }
 
+  async list(): Promise<Clinic[]> {
+    return prisma.clinic.findMany({
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
   async findWithDetails(id: string): Promise<Clinic | null> {
     return prisma.clinic.findUnique({
       where: { id },

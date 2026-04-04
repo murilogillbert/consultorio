@@ -25,7 +25,7 @@ export class ProfessionalsRepository extends BaseRepository<Professional, Prisma
   async listActive(): Promise<Professional[]> {
     return prisma.professional.findMany({
       where: { active: true },
-      include: { user: true },
+      include: { user: true, schedules: true, services: { include: { service: true } } },
       orderBy: { user: { name: 'asc' } }
     })
   }

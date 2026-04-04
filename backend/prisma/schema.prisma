@@ -51,6 +51,12 @@ model Clinic {
   linkedin            String?
   tiktok              String?
   whatsapp            String?
+  mission             String?
+  vision              String?
+  values              String?
+  milestones          Json?
+  galleryUrls         Json?
+  themeColors         Json?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   announcements       Announcement[]

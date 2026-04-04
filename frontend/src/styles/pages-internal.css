@@ -280,8 +280,12 @@
   cursor: pointer;
 }
 
+.calendar-cell {
+  cursor: pointer;
+}
+
 .calendar-cell:hover {
-  background: rgba(45,106,79,0.03);
+  background: rgba(45,106,79,0.06);
 }
 
 .appointment-block {
@@ -302,8 +306,18 @@
   z-index: 2;
 }
 
+.appointment-block.scheduled {
+  background: var(--color-accent-gold);
+  color: white;
+}
+
 .appointment-block.confirmed {
   background: var(--color-accent-emerald);
+  color: white;
+}
+
+.appointment-block.in_progress {
+  background: var(--color-accent-brand);
   color: white;
 }
 
@@ -312,6 +326,7 @@
   color: white;
 }
 
+.appointment-block.completed,
 .appointment-block.concluded {
   background: var(--color-text-muted);
   color: white;
@@ -333,6 +348,23 @@
 .appointment-block .service-name {
   font-size: 10px;
   opacity: 0.85;
+}
+
+/* ---- Appointment Drawer ---- */
+.appointment-drawer {
+  width: 340px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--color-border-default);
+  padding: var(--space-6);
+  background: var(--color-bg-primary);
+  animation: slideInRight 200ms ease;
+  overflow-y: auto;
+  max-height: calc(100vh - var(--topbar-height) - 80px);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 /* ---- Messages ---- */
@@ -456,6 +488,11 @@
   border-radius: var(--radius-md);
   font-size: var(--text-body);
   line-height: var(--leading-normal);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
+  min-width: 0;
 }
 
 .message-bubble.incoming {

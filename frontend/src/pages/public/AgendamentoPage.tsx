@@ -16,7 +16,14 @@ export default function AgendamentoPage() {
   const [bookingSuccess, setBookingSuccess] = useState(false)
 
   const { data: services = [], isLoading: loadingServices } = useServices()
-  const { data: professionals = [], isLoading: loadingProfessionals } = useProfessionals()
+  const { data: allProfessionals = [], isLoading: loadingProfessionals } = useProfessionals()
+
+  // Filter professionals by the selected service's linked professionals
+  const selectedService = services.find(s => s.id === formData.serviceId)
+  const linkedIds = selectedService?.professionals?.map(p => p.professional.id) ?? []
+  const professionals = linkedIds.length > 0
+    ? allProfessionals.filter(p => linkedIds.includes(p.id))
+    : allProfessionals
   const { data: availableSlots = [], isLoading: loadingSlots } = useAvailableSlots(
     formData.professionalId || undefined,
     formData.date || undefined,
@@ -28,7 +35,7 @@ export default function AgendamentoPage() {
     if (currentStep === 0) return formData.serviceId !== ''
     if (currentStep === 1) return formData.professionalId !== ''
     if (currentStep === 2) return formData.date !== '' && formData.time !== ''
-    if (currentStep === 3) return formData.name !== '' && formData.phone !== ''
+    if (currentStep === 3) return formData.name !== '' && formData.email !== ''
     return true
   }
 
@@ -79,7 +86,7 @@ export default function AgendamentoPage() {
                   transition: 'all 150ms ease'
                 }}>
                   <input type="radio" name="service" checked={formData.serviceId === s.id}
-                    onChange={() => setFormData({ ...formData, service: s.name, serviceId: s.id })}
+                    onChange={() => setFormData({ ...formData, service: s.name, serviceId: s.id, professional: '', professionalId: '' })}
                     style={{ accentColor: 'var(--color-accent-emerald)' }} />
                   <div style={{ flex: 1 }}>
                     <span style={{ fontWeight: 500 }}>{s.name}</span>
@@ -176,14 +183,14 @@ export default function AgendamentoPage() {
               </div>
               <div className="form-row">
                 <div className="input-group">
-                  <label className="input-label">Telefone <span className="required">*</span></label>
-                  <input className="input-field" placeholder="(11) 99999-9999" value={formData.phone}
-                    onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">E-mail</label>
+                  <label className="input-label">E-mail <span className="required">*</span></label>
                   <input className="input-field" type="email" placeholder="seu@email.com" value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Telefone</label>
+                  <input className="input-field" placeholder="(11) 99999-9999" value={formData.phone}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                 </div>
               </div>
               <div className="form-row full">

@@ -55,8 +55,15 @@ export class ProfessionalsService {
       throw new AppError('Profissional não encontrado', 404)
     }
 
-    const { schedules, ...updateData } = data
-    
+    const { schedules, avatarUrl, ...updateData } = data
+
+    if (avatarUrl !== undefined) {
+      await prisma.user.update({
+        where: { id: professional.userId },
+        data: { avatarUrl },
+      })
+    }
+
     const updated = await this.professionalsRepository.update(id, updateData)
 
     if (schedules && Array.isArray(schedules)) {

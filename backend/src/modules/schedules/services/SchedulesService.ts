@@ -32,7 +32,7 @@ export class SchedulesService {
   }
 
   async executeGetAvailableSlots(professionalId: string, date: string, serviceId: string): Promise<AvailableSlot[]> {
-    // 1. Get service duration
+    // 1. Get service duration and required equipment
     const service = await prisma.service.findUnique({ where: { id: serviceId } })
     if (!service) {
       throw new AppError('Serviço não encontrado', 404)
@@ -66,7 +66,45 @@ export class SchedulesService {
     // 4. Get blocks for that date
     const blocks = await this.blocksRepository.findByProfessionalInRange(professionalId, dayStart, dayEnd)
 
-    // 5. Generate available slots
+    // 5. Pre-fetch equipment requirements for this service
+    const serviceEquipments = await prisma.serviceEquipment.findMany({
+      where: { serviceId },
+      include: { equipment: true }
+    })
+
+    // 6. Pre-fetch all equipment usage for the day (for categories this service needs)
+    const requiredCategories = [...new Set(serviceEquipments.map(se => se.equipment.category))]
+    let dayEquipmentUsages: { equipmentId: string; category: string; startsAt: Date; endsAt: Date }[] = []
+    let equipmentCountsByCategory: Record<string, number> = {}
+
+    if (requiredCategories.length > 0) {
+      // Count available units per category
+      for (const cat of requiredCategories) {
+        const count = await prisma.equipment.count({
+          where: { category: cat, status: 'AVAILABLE' }
+        })
+        equipmentCountsByCategory[cat] = count
+      }
+
+      // Get all usage for these categories on this day
+      const usages = await prisma.equipmentUsage.findMany({
+        where: {
+          equipment: { category: { in: requiredCategories } },
+          status: { in: ['SCHEDULED', 'ACTIVE'] },
+          startsAt: { lt: dayEnd },
+          endsAt: { gt: dayStart }
+        },
+        include: { equipment: { select: { category: true } } }
+      })
+      dayEquipmentUsages = usages.map(u => ({
+        equipmentId: u.equipmentId,
+        category: u.equipment.category,
+        startsAt: u.startsAt,
+        endsAt: u.endsAt
+      }))
+    }
+
+    // 7. Generate available slots
     const availableSlots: AvailableSlot[] = []
 
     for (const schedule of daySchedule) {
@@ -103,7 +141,21 @@ export class SchedulesService {
           return slotStartDate < blockEnd && slotEndDate > blockStart
         })
 
-        if (!hasConflict && !hasBlock) {
+        // Check equipment availability for this slot
+        let hasEquipmentConflict = false
+        for (const cat of requiredCategories) {
+          const totalUnits = equipmentCountsByCategory[cat] || 0
+          const bookedInSlot = dayEquipmentUsages.filter(u =>
+            u.category === cat &&
+            slotStartDate < u.endsAt && slotEndDate > u.startsAt
+          ).length
+          if (bookedInSlot >= totalUnits) {
+            hasEquipmentConflict = true
+            break
+          }
+        }
+
+        if (!hasConflict && !hasBlock && !hasEquipmentConflict) {
           availableSlots.push({ startTime: slotStart, endTime: slotEnd })
         }
 

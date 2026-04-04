@@ -22,15 +22,15 @@ function signPatientToken(userId: string): string {
 /** Middleware leve para rotas de paciente autenticado */
 function requirePatient(req: Request, res: Response, next: NextFunction) {
   const auth = req.headers.authorization
-  if (!auth) throw new AppError('Token ausente', 401)
+  if (!auth) return next(new AppError('Token ausente', 401))
   const [, token] = auth.split(' ')
   try {
     const payload = verify(token, env.JWT_SECRET) as { sub: string; role: string }
-    if (payload.role !== 'PATIENT') throw new AppError('Acesso negado', 403)
+    if (payload.role !== 'PATIENT') return next(new AppError('Acesso negado', 403))
     req.user = { id: payload.sub, role: 'PATIENT' }
     next()
   } catch {
-    throw new AppError('Token inválido', 401)
+    next(new AppError('Token inválido', 401))
   }
 }
 
@@ -200,7 +200,7 @@ r.post('/book', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, cpf, phone, serviceId, professionalId, startTime, endTime, notes } = req.body
 
-    if (!name || !email || !cpf || !phone || !serviceId || !professionalId || !startTime || !endTime) {
+    if (!name || !email || !serviceId || !professionalId || !startTime || !endTime) {
       throw new AppError('Preencha todos os campos obrigatórios', 400)
     }
 
@@ -218,17 +218,19 @@ r.post('/book', async (req: Request, res: Response, next: NextFunction) => {
         const tempPassword = Math.random().toString(36).slice(-8)
         const passwordHash = await bcrypt.hash(tempPassword, 10)
         user = await tx.user.create({
-          data: { name, email, passwordHash, role: 'PATIENT', phone },
+          data: { name, email, passwordHash, role: 'PATIENT', ...(phone ? { phone } : {}) },
         })
       }
 
       // 2. Paciente
       let patient = await tx.patient.findUnique({ where: { userId: user.id } })
       if (!patient) {
-        const existingCpf = await tx.patient.findUnique({ where: { cpf } })
-        if (existingCpf) throw new AppError('CPF já cadastrado', 400)
+        if (cpf) {
+          const existingCpf = await tx.patient.findUnique({ where: { cpf } })
+          if (existingCpf) throw new AppError('CPF já cadastrado', 400)
+        }
         patient = await tx.patient.create({
-          data: { userId: user.id, cpf, phone },
+          data: { userId: user.id, ...(cpf ? { cpf } : {}), ...(phone ? { phone } : {}) },
         })
       }
 
