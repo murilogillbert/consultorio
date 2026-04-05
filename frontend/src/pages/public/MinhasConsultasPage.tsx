@@ -156,7 +156,7 @@ function OtpScreen({ email, onSuccess, onBack }: { email: string; onSuccess: () 
 
 function PatientDashboard({ onLogout }: { onLogout: () => void }) {
   const user = getPatientUser()
-  const { data: appointments = [], isLoading: loadingApps } = usePatientAppointments()
+  const { data: appointments = [] as PatientAppointment[], isLoading: loadingApps } = usePatientAppointments()
   const { data: convData, isLoading: loadingConv } = usePatientConversation()
   const sendMsg = useSendPatientMessage()
   const [message, setMessage] = useState('')

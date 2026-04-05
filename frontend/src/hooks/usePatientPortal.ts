@@ -76,9 +76,9 @@ export interface PatientAppointment {
 
 export function usePatientAppointments() {
   const token = getPatientToken()
-  return useQuery({
+  return useQuery<PatientAppointment[]>({
     queryKey: ['patientAppointments'],
-    queryFn: async () => { const { data } = await patientApi().get<PatientAppointment[]>('/public/patient/appointments'); return data },
+    queryFn: () => patientApi().get<PatientAppointment[]>('/public/patient/appointments'),
     enabled: !!token,
     staleTime: 0,
   })
