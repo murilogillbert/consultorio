@@ -24,7 +24,16 @@
       "Bash(grep -rn \"static\\\\|serve\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src' --include=*.ts)",
       "Bash(grep -r \"upload\\\\|Upload\\\\|FormData\\\\|logoUrl\\\\|avatarUrl\\\\|imageUrl\" '/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src' --include=*.ts --include=*.tsx --include=*.js --include=*.jsx)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
-      "Bash(grep -n \"r\\\\.post\\\\|r\\\\.put\\\\|r\\\\.patch\" \"/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src/routes\"/*.ts)"
+      "Bash(grep -n \"r\\\\.post\\\\|r\\\\.put\\\\|r\\\\.patch\" \"/c/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/backend/src/routes\"/*.ts)",
+      "Bash(robocopy \"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend\" \"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio-back\" /E /XD node_modules dist /XF dev.db *.log)",
+      "Bash(robocopy \"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend\" \"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio-back\" /E /XD node_modules dist /XF dev.db \"*.log\")",
+      "Bash(robocopy consultoriobackend:*)",
+      "Bash(__NEW_LINE_cb6ae4ca9e268adc__ SRC=\"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend\" DST=\"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio-back\" robocopy \"$SRC\" \"$DST\" /E /XD \"node_modules\" \"dist\" /XF \"dev.db\")",
+      "Bash(powershell -Command \":*)",
+      "Bash(powershell -File:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Ludimila\\\\copy_back.ps1\")",
+      "Bash(cmd /c \"for %i in \\(\"\"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend\"\"\\) do @echo %~si\")",
+      "Bash(powershell -Command \"[System.IO.Directory]::Exists\\(''C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend''\\)\")"
     ]
   }
 }

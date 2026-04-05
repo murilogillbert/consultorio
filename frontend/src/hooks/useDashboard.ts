@@ -21,12 +21,14 @@ export interface DashboardMetrics {
   }[]
 }
 
-export function useDashboardMetrics(clinicId?: string, period?: string) {
+export function useDashboardMetrics(clinicId?: string, period?: string, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ['dashboardMetrics', clinicId, period],
+    queryKey: ['dashboardMetrics', clinicId, period, startDate, endDate],
     queryFn: async () => {
       let url = `/metrics/dashboard?`
       if (clinicId) url += `clinicId=${clinicId}&`
+      if (startDate) url += `startDate=${startDate}&`
+      if (endDate) url += `endDate=${endDate}&`
       if (period) url += `period=${encodeURIComponent(period)}&`
       const { data } = await api.get<DashboardMetrics>(url)
       return data

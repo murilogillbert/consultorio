@@ -15,18 +15,21 @@ function periodToDates(startDate?: string, endDate?: string, period?: string) {
     const s = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     return { start: s, end: now }
   }
+  if (period === '30d' || period === '30 dias') {
+    const s = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    return { start: s, end: now }
+  }
   if (period === '3m' || period === '3 meses') {
-    const s = new Date(now.getFullYear(), now.getMonth() - 3, 1)
+    const s = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
     return { start: s, end: now }
   }
   if (period === '12m' || period === '12 meses') {
-    const s = new Date(now.getFullYear() - 1, now.getMonth(), 1)
+    const s = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
     return { start: s, end: now }
   }
-  // default: 30 dias / mês atual
-  const start = new Date(now.getFullYear(), now.getMonth(), 1)
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-  return { start, end }
+  // default: últimos 30 dias
+  const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  return { start, end: now }
 }
 
 export class MetricsController {

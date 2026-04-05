@@ -6,15 +6,12 @@ import { useAuth } from '../../contexts/AuthContext'
 const PERIOD_OPTS = ['Hoje', '7 dias', '30 dias', '3 meses', '12 meses'] as const
 type PeriodOpt = typeof PERIOD_OPTS[number]
 
-function periodToApiParam(p: PeriodOpt): string {
-  const map: Record<PeriodOpt, string> = {
-    'Hoje': 'Hoje',
-    '7 dias': '7 dias',
-    '30 dias': '30 dias',
-    '3 meses': '3 meses',
-    '12 meses': '12 meses',
-  }
-  return map[p]
+const PERIOD_DAYS: Record<PeriodOpt, number> = {
+  'Hoje': 1,
+  '7 dias': 7,
+  '30 dias': 30,
+  '3 meses': 90,
+  '12 meses': 365,
 }
 
 export default function FaturamentoPage() {
@@ -22,10 +19,13 @@ export default function FaturamentoPage() {
   const { user } = useAuth()
   const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
 
-  const apiPeriod = periodToApiParam(period)
+  const endDate = new Date().toISOString().split('T')[0]
+  const startDateObj = new Date()
+  startDateObj.setDate(startDateObj.getDate() - (PERIOD_DAYS[period] || 30))
+  const startDate = startDateObj.toISOString().split('T')[0]
 
-  const { data: dashData } = useDashboardMetrics(clinicId, apiPeriod)
-  const { data: billingData, isLoading } = useBillingData(clinicId, undefined, undefined, apiPeriod)
+  const { data: dashData } = useDashboardMetrics(clinicId, undefined, startDate, endDate)
+  const { data: billingData, isLoading } = useBillingData(clinicId, startDate, endDate)
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
