@@ -3,7 +3,6 @@ import { Download, Clock } from 'lucide-react'
 import { useServiceMetrics } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
 
-const periods = ['Hoje', '7 dias', '30 dias', '3 meses', '12 meses']
 
 export default function MetricasServicosPage() {
   const [period, setPeriod] = useState('30 dias')

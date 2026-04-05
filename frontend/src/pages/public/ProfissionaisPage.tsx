@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Star, ChevronDown, ChevronUp, GraduationCap, Languages, Globe } from 'lucide-react'
+import { ChevronDown, ChevronUp, GraduationCap, Languages, Globe } from 'lucide-react'
 import { useProfessionals } from '../../hooks/useProfessionals'
 
 const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']

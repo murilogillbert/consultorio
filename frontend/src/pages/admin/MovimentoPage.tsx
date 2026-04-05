@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMovementData } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
-import { Loader2, Download, Search, UserCheck, CreditCard, XCircle, Calendar, MessageSquare, Clock, ArrowRightLeft, AlertCircle } from 'lucide-react'
+import { Loader2, Download, Search, UserCheck, CreditCard, XCircle, Calendar, MessageSquare, AlertCircle } from 'lucide-react'
 
 const iconMap: Record<string, any> = {
   arrival: UserCheck,

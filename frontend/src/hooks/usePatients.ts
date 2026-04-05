@@ -8,6 +8,7 @@ export interface Patient {
   phone?: string
   birthDate?: string
   address?: string
+  notes?: string
   user?: {
     id: string
     name: string
@@ -57,10 +58,13 @@ export function useCreatePatient() {
   return useMutation({
     mutationFn: async (patientData: {
       userId?: string
+      name?: string
+      email?: string
       cpf: string
       phone?: string
       birthDate?: string
       address?: string
+      notes?: string
     }) => {
       const { data } = await api.post('/patients', patientData)
       return data

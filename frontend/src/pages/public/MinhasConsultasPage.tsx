@@ -6,7 +6,7 @@ import {
 import {
   useRequestOtp, useVerifyOtp,
   usePatientAppointments, usePatientConversation, useSendPatientMessage,
-  getPatientUser, clearPatient
+  getPatientUser, clearPatient, type PatientAppointment
 } from '../../hooks/usePatientPortal'
 
 type Screen = 'email' | 'otp' | 'dashboard'
@@ -300,7 +300,7 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
   )
 }
 
-function AppointmentCard({ appointment: a }: { appointment: ReturnType<typeof usePatientAppointments>['data'] extends (infer T)[] ? T : never }) {
+function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }) {
   const status = STATUS_LABEL[a.status] || { label: a.status, cls: 'badge-gold' }
   const proName = a.professional?.user?.name || 'Profissional'
   return (

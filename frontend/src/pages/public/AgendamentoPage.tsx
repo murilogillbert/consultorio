@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Check, ArrowLeft, ArrowRight, Calendar, Clock, User, Stethoscope } from 'lucide-react'
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'

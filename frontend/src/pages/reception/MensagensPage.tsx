@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, Users, MessageSquare, Star, Phone, Mail, MessageCircle as WhatsAppIcon, Loader2 } from 'lucide-react'
+import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, MessageSquare, Star, Phone, Mail, MessageCircle as WhatsAppIcon, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChannels } from '../../hooks/useChannels'
 import { useChannelMessages, useSendChannelMessage } from '../../hooks/useInternalMessages'

@@ -33,7 +33,11 @@
       "Bash(powershell -File:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Ludimila\\\\copy_back.ps1\")",
       "Bash(cmd /c \"for %i in \\(\"\"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend\"\"\\) do @echo %~si\")",
-      "Bash(powershell -Command \"[System.IO.Directory]::Exists\\(''C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend''\\)\")"
+      "Bash(powershell -Command \"[System.IO.Directory]::Exists\\(''C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\backend''\\)\")",
+      "Bash(sed -n '1,6p' \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/pages/admin/MovimentoPage.tsx\")",
+      "Bash(sed -n '1,2p' \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/contexts/AuthContext.tsx\")",
+      "Bash(sed -i \"2d\" \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/pages/public/AgendamentoPage.tsx\")",
+      "Bash(sed -n '1,4p' \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/pages/public/AgendamentoPage.tsx\")"
     ]
   }
 }

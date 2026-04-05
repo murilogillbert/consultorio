@@ -78,7 +78,7 @@ export function usePatientAppointments() {
   const token = getPatientToken()
   return useQuery({
     queryKey: ['patientAppointments'],
-    queryFn: () => patientApi().get<PatientAppointment[]>('/public/patient/appointments'),
+    queryFn: async () => { const { data } = await patientApi().get<PatientAppointment[]>('/public/patient/appointments'); return data },
     enabled: !!token,
     staleTime: 0,
   })

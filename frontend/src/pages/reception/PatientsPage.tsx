@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Search, Plus, Edit, Eye, Trash2, X } from 'lucide-react'
 import { usePatients, useCreatePatient, useUpdatePatient } from '../../hooks/usePatients'
-import { useSystemUsers } from '../../hooks/useUsers'
 
 export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -11,8 +10,6 @@ export default function PatientsPage() {
   
   // For new patients, they might need to be linked to a User
   // In a real scenario, we might create the User and Tenant/Patient profile together
-  const { data: systemUsers = [] } = useSystemUsers()
-  
   const createPatient = useCreatePatient()
   const updatePatient = useUpdatePatient()
 
