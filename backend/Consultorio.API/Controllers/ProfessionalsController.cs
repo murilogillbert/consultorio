@@ -1,0 +1,192 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Consultorio.API.DTOs;
+using Consultorio.Domain.Models;
+using Consultorio.Infra.Context;
+
+namespace Consultorio.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class ProfessionalsController : ControllerBase
+{
+    private readonly AppDbContext _db;
+
+    public ProfessionalsController(AppDbContext db) => _db = db;
+
+    private Guid GetClinicId() =>
+        Guid.TryParse(User.FindFirst("clinicId")?.Value, out var id) ? id : Guid.Empty;
+
+    // Método auxiliar para converter Professional + User em DTO
+    private static ProfessionalResponseDto ToDto(Professional p) => new()
+    {
+        Id = p.Id,
+        UserId = p.UserId,
+        Name = p.User.Name,
+        Email = p.User.Email,
+        Phone = p.User.Phone,
+        AvatarUrl = p.User.AvatarUrl,
+        LicenseNumber = p.LicenseNumber,
+        Specialty = p.Specialty,
+        Bio = p.Bio,
+        IsAvailable = p.IsAvailable,
+        CreatedAt = p.CreatedAt,
+        Services = p.Services.Select(s => s.Name).ToList()
+    };
+
+    // GET /api/professionals — público para o site mostrar profissionais
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<ProfessionalResponseDto>>> GetAll()
+    {
+        var pros = await _db.Professionals
+            .Include(p => p.User)        // JOIN com User para pegar nome/email
+            .Include(p => p.Services)    // JOIN com Services para listar serviços
+            .Where(p => p.IsAvailable)
+            .OrderBy(p => p.User.Name)
+            .ToListAsync();
+
+        return Ok(pros.Select(ToDto));
+    }
+
+    // GET /api/professionals/{id}
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ProfessionalResponseDto>> GetById(Guid id)
+    {
+        var pro = await _db.Professionals
+            .Include(p => p.User)
+            .Include(p => p.Services)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (pro == null)
+            return NotFound(new { message = "Profissional não encontrado." });
+
+        return Ok(ToDto(pro));
+    }
+
+    // POST /api/professionals — cria User + Professional
+    [HttpPost]
+    public async Task<ActionResult<ProfessionalResponseDto>> Create([FromBody] CreateProfessionalDto dto)
+    {
+        var clinicId = GetClinicId();
+        if (clinicId == Guid.Empty)
+            return BadRequest(new { message = "Usuário não vinculado a uma clínica." });
+
+        // Verifica se email já existe
+        if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
+            return Conflict(new { message = "Email já cadastrado." });
+
+        // Cria o User base
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name,
+            Email = dto.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            Phone = dto.Phone,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Cria o perfil Professional vinculado ao User
+        var pro = new Professional
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            UserId = user.Id,
+            LicenseNumber = dto.LicenseNumber,
+            Specialty = dto.Specialty,
+            Bio = dto.Bio,
+            IsAvailable = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.Users.Add(user);
+        _db.Professionals.Add(pro);
+        await _db.SaveChangesAsync();
+
+        // Recarrega com Include para montar o DTO completo
+        pro.User = user;
+        pro.Services = new List<Service>();
+
+        return CreatedAtAction(nameof(GetById), new { id = pro.Id }, ToDto(pro));
+    }
+
+    // PUT /api/professionals/{id}
+    [HttpPut("{id}")]
+    public async Task<ActionResult<ProfessionalResponseDto>> Update(Guid id, [FromBody] UpdateProfessionalDto dto)
+    {
+        var pro = await _db.Professionals
+            .Include(p => p.User)
+            .Include(p => p.Services)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (pro == null)
+            return NotFound(new { message = "Profissional não encontrado." });
+
+        // Atualiza dados do User
+        if (dto.Name != null) pro.User.Name = dto.Name;
+        if (dto.Phone != null) pro.User.Phone = dto.Phone;
+        if (dto.AvatarUrl != null) pro.User.AvatarUrl = dto.AvatarUrl;
+        pro.User.UpdatedAt = DateTime.UtcNow;
+
+        // Atualiza dados do Professional
+        if (dto.LicenseNumber != null) pro.LicenseNumber = dto.LicenseNumber;
+        if (dto.Specialty != null) pro.Specialty = dto.Specialty;
+        if (dto.Bio != null) pro.Bio = dto.Bio;
+        if (dto.IsAvailable.HasValue) pro.IsAvailable = dto.IsAvailable.Value;
+        pro.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(pro));
+    }
+
+    // POST /api/professionals/{id}/services/{serviceId} — vincular serviço
+    [HttpPost("{id}/services/{serviceId}")]
+    public async Task<ActionResult> AddService(Guid id, Guid serviceId)
+    {
+        var pro = await _db.Professionals
+            .Include(p => p.Services)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (pro == null)
+            return NotFound(new { message = "Profissional não encontrado." });
+
+        var service = await _db.Services.FindAsync(serviceId);
+        if (service == null)
+            return NotFound(new { message = "Serviço não encontrado." });
+
+        if (pro.Services.Any(s => s.Id == serviceId))
+            return Conflict(new { message = "Serviço já vinculado." });
+
+        pro.Services.Add(service);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Serviço vinculado com sucesso." });
+    }
+
+    // DELETE /api/professionals/{id}/services/{serviceId} — desvincular
+    [HttpDelete("{id}/services/{serviceId}")]
+    public async Task<ActionResult> RemoveService(Guid id, Guid serviceId)
+    {
+        var pro = await _db.Professionals
+            .Include(p => p.Services)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (pro == null)
+            return NotFound(new { message = "Profissional não encontrado." });
+
+        var service = pro.Services.FirstOrDefault(s => s.Id == serviceId);
+        if (service == null)
+            return NotFound(new { message = "Serviço não vinculado." });
+
+        pro.Services.Remove(service);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+}
