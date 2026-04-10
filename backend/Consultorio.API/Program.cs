@@ -9,29 +9,35 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ───── SERVICES ─────
 
-// DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString)
 );
 
-// CORS — libera o frontend React para acessar a API
+// CORS — origens fixas + extras vindas do appsettings/env
+var extraOrigins = builder.Configuration["Cors:AllowedOrigins"]?
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? [];
+
+var allOrigins = new[]
+{
+    "http://localhost:5173",
+    "http://localhost:3000",
+}.Concat(extraOrigins).ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:5173",   // Vite dev server
-                "http://localhost:3000"    // alternativo
-            )
+            .WithOrigins(allOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
     });
 });
 
-// JWT Authentication
+// JWT
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -49,51 +55,43 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// Registra o TokenService no container de DI
 builder.Services.AddSingleton<TokenService>();
-
-// Swagger/OpenAPI
 builder.Services.AddSwaggerGen();
-
-// Controllers
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// ───── SEED: cria dados iniciais se o banco estiver vazio ─────
+// ───── SEED ─────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate(); // ← cria as tabelas automaticamente
+    db.Database.Migrate();
     await SeedData.Initialize(db);
 }
 
-// ───── MIDDLEWARE PIPELINE ─────
-
+// ───── MIDDLEWARE ─────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Serve arquivos estáticos de wwwroot (necessário para /uploads/...)
 app.UseStaticFiles();
 
-// CORS deve vir antes de Auth
+// UseRouting deve vir antes de UseCors para o ASP.NET associar
+// a policy CORS corretamente às rotas e injetar os headers
+app.UseRouting();
+
 app.UseCors("AllowFrontend");
 
 if (!app.Environment.IsDevelopment())
-{
     app.UseHttpsRedirection();
-}
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-app.MapGet("/api/health", () =>
-    new { status = "OK", timestamp = DateTime.UtcNow })
-.WithName("HealthCheck");
+app.MapGet("/api/health", () => new { status = "OK", timestamp = DateTime.UtcNow })
+   .WithName("HealthCheck");
 
 app.Run();
