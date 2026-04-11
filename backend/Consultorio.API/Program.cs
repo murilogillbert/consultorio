@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Consultorio.API.Services;
 using Consultorio.Infra.Context;
@@ -77,6 +78,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+
+// Serve user-uploaded files from wwwroot/uploads explicitly so we don't
+// depend on the static web assets manifest (which is snapshot at build
+// time and won't include files uploaded at runtime).
+var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
+Directory.CreateDirectory(uploadsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads",
+});
 
 // UseRouting deve vir antes de UseCors para o ASP.NET associar
 // a policy CORS corretamente às rotas e injetar os headers
