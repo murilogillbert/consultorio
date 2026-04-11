@@ -4,7 +4,6 @@ import { useProfessionals, useCreateProfessional, useUpdateProfessional } from '
 import { useUpload } from '../../hooks/useUpload'
 import { useRooms } from '../../hooks/useRooms'
 import { useInsurances } from '../../hooks/useInsurances'
-import { useSystemUsers } from '../../hooks/useUsers'
 import ComboBox from '../../components/ComboBox'
 
 const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -15,13 +14,16 @@ export default function ProfissionaisPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [scheduleSlots, setScheduleSlots] = useState<Record<string, boolean>>({})
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    crm: '', 
-    councilType: 'CRM', 
-    specialty: '', 
-    bio: '', 
-    languages: '', 
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    crm: '',
+    councilType: 'CRM',
+    specialty: '',
+    bio: '',
+    languages: '',
     userId: '',
     roomId: '',
     insuranceIds: [] as string[]
@@ -34,14 +36,8 @@ export default function ProfissionaisPage() {
   const { data: professionals = [], isLoading } = useProfessionals()
   const { data: rooms = [] } = useRooms()
   const { data: insurancePlans = [] } = useInsurances()
-  const { data: systemUsers = [] } = useSystemUsers()
   const createMutation = useCreateProfessional()
   const updateMutation = useUpdateProfessional()
-
-  // System users not yet linked as professionals
-  const availableUsers = systemUsers.filter(
-    su => !professionals.some(p => p.userId === su.user?.id)
-  )
 
   const toggleSlot = (day: number, time: number) => {
     const key = `${day}-${time}`
@@ -74,19 +70,47 @@ export default function ProfissionaisPage() {
 
     try {
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, crm: formData.crm, councilType: formData.councilType, specialty: formData.specialty, bio: formData.bio, languages: formData.languages, schedules: parsedSchedules })
+        await updateMutation.mutateAsync({
+          id: editingId,
+          name: formData.name,
+          phone: formData.phone,
+          crm: formData.crm,
+          councilType: formData.councilType,
+          specialty: formData.specialty,
+          bio: formData.bio,
+          languages: formData.languages,
+          schedules: parsedSchedules,
+        })
       } else {
-        await createMutation.mutateAsync({ userId: formData.userId, crm: formData.crm, councilType: formData.councilType, specialty: formData.specialty, bio: formData.bio, languages: formData.languages, schedules: parsedSchedules })
+        if (!formData.name || !formData.email || !formData.password) {
+          setFormError('Nome, email e senha são obrigatórios para criar um profissional.')
+          return
+        }
+        await createMutation.mutateAsync({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          crm: formData.crm,
+          councilType: formData.councilType,
+          specialty: formData.specialty,
+          bio: formData.bio,
+          languages: formData.languages,
+          schedules: parsedSchedules,
+        })
       }
       setShowForm(false)
       setEditingId(null)
-      setFormData({ 
-        name: '', 
-        crm: '', 
-        councilType: 'CRM', 
-        specialty: '', 
-        bio: '', 
-        languages: '', 
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        crm: '',
+        councilType: 'CRM',
+        specialty: '',
+        bio: '',
+        languages: '',
         userId: '',
         roomId: '',
         insuranceIds: []
@@ -107,13 +131,16 @@ export default function ProfissionaisPage() {
 
   const handleEdit = (pro: typeof professionals[0]) => {
     setEditingId(pro.id)
-    setFormData({ 
-      name: pro.user?.name || '', 
-      crm: pro.crm, 
-      councilType: pro.councilType || 'CRM', 
-      specialty: pro.specialty || '', 
-      bio: pro.bio || '', 
-      languages: pro.languages || '', 
+    setFormData({
+      name: pro.user?.name || '',
+      email: pro.user?.email || '',
+      password: '',
+      phone: '',
+      crm: pro.crm,
+      councilType: pro.councilType || 'CRM',
+      specialty: pro.specialty || '',
+      bio: pro.bio || '',
+      languages: pro.languages || '',
       userId: pro.userId,
       roomId: '', // Set from actual data if available
       insuranceIds: [] // Set from actual data if available
@@ -160,7 +187,7 @@ export default function ProfissionaisPage() {
                 />
               </div>
             </div>
-            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomId: '', insuranceIds: [] }); setAvatarPreview(null); setShowForm(true); }}>
+            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', password: '', phone: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomId: '', insuranceIds: [] }); setAvatarPreview(null); setShowForm(true); }}>
               <Plus size={16} /> Novo Profissional
             </button>
           </div>
@@ -268,20 +295,45 @@ export default function ProfissionaisPage() {
 
             <div className="form-2col">
               <div className="input-group">
-                <label className="input-label">Usuário do Sistema <span className="required">*</span></label>
-                {editingId ? (
-                  <input className="input-field" value={formData.name} disabled />
-                ) : (
-                  <ComboBox
-                    placeholder="Selecione o usuário..."
-                    options={availableUsers.map(su => ({ value: su.user?.id || su.userId, label: `${su.user?.name || ''} (${su.user?.email || ''})` }))}
-                    value={formData.userId}
-                    onChange={val => {
-                      const found = availableUsers.find(su => (su.user?.id || su.userId) === val)
-                      setFormData(prev => ({ ...prev, userId: val, name: found?.user?.name || '' }))
-                    }}
+                <label className="input-label">Nome completo <span className="required">*</span></label>
+                <input
+                  className="input-field"
+                  placeholder="Nome do profissional"
+                  value={formData.name}
+                  onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Email {!editingId && <span className="required">*</span>}</label>
+                <input
+                  className="input-field"
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={formData.email}
+                  disabled={!!editingId}
+                  onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              {!editingId && (
+                <div className="input-group">
+                  <label className="input-label">Senha inicial <span className="required">*</span></label>
+                  <input
+                    className="input-field"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={formData.password}
+                    onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))}
                   />
-                )}
+                </div>
+              )}
+              <div className="input-group">
+                <label className="input-label">Telefone</label>
+                <input
+                  className="input-field"
+                  placeholder="(11) 99999-9999"
+                  value={formData.phone}
+                  onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                />
               </div>
               <div className="input-group">
                 <label className="input-label">Registro <span className="required">*</span></label>

@@ -37,7 +37,14 @@
       "Bash(sed -n '1,6p' \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/pages/admin/MovimentoPage.tsx\")",
       "Bash(sed -n '1,2p' \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/contexts/AuthContext.tsx\")",
       "Bash(sed -i \"2d\" \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/pages/public/AgendamentoPage.tsx\")",
-      "Bash(sed -n '1,4p' \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/pages/public/AgendamentoPage.tsx\")"
+      "Bash(sed -n '1,4p' \"C:/Users/Ludimila/Documents/OneDrive/Área de Trabalho/Projetos/consultorio/frontend/src/pages/public/AgendamentoPage.tsx\")",
+      "Bash(dotnet build:*)",
+      "Bash(dir C:\\\\consultorio)",
+      "Bash(cmd.exe /c \"dir \\\\\"C:\\\\Users\\\\Ludimila\\\\Documents\\\\OneDrive\\\\Área de Trabalho\\\\Projetos\\\\consultorio\\\\iniciar.bat\\\\\" 2>&1\")",
+      "Bash(r)",
+      "Bash(cmd.exe /c \"powershell -Command \\\\\"[System.IO.File]::WriteAllText\\('C:\\\\\\\\iniciar.bat', '@echo off`r`ntitle Sistema Consultorio`r`ncolor 0A`r`nset PROJECT=C:\\\\\\\\consultorio`r`necho.`r`necho [1/5] Docker Desktop...`r`ntasklist /FI \\\\\"\\\\\"IMAGENAME eq Docker Desktop.exe\\\\\"\\\\\" 2>nul | find /I \\\\\"\\\\\"Docker Desktop.exe\\\\\"\\\\\" >nul`r`nif errorlevel 1 \\(`r`n    start \\\\\"\\\\\"\\\\\"\\\\\" \\\\\"\\\\\"C:\\\\\\\\Program Files\\\\\\\\Docker\\\\\\\\Docker\\\\\\\\Docker Desktop.exe\\\\\"\\\\\"`r`n    timeout /t 30 /nobreak >nul`r`n\\)`r`necho [2/5] SQL Server...`r`ncd /d %PROJECT%`r`ndocker compose up -d sqlserver`r`ntimeout /t 10 /nobreak >nul`r`necho [3/5] Backend...`r`nstart \\\\\"\\\\\"Backend\\\\\"\\\\\" cmd /k \\\\\"\\\\\"cd /d %PROJECT%\\\\\\\\backend ^&^& dotnet run --project Consultorio.API\\\\\"\\\\\"`r`necho [4/5] Frontend...`r`nstart \\\\\"\\\\\"Frontend\\\\\"\\\\\" cmd /k \\\\\"\\\\\"cd /d %PROJECT%\\\\\\\\frontend ^&^& npm run dev\\\\\"\\\\\"`r`necho [5/5] Cloudflare...`r`ntimeout /t 5 /nobreak >nul`r`nstart \\\\\"\\\\\"Tunnel\\\\\"\\\\\" cmd /k \\\\\"\\\\\"cloudflared tunnel run consultorio\\\\\"\\\\\"`r`necho.`r`necho Pronto! https://psicologiaeexistir.com.br`r`npause', [System.Text.Encoding]::ASCII\\)\\\\\"\")",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File -)",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }
