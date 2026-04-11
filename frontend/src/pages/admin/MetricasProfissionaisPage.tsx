@@ -103,7 +103,7 @@ export default function MetricasProfissionaisPage() {
                 </td>
                 <td style={{ fontWeight: 500, color: 'var(--color-accent-gold)' }}>{formatCurrency(p.revenue)}</td>
                 <td>{formatCurrency(p.appointments > 0 ? p.revenue / p.appointments : 0)}</td>
-                <td style={{ color: 'var(--color-accent-gold)' }}>{p.rating.toFixed(1)} ★</td>
+                <td style={{ color: 'var(--color-accent-gold)' }}>{(p.rating ?? 0).toFixed(1)} ★</td>
                 <td><span className="badge badge-gold">Estável</span></td>
               </tr>
             ))}

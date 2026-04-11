@@ -103,8 +103,16 @@ export function useProfessionalMetrics(_clinicId?: string, _startDate?: string, 
   return useQuery({
     queryKey: ['professionalMetrics'],
     queryFn: async () => {
-      const { data } = await api.get<any[]>('/dashboard/top-professionals').catch(() => ({ data: [] }))
-      return data
+      const { data } = await api.get<any[]>('/dashboard/top-professionals').catch(() => ({ data: [] as any[] }))
+      return (data || []).map((p: any) => ({
+        professionalId: p.professionalId ?? p.id ?? '',
+        name: p.name ?? 'Sem nome',
+        specialty: p.specialty ?? '—',
+        appointments: Number(p.count ?? p.appointments ?? 0),
+        occupancy: Number(p.occupancy ?? 0),
+        revenue: Number(p.revenue ?? 0),
+        rating: Number(p.rating ?? 0),
+      }))
     }
   })
 }
