@@ -109,9 +109,19 @@ export function useCreateProfessional() {
         bio: input.bio,
       }
       const { data } = await api.post<ProfessionalResponseDtoRaw>('/professionals', payload)
+      // Persist schedules (if provided) via POST /api/schedules
+      if (input.schedules && input.schedules.length > 0) {
+        await api.post('/schedules', {
+          professionalId: data.id,
+          slots: input.schedules,
+        })
+      }
       return mapProfessional(data)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['professionals'] })
+    onSuccess: (_data, _vars) => {
+      queryClient.invalidateQueries({ queryKey: ['professionals'] })
+      queryClient.invalidateQueries({ queryKey: ['schedules'] })
+    }
   })
 }
 
@@ -128,8 +138,20 @@ export function useUpdateProfessional() {
       if (updateData.bio !== undefined) payload.bio = updateData.bio
       if (updateData.active !== undefined) payload.isAvailable = updateData.active
       const { data } = await api.put<ProfessionalResponseDtoRaw>(`/professionals/${id}`, payload)
+      // Persist schedules separately. Always overwrite when caller passed a
+      // schedules array — SetSchedule deletes all existing and rewrites, so
+      // an empty array clears the grid intentionally.
+      if (Array.isArray(updateData.schedules)) {
+        await api.post('/schedules', {
+          professionalId: id,
+          slots: updateData.schedules,
+        })
+      }
       return mapProfessional(data)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['professionals'] })
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['professionals'] })
+      queryClient.invalidateQueries({ queryKey: ['schedules', vars.id] })
+    }
   })
 }

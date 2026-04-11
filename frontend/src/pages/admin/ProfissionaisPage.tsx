@@ -1,6 +1,7 @@
 import { useState, useRef, Fragment } from 'react'
 import { Search, Plus, Edit, Power, Camera, X } from 'lucide-react'
 import { useProfessionals, useCreateProfessional, useUpdateProfessional } from '../../hooks/useProfessionals'
+import { api } from '../../services/api'
 import { useUpload } from '../../hooks/useUpload'
 import { useRooms } from '../../hooks/useRooms'
 import { useInsurances } from '../../hooks/useInsurances'
@@ -129,7 +130,7 @@ export default function ProfissionaisPage() {
     }
   }
 
-  const handleEdit = (pro: typeof professionals[0]) => {
+  const handleEdit = async (pro: typeof professionals[0]) => {
     setEditingId(pro.id)
     setFormData({
       name: pro.user?.name || '',
@@ -145,20 +146,33 @@ export default function ProfissionaisPage() {
       roomId: '', // Set from actual data if available
       insuranceIds: [] // Set from actual data if available
     })
-    
-    // Parse reverse back to dictionary
-    const newScheduleSlots: Record<string, boolean> = {}
-    if (pro.schedules) {
-      pro.schedules.forEach(s => {
-        const timeIdx = times.findIndex(t => t === s.startTime)
-        if (timeIdx !== -1) {
-          newScheduleSlots[`${s.dayOfWeek}-${timeIdx}`] = true
-        }
-      })
-    }
-    setScheduleSlots(newScheduleSlots)
+
     setAvatarPreview(pro.user?.avatarUrl || null)
     setShowForm(true)
+
+    // Fetch persisted schedules from backend and hydrate the grid.
+    // Backend returns [{id, professionalId, dayOfWeek, startTime:"HH:mm", endTime:"HH:mm", isActive}].
+    try {
+      const { data: fetched } = await api.get<Array<{ dayOfWeek: number; startTime: string; endTime: string }>>(`/schedules/${pro.id}`)
+      const newScheduleSlots: Record<string, boolean> = {}
+      for (const s of fetched || []) {
+        // A single schedule may span multiple 1h slots (e.g. 08:00–11:00 → 08,09,10).
+        const [sh, sm] = s.startTime.split(':').map(Number)
+        const [eh, em] = s.endTime.split(':').map(Number)
+        const startMin = sh * 60 + sm
+        const endMin = eh * 60 + em
+        times.forEach((t, idx) => {
+          const [th, tm] = t.split(':').map(Number)
+          const slotStart = th * 60 + tm
+          if (slotStart >= startMin && slotStart < endMin) {
+            newScheduleSlots[`${s.dayOfWeek}-${idx}`] = true
+          }
+        })
+      }
+      setScheduleSlots(newScheduleSlots)
+    } catch {
+      setScheduleSlots({})
+    }
   }
 
   return (
