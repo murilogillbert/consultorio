@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../services/api'
+
+// NOTE: backend does not expose an announcements controller yet. Stubbed.
 
 export type AnnouncementUrgency = 'NORMAL' | 'IMPORTANT' | 'URGENT'
 export type AnnouncementAudience = 'ALL' | 'STAFF' | 'PROFESSIONALS' | 'SPECIFIC'
@@ -39,77 +40,50 @@ export interface CreateAnnouncementData {
   expiresAt?: string
 }
 
-export function useAnnouncements(clinicId?: string) {
-  return useQuery({
-    queryKey: ['announcements', clinicId],
-    queryFn: async () => {
-      const url = clinicId ? `/announcements?clinicId=${clinicId}` : '/announcements'
-      const { data } = await api.get<Announcement[]>(url)
-      return data
-    },
+export function useAnnouncements(_clinicId?: string) {
+  return useQuery<Announcement[]>({
+    queryKey: ['announcements'],
+    queryFn: async () => [],
+    staleTime: Infinity,
   })
 }
 
 export function useCreateAnnouncement() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: CreateAnnouncementData) => {
-      const res = await api.post('/announcements', data)
-      return res.data as Announcement
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['announcements'] })
-    },
+    mutationFn: async (_: CreateAnnouncementData) => ({ } as Announcement),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcements'] })
   })
 }
 
 export function useUpdateAnnouncement() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...data }: Partial<CreateAnnouncementData> & { id: string }) => {
-      const res = await api.put(`/announcements/${id}`, data)
-      return res.data as Announcement
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['announcements'] })
-    },
+    mutationFn: async (_: Partial<CreateAnnouncementData> & { id: string }) => ({ } as Announcement),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcements'] })
   })
 }
 
 export function useDeleteAnnouncement() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/announcements/${id}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['announcements'] })
-    },
+    mutationFn: async (_: string) => { /* no-op */ },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcements'] })
   })
 }
 
 export function useMarkAnnouncementRead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await api.post(`/announcements/${id}/read`)
-      return res.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['announcements'] })
-    },
+    mutationFn: async (_: string) => ({ }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcements'] })
   })
 }
 
 export function useResendAnnouncement() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await api.post(`/announcements/${id}/resend`)
-      return res.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['announcements'] })
-    },
+    mutationFn: async (_: string) => ({ }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcements'] })
   })
 }

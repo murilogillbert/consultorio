@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../services/api'
+import { useQuery, useMutation } from '@tanstack/react-query'
 
-// ─── Token storage (separado do token de staff) ───────────────────────────
+// NOTE: backend does not expose a patient portal / OTP flow yet. All calls
+// are stubbed until /api/public/patient/* endpoints are implemented.
 
 const PATIENT_TOKEN_KEY = 'patient_token'
 const PATIENT_USER_KEY = 'patient_user'
@@ -16,53 +16,25 @@ export function getPatientUser(): { id: string; name: string; email: string } | 
   try { return JSON.parse(raw) } catch { return null }
 }
 
-function savePatient(token: string, user: { id: string; name: string; email: string }) {
-  localStorage.setItem(PATIENT_TOKEN_KEY, token)
-  localStorage.setItem(PATIENT_USER_KEY, JSON.stringify(user))
-}
-
 export function clearPatient() {
   localStorage.removeItem(PATIENT_TOKEN_KEY)
   localStorage.removeItem(PATIENT_USER_KEY)
 }
 
-// ─── API helper com token de paciente ────────────────────────────────────
-
-function patientApi() {
-  const token = getPatientToken()
-  return {
-    get: <T>(url: string) =>
-      api.get<T>(url, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.data),
-    post: <T>(url: string, data?: unknown) =>
-      api.post<T>(url, data, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.data),
-  }
-}
-
-// ─── Hooks de autenticação ────────────────────────────────────────────────
-
 export function useRequestOtp() {
   return useMutation({
-    mutationFn: async (email: string) => {
-      const { data } = await api.post<{ message: string }>('/public/patient/request-otp', { email })
-      return data
-    },
+    mutationFn: async (_email: string) => ({ message: 'Portal do paciente ainda não implementado.' })
   })
 }
 
 export function useVerifyOtp() {
   return useMutation({
-    mutationFn: async ({ email, otp }: { email: string; otp: string }) => {
-      const { data } = await api.post<{ token: string; user: { id: string; name: string; email: string } }>(
-        '/public/patient/verify-otp',
-        { email, otp }
-      )
-      savePatient(data.token, data.user)
-      return data
-    },
+    mutationFn: async (_: { email: string; otp: string }) => ({
+      token: '',
+      user: { id: '', name: '', email: '' }
+    })
   })
 }
-
-// ─── Hooks de dados do paciente ───────────────────────────────────────────
 
 export interface PatientAppointment {
   id: string
@@ -75,12 +47,11 @@ export interface PatientAppointment {
 }
 
 export function usePatientAppointments() {
-  const token = getPatientToken()
   return useQuery<PatientAppointment[]>({
     queryKey: ['patientAppointments'],
-    queryFn: () => patientApi().get<PatientAppointment[]>('/public/patient/appointments'),
-    enabled: !!token,
-    staleTime: 0,
+    queryFn: async () => [],
+    enabled: !!getPatientToken(),
+    staleTime: Infinity,
   })
 }
 
@@ -95,23 +66,16 @@ export interface PatientConversation {
 }
 
 export function usePatientConversation() {
-  const token = getPatientToken()
-  return useQuery({
+  return useQuery<PatientConversation>({
     queryKey: ['patientConversation'],
-    queryFn: () => patientApi().get<PatientConversation>('/public/patient/conversation'),
-    enabled: !!token,
-    refetchInterval: 8000,
-    staleTime: 0,
+    queryFn: async () => ({ conversation: null, messages: [] }),
+    enabled: !!getPatientToken(),
+    staleTime: Infinity,
   })
 }
 
 export function useSendPatientMessage() {
-  const qc = useQueryClient()
   return useMutation({
-    mutationFn: (content: string) =>
-      patientApi().post('/public/patient/conversation/message', { content }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['patientConversation'] })
-    },
+    mutationFn: async (_content: string) => ({})
   })
 }

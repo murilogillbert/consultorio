@@ -46,7 +46,8 @@ export function useSetSchedule() {
       professionalId: string
       slots: Array<{ dayOfWeek: number; startTime: string; endTime: string }>
     }) => {
-      const { data } = await api.put(`/schedules/${professionalId}`, { slots })
+      // Backend: POST /api/schedules with { professionalId, slots }
+      const { data } = await api.post(`/schedules`, { professionalId, slots })
       return data
     },
     onSuccess: (_data, variables) => {
@@ -55,19 +56,11 @@ export function useSetSchedule() {
   })
 }
 
+// NOTE: backend has no block/unblock endpoints yet — these are no-op stubs.
 export function useBlockDate() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ professionalId, ...blockData }: {
-      professionalId: string
-      startTime: string
-      endTime: string
-      reason?: string
-    }) => {
-      const { data } = await api.post(`/schedules/${professionalId}/blocks`, blockData)
-      return data
-    },
+    mutationFn: async (_: { professionalId: string; startTime: string; endTime: string; reason?: string }) => ({}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] })
       queryClient.invalidateQueries({ queryKey: ['available-slots'] })
@@ -77,11 +70,8 @@ export function useBlockDate() {
 
 export function useUnblockDate() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async (blockId: string) => {
-      await api.delete(`/schedules/blocks/${blockId}`)
-    },
+    mutationFn: async (_: string) => { /* no-op */ },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] })
       queryClient.invalidateQueries({ queryKey: ['available-slots'] })

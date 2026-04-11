@@ -1,6 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
 
+// Backend endpoints that actually exist:
+//   GET /api/dashboard/summary
+//   GET /api/dashboard/appointments-by-status
+//   GET /api/dashboard/revenue-by-day?days=30
+//   GET /api/dashboard/top-services
+//   GET /api/dashboard/top-professionals
+//
+// The UI still expects legacy "metrics" shapes, so we adapt them here and
+// provide safe defaults for the charts/alerts the backend doesn't compute.
+
 export interface DashboardMetrics {
   metrics: {
     faturamentoMes: number
@@ -21,17 +31,52 @@ export interface DashboardMetrics {
   }[]
 }
 
-export function useDashboardMetrics(clinicId?: string, period?: string, startDate?: string, endDate?: string) {
+interface SummaryRaw {
+  appointmentsToday: number
+  appointmentsThisMonth: number
+  totalPatients: number
+  totalProfessionals: number
+  totalServices: number
+  revenueThisMonth: number
+  pendingPayments: number
+}
+
+export function useDashboardMetrics(_clinicId?: string, _period?: string, _startDate?: string, _endDate?: string) {
   return useQuery({
-    queryKey: ['dashboardMetrics', clinicId, period, startDate, endDate],
-    queryFn: async () => {
-      let url = `/metrics/dashboard?`
-      if (clinicId) url += `clinicId=${clinicId}&`
-      if (startDate) url += `startDate=${startDate}&`
-      if (endDate) url += `endDate=${endDate}&`
-      if (period) url += `period=${encodeURIComponent(period)}&`
-      const { data } = await api.get<DashboardMetrics>(url)
-      return data
+    queryKey: ['dashboardMetrics'],
+    queryFn: async (): Promise<DashboardMetrics> => {
+      const [summaryRes, revenueRes, topRes] = await Promise.all([
+        api.get<SummaryRaw>('/dashboard/summary'),
+        api.get<Array<{ date: string; total: number }>>('/dashboard/revenue-by-day?days=365').catch(() => ({ data: [] as Array<{ date: string; total: number }> })),
+        api.get<Array<{ serviceId: string; name: string; count: number }>>('/dashboard/top-services').catch(() => ({ data: [] as Array<{ serviceId: string; name: string; count: number }> })),
+      ])
+
+      const summary = summaryRes.data
+      const revenue = revenueRes.data
+      const top = topRes.data
+
+      const byMonth = new Map<string, number>()
+      for (const r of revenue) {
+        const d = new Date(r.date)
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        byMonth.set(key, (byMonth.get(key) || 0) + Number(r.total || 0))
+      }
+
+      return {
+        metrics: {
+          faturamentoMes: summary.revenueThisMonth || 0,
+          faturamentoMudanca: 0,
+          totalAgendamentos: summary.appointmentsThisMonth || 0,
+          concluidosAgendamentos: 0,
+          taxaOcupacao: 0,
+          npsMedio: 0,
+        },
+        charts: {
+          faturamentoAnual: Array.from(byMonth.entries()).map(([month, revenue]) => ({ month, revenue })),
+          topServices: top.map(t => ({ name: t.name, count: t.count, revenue: 0 })),
+        },
+        alertas: [],
+      }
     }
   })
 }
@@ -42,70 +87,48 @@ export interface BillingData {
   delinquency: { patient: string; service: string; value: number; date: string; days: number }[]
 }
 
-export function useBillingData(clinicId?: string, startDate?: string, endDate?: string, period?: string) {
+// Backend does not expose billing breakdown — return empty structure
+export function useBillingData(_clinicId?: string, _startDate?: string, _endDate?: string, _period?: string) {
   return useQuery({
-    queryKey: ['billingData', clinicId, startDate, endDate, period],
+    queryKey: ['billingData'],
+    queryFn: async (): Promise<BillingData> => ({
+      revenueByChannel: [],
+      payouts: [],
+      delinquency: [],
+    })
+  })
+}
+
+export function useProfessionalMetrics(_clinicId?: string, _startDate?: string, _endDate?: string) {
+  return useQuery({
+    queryKey: ['professionalMetrics'],
     queryFn: async () => {
-      let url = `/metrics/billing?`
-      if (clinicId) url += `clinicId=${clinicId}&`
-      if (startDate) url += `startDate=${startDate}&`
-      if (endDate) url += `endDate=${endDate}&`
-      if (period) url += `period=${encodeURIComponent(period)}&`
-      const { data } = await api.get<BillingData>(url)
+      const { data } = await api.get<any[]>('/dashboard/top-professionals').catch(() => ({ data: [] }))
       return data
     }
   })
 }
 
-export function useProfessionalMetrics(clinicId?: string, startDate?: string, endDate?: string) {
+export function useServiceMetrics(_clinicId?: string, _startDate?: string, _endDate?: string) {
   return useQuery({
-    queryKey: ['professionalMetrics', clinicId, startDate, endDate],
-    queryFn: async () => {
-      let url = `/metrics/professionals?`
-      if (clinicId) url += `clinicId=${clinicId}&`
-      const { data } = await api.get<any[]>(url)
-      return data
+    queryKey: ['serviceMetrics'],
+    queryFn: async (): Promise<{ services: any[]; peakHours: any[] }> => {
+      const { data } = await api.get<any[]>('/dashboard/top-services').catch(() => ({ data: [] }))
+      return { services: data, peakHours: [] }
     }
   })
 }
 
-export function useServiceMetrics(clinicId?: string, startDate?: string, endDate?: string) {
+export function useMarketingMetrics(_clinicId?: string, _startDate?: string, _endDate?: string) {
   return useQuery({
-    queryKey: ['serviceMetrics', clinicId, startDate, endDate],
-    queryFn: async () => {
-      let url = `/metrics/services?`
-      if (clinicId) url += `clinicId=${clinicId}&`
-      if (startDate) url += `startDate=${startDate}&`
-      if (endDate) url += `endDate=${endDate}&`
-      const { data } = await api.get<{ services: any[], peakHours: any[] }>(url)
-      return data
-    }
+    queryKey: ['marketingMetrics'],
+    queryFn: async (): Promise<{ origins: any[]; campaigns: any[] }> => ({ origins: [], campaigns: [] })
   })
 }
 
-export function useMarketingMetrics(clinicId?: string, startDate?: string, endDate?: string) {
+export function useMovementData(_clinicId?: string, _date?: string) {
   return useQuery({
-    queryKey: ['marketingMetrics', clinicId, startDate, endDate],
-    queryFn: async () => {
-      let url = `/metrics/marketing?`
-      if (clinicId) url += `clinicId=${clinicId}&`
-      if (startDate) url += `startDate=${startDate}&`
-      if (endDate) url += `endDate=${endDate}&`
-      const { data } = await api.get<{ origins: any[], campaigns: any[] }>(url)
-      return data
-    }
-  })
-}
-
-export function useMovementData(clinicId?: string, date?: string) {
-  return useQuery({
-    queryKey: ['movementData', clinicId, date],
-    queryFn: async () => {
-      let url = `/metrics/movement?`
-      if (clinicId) url += `clinicId=${clinicId}&`
-      if (date) url += `date=${date}&`
-      const { data } = await api.get<any[]>(url)
-      return data
-    }
+    queryKey: ['movementData'],
+    queryFn: async (): Promise<any[]> => []
   })
 }

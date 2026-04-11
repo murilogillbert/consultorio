@@ -13,11 +13,20 @@ export interface BookingData {
   notes?: string
 }
 
+// NOTE: backend has no /api/public/book endpoint yet. Until it's implemented,
+// surface a clear error message instead of a silent 404.
 export function usePublicBooking() {
   return useMutation({
     mutationFn: async (bookingData: BookingData) => {
-      const { data } = await api.post('/public/book', bookingData)
-      return data
+      try {
+        const { data } = await api.post('/public/book', bookingData)
+        return data
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          throw new Error('Agendamento público ainda não implementado no backend.')
+        }
+        throw err
+      }
     }
   })
 }

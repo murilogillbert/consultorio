@@ -46,12 +46,13 @@ export function useClinics() {
   })
 }
 
+// Backend has no /api/clinics/me endpoint; fall back to the first clinic
 export function useMyClinic() {
   return useQuery({
     queryKey: ['clinics', 'me'],
     queryFn: async () => {
-      const { data } = await api.get<Clinic>('/clinics/me')
-      return data
+      const { data } = await api.get<Clinic[]>('/clinics')
+      return data[0]
     }
   })
 }

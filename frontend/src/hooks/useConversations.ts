@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../services/api'
+
+// NOTE: backend does not expose external messaging/conversations yet. Stubbed.
 
 export interface ExternalMessage {
   id: string
@@ -30,52 +31,38 @@ export interface Conversation {
   messages?: ExternalMessage[]
 }
 
-export function useConversations(clinicId?: string) {
-  return useQuery({
-    queryKey: ['conversations', clinicId],
-    queryFn: async () => {
-      const url = clinicId ? `/messaging/conversations?clinicId=${clinicId}` : '/messaging/conversations'
-      const { data } = await api.get<Conversation[]>(url)
-      return data
-    },
-    refetchInterval: 10000,
+export function useConversations(_clinicId?: string) {
+  return useQuery<Conversation[]>({
+    queryKey: ['conversations'],
+    queryFn: async () => [],
+    staleTime: Infinity,
   })
 }
 
 export function useConversationMessages(conversationId: string | null) {
-  return useQuery({
+  return useQuery<ExternalMessage[]>({
     queryKey: ['conversation-messages', conversationId],
-    queryFn: async () => {
-      const { data } = await api.get<ExternalMessage[]>(`/messaging/conversations/${conversationId}/messages`)
-      return data
-    },
+    queryFn: async () => [],
     enabled: !!conversationId,
-    refetchInterval: 5000,
+    staleTime: Infinity,
   })
 }
 
 export function useSendConversationMessage() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ conversationId, content }: { conversationId: string; content: string }) => {
-      const { data } = await api.post(`/messaging/conversations/${conversationId}/messages`, { content })
-      return data as ExternalMessage
-    },
+    mutationFn: async (_: { conversationId: string; content: string }) => ({} as ExternalMessage),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['conversation-messages', vars.conversationId] })
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
-    },
+    }
   })
 }
 
 export function useMarkConversationRead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (conversationId: string) => {
-      await api.patch(`/messaging/conversations/${conversationId}/read`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-    },
+    mutationFn: async (_: string) => { /* no-op */ },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['conversations'] })
   })
 }

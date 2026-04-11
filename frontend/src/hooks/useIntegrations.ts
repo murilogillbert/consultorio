@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../services/api'
+import { useQuery, useMutation } from '@tanstack/react-query'
+
+// NOTE: backend does not expose clinic integration settings yet. Stubbed.
 
 export interface IntegrationSettings {
   id?: string
@@ -30,43 +31,25 @@ export interface IntegrationSettings {
 }
 
 export function useIntegrations(clinicId?: string) {
-  return useQuery({
+  return useQuery<IntegrationSettings | null>({
     queryKey: ['integrations', clinicId],
-    queryFn: async () => {
-      if (!clinicId) return null
-      const { data } = await api.get<IntegrationSettings>(`/clinics/${clinicId}/settings/integrations`)
-      return data
-    },
+    queryFn: async () => null,
     enabled: !!clinicId,
+    staleTime: Infinity,
   })
 }
 
 export function useUpdateIntegrations() {
-  const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ clinicId, data }: { clinicId: string, data: Partial<IntegrationSettings> }) => {
-      const { data: result } = await api.put(`/clinics/${clinicId}/settings/integrations`, data)
-      return result
-    },
-    onSuccess: (_, { clinicId }) => {
-      queryClient.invalidateQueries({ queryKey: ['integrations', clinicId] })
-    }
+    mutationFn: async (_: { clinicId: string, data: Partial<IntegrationSettings> }) => ({ })
   })
 }
 
 export function useTestIntegration() {
-  const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ clinicId, type }: { clinicId: string; type: string }) => {
-      const { data } = await api.post<{ ok: boolean; message: string; detail?: string }>(
-        `/clinics/${clinicId}/settings/integrations/${type}/test`
-      )
-      return data
-    },
-    onSuccess: (_, { clinicId }) => {
-      queryClient.invalidateQueries({ queryKey: ['integrations', clinicId] })
-    }
+    mutationFn: async (_: { clinicId: string; type: string }) => ({
+      ok: false,
+      message: 'Integração ainda não implementada no backend.',
+    })
   })
 }
