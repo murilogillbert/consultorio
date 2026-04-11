@@ -105,6 +105,8 @@ export default function ConfiguracoesPage() {
   const deleteBanner = useDeleteBanner()
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null)
   const [bannerForm, setBannerForm] = useState({ title: '', subtitle: '', imageUrl: '', ctaLabel: '', ctaUrl: '', order: 0, active: true })
+  const bannerImageRef = useRef<HTMLInputElement>(null)
+  const [bannerUploading, setBannerUploading] = useState(false)
 
   // Equipment State
   const { data: equipments = [] } = useEquipments(clinic?.id)
@@ -1025,8 +1027,41 @@ export default function ConfiguracoesPage() {
                       <input className="input-field" value={bannerForm.subtitle} onChange={e => setBannerForm({ ...bannerForm, subtitle: e.target.value })} />
                     </div>
                     <div className="input-group full-span">
-                      <label className="input-label">URL da Imagem / Background <span className="required">*</span></label>
-                      <input className="input-field" placeholder="https://... ou linear-gradient(...)" value={bannerForm.imageUrl} onChange={e => setBannerForm({ ...bannerForm, imageUrl: e.target.value })} />
+                      <label className="input-label">Imagem do Banner <span className="required">*</span></label>
+                      <input
+                        ref={bannerImageRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        style={{ display: 'none' }}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          setBannerUploading(true)
+                          try {
+                            const result = await uploadFile(file, 'banners')
+                            setBannerForm(prev => ({ ...prev, imageUrl: result.fileUrl }))
+                          } catch { /* ignore */ }
+                          setBannerUploading(false)
+                          if (bannerImageRef.current) bannerImageRef.current.value = ''
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                        <input className="input-field" style={{ flex: 1 }} placeholder="https://... ou linear-gradient(...)" value={bannerForm.imageUrl} onChange={e => setBannerForm({ ...bannerForm, imageUrl: e.target.value })} />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ whiteSpace: 'nowrap' }}
+                          onClick={() => bannerImageRef.current?.click()}
+                          disabled={bannerUploading}
+                        >
+                          <Camera size={14} /> {bannerUploading ? 'Enviando...' : 'Upload'}
+                        </button>
+                      </div>
+                      {bannerForm.imageUrl && !bannerForm.imageUrl.startsWith('linear') && (
+                        <div style={{ marginTop: 8, borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--color-border-default)', maxWidth: 320 }}>
+                          <img src={bannerForm.imageUrl} alt="Preview" style={{ width: '100%', height: 120, objectFit: 'cover' }} />
+                        </div>
+                      )}
                     </div>
                     <div className="input-group">
                       <label className="input-label">Rótulo do Botão (CTA)</label>

@@ -1,4 +1,13 @@
+using System.Text.Json;
+
 namespace Consultorio.API.DTOs;
+
+public class MilestoneDto
+{
+    public string Year { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Description { get; set; } = "";
+}
 
 public class CreateClinicDto
 {
@@ -25,6 +34,18 @@ public class UpdateClinicDto
     public string? PostalCode { get; set; }
     public string? Website { get; set; }
     public string? LogoUrl { get; set; }
+    public string? Cnpj { get; set; }
+    public string? Instagram { get; set; }
+    public string? Facebook { get; set; }
+    public string? Youtube { get; set; }
+    public string? Linkedin { get; set; }
+    public string? Tiktok { get; set; }
+    public string? Whatsapp { get; set; }
+    public string? Mission { get; set; }
+    public string? Vision { get; set; }
+    public string? Values { get; set; }
+    public List<MilestoneDto>? Milestones { get; set; }
+    public List<string>? GalleryUrls { get; set; }
 }
 
 public class ClinicResponseDto
@@ -40,6 +61,65 @@ public class ClinicResponseDto
     public string? PostalCode { get; set; }
     public string? Website { get; set; }
     public string? LogoUrl { get; set; }
+    public string? Cnpj { get; set; }
+    public string? Instagram { get; set; }
+    public string? Facebook { get; set; }
+    public string? Youtube { get; set; }
+    public string? Linkedin { get; set; }
+    public string? Tiktok { get; set; }
+    public string? Whatsapp { get; set; }
+    public string? Mission { get; set; }
+    public string? Vision { get; set; }
+    public string? Values { get; set; }
+    public List<MilestoneDto>? Milestones { get; set; }
+    public List<string>? GalleryUrls { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // Helper: deserialize JSON string fields from model
+    public static ClinicResponseDto FromModel(Consultorio.Domain.Models.Clinic c)
+    {
+        List<MilestoneDto>? milestones = null;
+        if (!string.IsNullOrEmpty(c.Milestones))
+        {
+            try { milestones = JsonSerializer.Deserialize<List<MilestoneDto>>(c.Milestones, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
+            catch { }
+        }
+
+        List<string>? galleryUrls = null;
+        if (!string.IsNullOrEmpty(c.GalleryUrls))
+        {
+            try { galleryUrls = JsonSerializer.Deserialize<List<string>>(c.GalleryUrls); }
+            catch { }
+        }
+
+        return new ClinicResponseDto
+        {
+            Id = c.Id,
+            Name = c.Name,
+            Description = c.Description,
+            Phone = c.Phone,
+            Email = c.Email,
+            Address = c.Address,
+            City = c.City,
+            State = c.State,
+            PostalCode = c.PostalCode,
+            Website = c.Website,
+            LogoUrl = c.LogoUrl,
+            Cnpj = c.Cnpj,
+            Instagram = c.Instagram,
+            Facebook = c.Facebook,
+            Youtube = c.Youtube,
+            Linkedin = c.Linkedin,
+            Tiktok = c.Tiktok,
+            Whatsapp = c.Whatsapp,
+            Mission = c.Mission,
+            Vision = c.Vision,
+            Values = c.Values,
+            Milestones = milestones,
+            GalleryUrls = galleryUrls,
+            IsActive = c.IsActive,
+            CreatedAt = c.CreatedAt
+        };
+    }
 }

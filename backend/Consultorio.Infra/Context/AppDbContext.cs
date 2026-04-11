@@ -29,10 +29,25 @@ public class AppDbContext : DbContext
     public DbSet<ChatChannel> ChatChannels { get; set; } = null!;
     public DbSet<ChatChannelMember> ChatChannelMembers { get; set; } = null!;
     public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
+    public DbSet<Announcement> Announcements { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // ───── ANNOUNCEMENT ─────
+        modelBuilder.Entity<Announcement>()
+            .HasKey(a => a.Id);
+        modelBuilder.Entity<Announcement>()
+            .HasOne(a => a.Clinic)
+            .WithMany()
+            .HasForeignKey(a => a.ClinicId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Announcement>()
+            .HasOne(a => a.PublishedBy)
+            .WithMany()
+            .HasForeignKey(a => a.PublishedById)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // ───── CLINIC (Root aggregate) ─────
         modelBuilder.Entity<Clinic>()

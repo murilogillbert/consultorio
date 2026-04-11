@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Consultorio.API.DTOs;
@@ -11,11 +12,9 @@ namespace Consultorio.API.Controllers;
 public class ClinicsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public ClinicsController(AppDbContext db)
-    {
-        _db = db;
-    }
+    public ClinicsController(AppDbContext db) => _db = db;
 
     // GET /api/clinics
     [HttpGet]
@@ -23,25 +22,9 @@ public class ClinicsController : ControllerBase
     {
         var clinics = await _db.Clinics
             .Where(c => c.IsActive)
-            .Select(c => new ClinicResponseDto
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Description = c.Description,
-                Phone = c.Phone,
-                Email = c.Email,
-                Address = c.Address,
-                City = c.City,
-                State = c.State,
-                PostalCode = c.PostalCode,
-                Website = c.Website,
-                LogoUrl = c.LogoUrl,
-                IsActive = c.IsActive,
-                CreatedAt = c.CreatedAt
-            })
             .ToListAsync();
 
-        return Ok(clinics);
+        return Ok(clinics.Select(ClinicResponseDto.FromModel));
     }
 
     // GET /api/clinics/{id}
@@ -52,22 +35,7 @@ public class ClinicsController : ControllerBase
         if (clinic == null)
             return NotFound(new { message = "Clínica não encontrada." });
 
-        return Ok(new ClinicResponseDto
-        {
-            Id = clinic.Id,
-            Name = clinic.Name,
-            Description = clinic.Description,
-            Phone = clinic.Phone,
-            Email = clinic.Email,
-            Address = clinic.Address,
-            City = clinic.City,
-            State = clinic.State,
-            PostalCode = clinic.PostalCode,
-            Website = clinic.Website,
-            LogoUrl = clinic.LogoUrl,
-            IsActive = clinic.IsActive,
-            CreatedAt = clinic.CreatedAt
-        });
+        return Ok(ClinicResponseDto.FromModel(clinic));
     }
 
     // POST /api/clinics
@@ -93,22 +61,7 @@ public class ClinicsController : ControllerBase
         _db.Clinics.Add(clinic);
         await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = clinic.Id }, new ClinicResponseDto
-        {
-            Id = clinic.Id,
-            Name = clinic.Name,
-            Description = clinic.Description,
-            Phone = clinic.Phone,
-            Email = clinic.Email,
-            Address = clinic.Address,
-            City = clinic.City,
-            State = clinic.State,
-            PostalCode = clinic.PostalCode,
-            Website = clinic.Website,
-            LogoUrl = clinic.LogoUrl,
-            IsActive = clinic.IsActive,
-            CreatedAt = clinic.CreatedAt
-        });
+        return CreatedAtAction(nameof(GetById), new { id = clinic.Id }, ClinicResponseDto.FromModel(clinic));
     }
 
     // PUT /api/clinics/{id}
@@ -129,25 +82,27 @@ public class ClinicsController : ControllerBase
         if (dto.PostalCode != null) clinic.PostalCode = dto.PostalCode;
         if (dto.Website != null) clinic.Website = dto.Website;
         if (dto.LogoUrl != null) clinic.LogoUrl = dto.LogoUrl;
+        if (dto.Cnpj != null) clinic.Cnpj = dto.Cnpj;
+        if (dto.Instagram != null) clinic.Instagram = dto.Instagram;
+        if (dto.Facebook != null) clinic.Facebook = dto.Facebook;
+        if (dto.Youtube != null) clinic.Youtube = dto.Youtube;
+        if (dto.Linkedin != null) clinic.Linkedin = dto.Linkedin;
+        if (dto.Tiktok != null) clinic.Tiktok = dto.Tiktok;
+        if (dto.Whatsapp != null) clinic.Whatsapp = dto.Whatsapp;
+        if (dto.Mission != null) clinic.Mission = dto.Mission;
+        if (dto.Vision != null) clinic.Vision = dto.Vision;
+        if (dto.Values != null) clinic.Values = dto.Values;
+
+        if (dto.Milestones != null)
+            clinic.Milestones = JsonSerializer.Serialize(dto.Milestones, _jsonOpts);
+
+        if (dto.GalleryUrls != null)
+            clinic.GalleryUrls = JsonSerializer.Serialize(dto.GalleryUrls);
+
         clinic.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
 
-        return Ok(new ClinicResponseDto
-        {
-            Id = clinic.Id,
-            Name = clinic.Name,
-            Description = clinic.Description,
-            Phone = clinic.Phone,
-            Email = clinic.Email,
-            Address = clinic.Address,
-            City = clinic.City,
-            State = clinic.State,
-            PostalCode = clinic.PostalCode,
-            Website = clinic.Website,
-            LogoUrl = clinic.LogoUrl,
-            IsActive = clinic.IsActive,
-            CreatedAt = clinic.CreatedAt
-        });
+        return Ok(ClinicResponseDto.FromModel(clinic));
     }
 }

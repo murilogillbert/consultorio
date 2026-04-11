@@ -5,6 +5,6 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: ['psicologiaeexistir.com.br', 'front.psicologiaeexistir.com.br'],
+    allowedHosts: ['psicologiaeexistir.com.br', 'www.psicologiaeexistir.com.br', 'front.psicologiaeexistir.com.br'],
   },
 })
