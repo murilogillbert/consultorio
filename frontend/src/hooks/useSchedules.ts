@@ -46,8 +46,7 @@ export function useSetSchedule() {
       professionalId: string
       slots: Array<{ dayOfWeek: number; startTime: string; endTime: string }>
     }) => {
-      // Backend: POST /api/schedules with { professionalId, slots }
-      const { data } = await api.post(`/schedules`, { professionalId, slots })
+      const { data } = await api.put(`/schedules/${professionalId}`, { slots })
       return data
     },
     onSuccess: (_data, variables) => {

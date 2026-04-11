@@ -58,7 +58,8 @@ export default function ProfissionaisPage() {
     Object.entries(scheduleSlots).forEach(([key, isActive]) => {
       if (!isActive) return
       const [dayStr, timeIdxStr] = key.split('-')
-      const dayOfWeek = parseInt(dayStr)
+      // UI: 0=Seg(Mon)..5=Sáb(Sat), 6=Dom(Sun). JS getDay(): 0=Sun,1=Mon..6=Sat.
+      const dayOfWeek = (parseInt(dayStr) + 1) % 7
       const timeIdx = parseInt(timeIdxStr)
       
       const startTime = times[timeIdx]
@@ -156,6 +157,8 @@ export default function ProfissionaisPage() {
       const { data: fetched } = await api.get<Array<{ dayOfWeek: number; startTime: string; endTime: string }>>(`/schedules/${pro.id}`)
       const newScheduleSlots: Record<string, boolean> = {}
       for (const s of fetched || []) {
+        // Convert JS getDay() (0=Sun,1=Mon..6=Sat) back to UI index (0=Seg..5=Sáb,6=Dom)
+        const uiDayIndex = (s.dayOfWeek + 6) % 7
         // A single schedule may span multiple 1h slots (e.g. 08:00–11:00 → 08,09,10).
         const [sh, sm] = s.startTime.split(':').map(Number)
         const [eh, em] = s.endTime.split(':').map(Number)
@@ -165,7 +168,7 @@ export default function ProfissionaisPage() {
           const [th, tm] = t.split(':').map(Number)
           const slotStart = th * 60 + tm
           if (slotStart >= startMin && slotStart < endMin) {
-            newScheduleSlots[`${s.dayOfWeek}-${idx}`] = true
+            newScheduleSlots[`${uiDayIndex}-${idx}`] = true
           }
         })
       }

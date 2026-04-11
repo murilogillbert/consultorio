@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Check, ArrowLeft, ArrowRight, Calendar, Clock, User, Stethoscope } from 'lucide-react'
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'
@@ -23,7 +23,16 @@ export default function AgendamentoPage() {
   const professionals = linkedIds.length > 0
     ? allProfessionals.filter(p => linkedIds.includes(p.id))
     : allProfessionals
-  const { data: availableSlots = [], isLoading: loadingSlots } = useAvailableSlots(
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (currentStep === 2 && dateInputRef.current) {
+      dateInputRef.current.focus()
+      try { dateInputRef.current.showPicker() } catch { /* não suportado em todos os browsers */ }
+    }
+  }, [currentStep])
+
+  const { data: availableSlots = [], isLoading: loadingSlots, isFetching: fetchingSlots } = useAvailableSlots(
     formData.professionalId || undefined,
     formData.date || undefined,
     formData.serviceId || undefined
@@ -138,22 +147,32 @@ export default function AgendamentoPage() {
               </h2>
               <div className="input-group" style={{ marginBottom: 'var(--space-6)' }}>
                 <label className="input-label">Data <span className="required">*</span></label>
-                <input type="date" className="input-field" value={formData.date}
-                  onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  className="input-field"
+                  value={formData.date}
+                  min={new Date().toISOString().split('T')[0]}
+                  onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
+                  onChange={e => setFormData({ ...formData, date: e.target.value, time: '', startTime: '', endTime: '' })}
+                />
               </div>
               <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
                 <Clock size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
                 Horários disponíveis
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {loadingSlots ? (
-                  <p style={{ color: 'var(--color-text-muted)' }}>Carregando horários...</p>
-                ) : !formData.date ? (
+                {!formData.date ? (
                   <p style={{ color: 'var(--color-text-muted)' }}>Selecione uma data para ver os horários disponíveis</p>
+                ) : (loadingSlots || fetchingSlots) ? (
+                  <p style={{ color: 'var(--color-text-muted)' }}>Carregando horários...</p>
                 ) : availableSlots.length === 0 ? (
                   <p style={{ color: 'var(--color-text-muted)' }}>Nenhum horário disponível nesta data</p>
                 ) : availableSlots.map(slot => (
-                  <button key={slot.startTime} className={`pill-tab${formData.time === slot.startTime ? ' active' : ''}`}
+                  <button
+                    type="button"
+                    key={slot.startTime}
+                    className={`pill-tab${formData.time === slot.startTime ? ' active' : ''}`}
                     onClick={() => setFormData({ ...formData, time: slot.startTime, startTime: `${formData.date}T${slot.startTime}:00`, endTime: `${formData.date}T${slot.endTime}:00` })}>
                     {slot.startTime}
                   </button>

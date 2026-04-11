@@ -109,12 +109,9 @@ export function useCreateProfessional() {
         bio: input.bio,
       }
       const { data } = await api.post<ProfessionalResponseDtoRaw>('/professionals', payload)
-      // Persist schedules (if provided) via POST /api/schedules
+      // Persist schedules via PUT /schedules/:professionalId
       if (input.schedules && input.schedules.length > 0) {
-        await api.post('/schedules', {
-          professionalId: data.id,
-          slots: input.schedules,
-        })
+        await api.put(`/schedules/${data.id}`, { slots: input.schedules })
       }
       return mapProfessional(data)
     },
@@ -138,14 +135,9 @@ export function useUpdateProfessional() {
       if (updateData.bio !== undefined) payload.bio = updateData.bio
       if (updateData.active !== undefined) payload.isAvailable = updateData.active
       const { data } = await api.put<ProfessionalResponseDtoRaw>(`/professionals/${id}`, payload)
-      // Persist schedules separately. Always overwrite when caller passed a
-      // schedules array — SetSchedule deletes all existing and rewrites, so
-      // an empty array clears the grid intentionally.
+      // Persist schedules separately via PUT /schedules/:id (replaces all).
       if (Array.isArray(updateData.schedules)) {
-        await api.post('/schedules', {
-          professionalId: id,
-          slots: updateData.schedules,
-        })
+        await api.put(`/schedules/${id}`, { slots: updateData.schedules })
       }
       return mapProfessional(data)
     },
