@@ -15,7 +15,10 @@ namespace Consultorio.Infra.Migrations
                 table: "Services",
                 type: "bit",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: true);
+
+            // Garante que todos os serviços existentes fiquem disponíveis para agendamento online
+            migrationBuilder.Sql("UPDATE Services SET OnlineBooking = 1 WHERE OnlineBooking = 0");
 
             migrationBuilder.AddColumn<string>(
                 name: "Preparation",

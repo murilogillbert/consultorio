@@ -50,7 +50,7 @@ function mapService(raw: ServiceResponseDtoRaw): Service {
     category: raw.category,
     duration: raw.durationMinutes,
     price: Math.round(Number(raw.price) * 100),
-    onlineBooking: raw.onlineBooking,
+    onlineBooking: raw.onlineBooking ?? true,
     active: raw.isActive,
     createdAt: raw.createdAt,
     updatedAt: raw.createdAt,
