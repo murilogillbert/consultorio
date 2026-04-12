@@ -4,6 +4,7 @@ import { api } from '../services/api'
 export interface BookingData {
   name: string
   email: string
+  password?: string
   cpf: string
   phone: string
   serviceId: string

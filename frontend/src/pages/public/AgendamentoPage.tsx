@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Check, ArrowLeft, ArrowRight, Calendar, Clock, User, Stethoscope } from 'lucide-react'
+import { Check, ArrowLeft, ArrowRight, Calendar, Clock, User, Stethoscope, Eye, EyeOff } from 'lucide-react'
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useAvailableSlots } from '../../hooks/useSchedules'
@@ -10,9 +10,12 @@ const steps = ['Serviço', 'Profissional', 'Data e Hora', 'Seus Dados', 'Confirm
 export default function AgendamentoPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [formData, setFormData] = useState({
-    service: '', serviceId: '', professional: '', professionalId: '', date: '', time: '', startTime: '', endTime: '', name: '', cpf: '', phone: '', email: '', notes: ''
+    service: '', serviceId: '', professional: '', professionalId: '', date: '', time: '', startTime: '', endTime: '', name: '', cpf: '', phone: '', email: '', password: '', confirmPassword: '', notes: ''
   })
+  const [showPass, setShowPass]   = useState(false)
+  const [showConf, setShowConf]   = useState(false)
   const [bookingSuccess, setBookingSuccess] = useState(false)
+  const [successMsg, setSuccessMsg]         = useState('')
 
   const dateInputRef = useRef<HTMLInputElement>(null)
 
@@ -47,7 +50,12 @@ export default function AgendamentoPage() {
     if (currentStep === 0) return formData.serviceId !== ''
     if (currentStep === 1) return formData.professionalId !== ''
     if (currentStep === 2) return formData.date !== '' && formData.time !== ''
-    if (currentStep === 3) return formData.name !== '' && formData.email !== ''
+    if (currentStep === 3) return (
+      formData.name !== '' &&
+      formData.email !== '' &&
+      formData.password.length >= 6 &&
+      formData.password === formData.confirmPassword
+    )
     return true
   }
 
@@ -211,6 +219,42 @@ export default function AgendamentoPage() {
                     onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                 </div>
               </div>
+              <div className="form-row">
+                <div className="input-group">
+                  <label className="input-label">Senha de acesso <span className="required">*</span></label>
+                  <div style={{ position: 'relative' }}>
+                    <input className="input-field" type={showPass ? 'text' : 'password'}
+                      placeholder="Mínimo 6 caracteres" value={formData.password}
+                      onChange={e => setFormData({ ...formData, password: e.target.value })}
+                      style={{ paddingRight: 40 }} />
+                    <button type="button" onClick={() => setShowPass(v => !v)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
+                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
+                    Usada para acessar "Minhas Consultas" e acompanhar seu histórico.
+                  </span>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Confirmar senha <span className="required">*</span></label>
+                  <div style={{ position: 'relative' }}>
+                    <input className="input-field" type={showConf ? 'text' : 'password'}
+                      placeholder="Repita a senha" value={formData.confirmPassword}
+                      onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      style={{ paddingRight: 40 }} />
+                    <button type="button" onClick={() => setShowConf(v => !v)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
+                      {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                    <span style={{ fontSize: 12, color: 'var(--color-danger)', marginTop: 4, display: 'block' }}>
+                      As senhas não coincidem.
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="form-row full">
                 <div className="input-group">
                   <label className="input-label">Observações</label>
@@ -241,8 +285,18 @@ export default function AgendamentoPage() {
                 </div>
               </div>
               {bookingSuccess ? (
-                <div style={{ color: 'var(--color-accent-emerald)', fontWeight: 600, fontSize: 'var(--text-lg)' }}>
-                  Agendamento realizado com sucesso!
+                <div>
+                  <div style={{ color: 'var(--color-accent-emerald)', fontWeight: 600, fontSize: 'var(--text-lg)', marginBottom: 12 }}>
+                    ✓ Agendamento realizado com sucesso!
+                  </div>
+                  {successMsg && (
+                    <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 20 }}>
+                      {successMsg}
+                    </p>
+                  )}
+                  <a href="/minhas-consultas" className="btn btn-primary btn-sm">
+                    Ver minhas consultas
+                  </a>
                 </div>
               ) : (
                 <>
@@ -251,6 +305,7 @@ export default function AgendamentoPage() {
                       bookingMutation.mutate({
                         name: formData.name,
                         email: formData.email,
+                        password: formData.password,
                         cpf: formData.cpf,
                         phone: formData.phone,
                         serviceId: formData.serviceId,
@@ -259,7 +314,10 @@ export default function AgendamentoPage() {
                         endTime: formData.endTime,
                         notes: formData.notes
                       }, {
-                        onSuccess: () => setBookingSuccess(true),
+                        onSuccess: (data: any) => {
+                          setBookingSuccess(true)
+                          setSuccessMsg(data?.message || '')
+                        },
                       })
                     }}>
                     <Check size={18} />

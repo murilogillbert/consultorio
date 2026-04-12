@@ -23,6 +23,8 @@ public class PublicBookingController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Email))
             return BadRequest(new { message = "Nome e e-mail são obrigatórios." });
 
+        var email = dto.Email.ToLower().Trim();
+
         // Busca a clínica (single-tenant)
         var clinic = await _db.Clinics.FirstOrDefaultAsync();
         if (clinic == null)
@@ -52,32 +54,36 @@ public class PublicBookingController : ControllerBase
             return Conflict(new { message = "Este horário não está mais disponível. Por favor, escolha outro horário." });
 
         // Localiza ou cria o User/Patient
-        var email = dto.Email.ToLower().Trim();
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        bool isNewUser = user == null;
 
-        if (user == null)
+        if (isNewUser)
         {
+            // Novo paciente: senha é obrigatória
+            if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+                return BadRequest(new { message = "Crie uma senha de acesso com pelo menos 6 caracteres para acompanhar suas consultas." });
+
             user = new User
             {
                 Id           = Guid.NewGuid(),
                 Name         = dto.Name.Trim(),
                 Email        = email,
                 Phone        = dto.Phone?.Trim(),
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 IsActive     = true,
                 CreatedAt    = DateTime.UtcNow,
             };
             _db.Users.Add(user);
         }
 
-        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.UserId == user.Id);
+        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.UserId == user!.Id);
         if (patient == null)
         {
             patient = new Patient
             {
                 Id        = Guid.NewGuid(),
                 ClinicId  = clinic.Id,
-                UserId    = user.Id,
+                UserId    = user!.Id,
                 CPF       = dto.CPF?.Trim(),
                 Phone     = dto.Phone?.Trim(),
                 IsActive  = true,
@@ -106,10 +112,13 @@ public class PublicBookingController : ControllerBase
 
         return Ok(new
         {
-            message       = "Agendamento realizado com sucesso!",
+            message       = isNewUser
+                ? "Agendamento realizado! Acesse 'Minhas Consultas' com seu e-mail e a senha que você criou."
+                : "Agendamento realizado com sucesso!",
             appointmentId = appointment.Id,
             startTime     = appointment.StartTime,
             endTime       = appointment.EndTime,
+            isNewUser,
         });
     }
 }
@@ -118,6 +127,7 @@ public class PublicBookingDto
 {
     public string Name          { get; set; } = null!;
     public string Email         { get; set; } = null!;
+    public string? Password     { get; set; }
     public string? CPF          { get; set; }
     public string? Phone        { get; set; }
     public Guid ServiceId       { get; set; }
