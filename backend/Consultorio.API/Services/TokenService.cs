@@ -47,4 +47,30 @@ public class TokenService
         // Serializa o token para string (o que o frontend vai armazenar)
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    // Token específico para o portal do paciente (sem clinicId, com patientId)
+    public string GeneratePatientToken(Guid userId, string email, Guid patientId)
+    {
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(_config["Jwt:Secret"]!)
+        );
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Email, email),
+            new Claim(ClaimTypes.Role, "PATIENT"),
+            new Claim("patientId", patientId.ToString()),
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: _config["Jwt:Issuer"],
+            audience: _config["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddDays(7),
+            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
 }

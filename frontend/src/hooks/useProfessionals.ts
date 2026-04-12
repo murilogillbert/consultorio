@@ -17,6 +17,7 @@ interface ProfessionalResponseDtoRaw {
   createdAt: string
   services: string[]
   serviceIds: string[]
+  schedules: Array<{ id: string; dayOfWeek: number; startTime: string; endTime: string }>
 }
 
 // Shape expected by UI
@@ -63,7 +64,12 @@ function mapProfessional(raw: ProfessionalResponseDtoRaw): Professional {
     services: (raw.services || []).map((name, i) => ({
       service: { id: (raw.serviceIds || [])[i] || name, name }
     })),
-    schedules: [],
+    schedules: (raw.schedules || []).map(s => ({
+      id: s.id,
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime,
+      endTime: s.endTime,
+    })),
   }
 }
 

@@ -1691,17 +1691,17 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Ludimila\\.nuget\\packages\\": {},
+    "C:\\Users\\Ludimila\\.nuget\\packages": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Ludimila\\Documents\\OneDrive\\Área de Trabalho\\Projetos\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
+      "projectUniqueName": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
       "projectName": "Consultorio.Infra",
-      "projectPath": "C:\\Users\\Ludimila\\Documents\\OneDrive\\Área de Trabalho\\Projetos\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
-      "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Ludimila\\Documents\\OneDrive\\Área de Trabalho\\Projetos\\consultorio\\backend\\Consultorio.Infra\\obj\\",
+      "projectPath": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
+      "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages",
+      "outputPath": "C:\\consultorio\\backend\\Consultorio.Infra\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -1722,8 +1722,8 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "projectReferences": {
-            "C:\\Users\\Ludimila\\Documents\\OneDrive\\Área de Trabalho\\Projetos\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj": {
-              "projectPath": "C:\\Users\\Ludimila\\Documents\\OneDrive\\Área de Trabalho\\Projetos\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj"
+            "C:\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj": {
+              "projectPath": "C:\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj"
             }
           }
         }

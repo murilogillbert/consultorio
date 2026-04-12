@@ -66,14 +66,14 @@ export function useUpdatePatient() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<Patient> & { id: string }) => {
-      const payload: any = {
-        name: data.user?.name,
-        cpf: data.cpf,
-        phone: data.phone,
-        birthDate: data.birthDate,
-        address: data.address,
-        notes: data.notes,
-      }
+      // Omit fields that are empty string to avoid backend parse errors (e.g. birthDate: "")
+      const payload: any = {}
+      if (data.user?.name) payload.name = data.user.name
+      if (data.cpf) payload.cpf = data.cpf
+      if (data.phone) payload.phone = data.phone
+      if (data.birthDate) payload.birthDate = data.birthDate
+      if (data.address) payload.address = data.address
+      if (data.notes) payload.notes = data.notes
       const { data: result } = await api.put<PatientRaw>(`/patients/${id}`, payload)
       return mapPatient(result)
     },
@@ -81,6 +81,16 @@ export function useUpdatePatient() {
       queryClient.invalidateQueries({ queryKey: ['patients'] })
       queryClient.invalidateQueries({ queryKey: ['patients', id] })
     }
+  })
+}
+
+export function useDeletePatient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/patients/${id}`)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] })
   })
 }
 

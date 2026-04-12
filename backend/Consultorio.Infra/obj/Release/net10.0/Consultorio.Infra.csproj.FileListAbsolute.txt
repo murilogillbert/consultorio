@@ -1,0 +1,16 @@
+C:\consultorio\backend\Consultorio.Infra\bin\Release\net10.0\Consultorio.Infra.deps.json
+C:\consultorio\backend\Consultorio.Infra\bin\Release\net10.0\Consultorio.Infra.dll
+C:\consultorio\backend\Consultorio.Infra\bin\Release\net10.0\Consultorio.Infra.pdb
+C:\consultorio\backend\Consultorio.Infra\bin\Release\net10.0\Consultorio.Domain.dll
+C:\consultorio\backend\Consultorio.Infra\bin\Release\net10.0\Consultorio.Domain.pdb
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.csproj.AssemblyReference.cache
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.GeneratedMSBuildEditorConfig.editorconfig
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.AssemblyInfoInputs.cache
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.AssemblyInfo.cs
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.csproj.CoreCompileInputs.cache
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.sourcelink.json
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consulto.6A594769.Up2Date
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.dll
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\refint\Consultorio.Infra.dll
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\Consultorio.Infra.pdb
+C:\consultorio\backend\Consultorio.Infra\obj\Release\net10.0\ref\Consultorio.Infra.dll

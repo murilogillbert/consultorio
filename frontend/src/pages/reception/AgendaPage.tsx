@@ -79,15 +79,13 @@ export default function AgendaPage() {
       setFormError('Preencha paciente, profissional e serviço.')
       return
     }
-    const startDt = new Date(`${newForm.date}T${newForm.startTime}:00`)
-    const endDt = new Date(startDt.getTime() + parseInt(newForm.duration) * 60000)
     try {
       await createAppointment.mutateAsync({
         patientId: newForm.patientId,
         professionalId: newForm.professionalId,
         serviceId: newForm.serviceId,
-        startTime: startDt.toISOString(),
-        endTime: endDt.toISOString(),
+        startTime: `${newForm.date}T${newForm.startTime}:00`,
+        endTime: `${newForm.date}T${newForm.startTime}:00`, // backend recalcula pelo serviço
         notes: newForm.notes || undefined,
         origin: 'RECEPTION',
         repeat: isRecurring, // Pass to backend expansion
@@ -209,12 +207,10 @@ export default function AgendaPage() {
               const profIndex = displayedProfs.findIndex(p => p.id === appt.professionalId)
               if (profIndex === -1) return null
 
-              const startDate = new Date(appt.startTime)
-              const endDate = new Date(appt.endTime)
-              const startHour = startDate.getHours()
-              const startMin = startDate.getMinutes()
-              const endHour = endDate.getHours()
-              const endMin = endDate.getMinutes()
+              // Remove timezone suffix to treat stored times as clinic local time
+              const stripTz = (iso: string) => iso.replace('Z', '').replace(/\+\d{2}:\d{2}$/, '')
+              const [startHour, startMin] = (stripTz(appt.startTime).split('T')[1] ?? '00:00').split(':').map(Number)
+              const [endHour, endMin] = (stripTz(appt.endTime).split('T')[1] ?? '00:00').split(':').map(Number)
 
               const slotIndex = timeSlots.findIndex(t => {
                 const [h, m] = t.split(':').map(Number)

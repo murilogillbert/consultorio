@@ -9,6 +9,8 @@ public class User
     public string? Phone { get; set; }
     public string? AvatarUrl { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? OtpCode { get; set; }
+    public DateTime? OtpExpiry { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

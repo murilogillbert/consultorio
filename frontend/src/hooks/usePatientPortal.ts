@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 const PATIENT_TOKEN_KEY = 'patient_token'
@@ -30,16 +30,27 @@ export function useRegisterPatient() {
 
 export function useRequestOtp() {
   return useMutation({
-    mutationFn: async (_email: string) => ({ message: 'Portal do paciente ainda não implementado.' })
+    mutationFn: async (email: string) => {
+      const { data } = await api.post('/public/patients/otp/request', { email })
+      return data as { message: string }
+    }
   })
 }
 
 export function useVerifyOtp() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (_: { email: string; otp: string }) => ({
-      token: '',
-      user: { id: '', name: '', email: '' }
-    })
+    mutationFn: async ({ email, otp }: { email: string; otp: string }) => {
+      const { data } = await api.post('/public/patients/otp/verify', { email, otp })
+      const res = data as { token: string; user: { id: string; name: string; email: string } }
+      localStorage.setItem(PATIENT_TOKEN_KEY, res.token)
+      localStorage.setItem(PATIENT_USER_KEY, JSON.stringify(res.user))
+      return res
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patientAppointments'] })
+      queryClient.invalidateQueries({ queryKey: ['patientConversation'] })
+    }
   })
 }
 
@@ -56,9 +67,14 @@ export interface PatientAppointment {
 export function usePatientAppointments() {
   return useQuery<PatientAppointment[]>({
     queryKey: ['patientAppointments'],
-    queryFn: async () => [],
+    queryFn: async () => {
+      const token = getPatientToken()
+      const { data } = await api.get('/public/patients/appointments', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      return data as PatientAppointment[]
+    },
     enabled: !!getPatientToken(),
-    staleTime: Infinity,
   })
 }
 

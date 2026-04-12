@@ -119,6 +119,24 @@ public class PatientsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = patient.Id }, ToDto(patient));
     }
 
+    // DELETE /api/patients/{id}
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var patient = await _db.Patients.FindAsync(id);
+        if (patient == null)
+            return NotFound(new { message = "Paciente não encontrado." });
+
+        var hasActive = await _db.Appointments
+            .AnyAsync(a => a.PatientId == id && a.Status != "CANCELLED");
+        if (hasActive)
+            return Conflict(new { message = "Paciente possui consultas ativas. Cancele-as antes de remover." });
+
+        _db.Patients.Remove(patient);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     // PUT /api/patients/{id}
     [HttpPut("{id}")]
     public async Task<ActionResult<PatientResponseDto>> Update(Guid id, [FromBody] UpdatePatientDto dto)

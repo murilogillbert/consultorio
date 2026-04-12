@@ -1,22 +1,22 @@
 import { useState } from 'react'
-import { Search, Plus, Edit, Eye, Trash2, X } from 'lucide-react'
-import { usePatients, useCreatePatient, useUpdatePatient } from '../../hooks/usePatients'
+import { Search, Plus, Edit, Trash2, X, AlertTriangle } from 'lucide-react'
+import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient } from '../../hooks/usePatients'
 
 export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const { data: patients = [], isLoading } = usePatients(searchTerm)
   const [showModal, setShowModal] = useState(false)
   const [editingPatient, setEditingPatient] = useState<any | null>(null)
-  
-  // For new patients, they might need to be linked to a User
-  // In a real scenario, we might create the User and Tenant/Patient profile together
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
+  const [deleteError, setDeleteError] = useState('')
+
   const createPatient = useCreatePatient()
   const updatePatient = useUpdatePatient()
+  const deletePatient = useDeletePatient()
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    userId: '',
     cpf: '',
     phone: '',
     birthDate: '',
@@ -29,7 +29,6 @@ export default function PatientsPage() {
     setFormData({
       name: patient.user?.name || '',
       email: patient.user?.email || '',
-      userId: patient.userId,
       cpf: patient.cpf || '',
       phone: patient.phone || '',
       birthDate: patient.birthDate ? new Date(patient.birthDate).toISOString().split('T')[0] : '',
@@ -43,15 +42,42 @@ export default function PatientsPage() {
     e.preventDefault()
     try {
       if (editingPatient) {
-        await updatePatient.mutateAsync({ id: editingPatient.id, cpf: formData.cpf, phone: formData.phone, birthDate: formData.birthDate, address: formData.address, notes: formData.notes })
+        await updatePatient.mutateAsync({
+          id: editingPatient.id,
+          user: { id: editingPatient.userId, name: formData.name, email: editingPatient.user?.email || '' },
+          cpf: formData.cpf || undefined,
+          phone: formData.phone || undefined,
+          birthDate: formData.birthDate || undefined,
+          address: formData.address || undefined,
+          notes: formData.notes || undefined,
+        })
       } else {
-        await createPatient.mutateAsync({ name: formData.name, email: formData.email, cpf: formData.cpf, phone: formData.phone, birthDate: formData.birthDate, address: formData.address, notes: formData.notes })
+        await createPatient.mutateAsync({
+          name: formData.name,
+          email: formData.email,
+          cpf: formData.cpf || undefined,
+          phone: formData.phone || undefined,
+          birthDate: formData.birthDate || undefined,
+          address: formData.address || undefined,
+          notes: formData.notes || undefined,
+        })
       }
       setShowModal(false)
       setEditingPatient(null)
-      setFormData({ name: '', email: '', userId: '', cpf: '', phone: '', birthDate: '', address: '', notes: '' })
-    } catch (err) {
-      alert('Erro ao salvar paciente.')
+      setFormData({ name: '', email: '', cpf: '', phone: '', birthDate: '', address: '', notes: '' })
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Erro ao salvar paciente.')
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return
+    setDeleteError('')
+    try {
+      await deletePatient.mutateAsync(deleteConfirm.id)
+      setDeleteConfirm(null)
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.message || 'Erro ao remover paciente.')
     }
   }
 
@@ -67,10 +93,10 @@ export default function PatientsPage() {
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div style={{ position: 'relative' }}>
           <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-          <input 
-            className="input-field" 
-            style={{ paddingLeft: 40 }} 
-            placeholder="Buscar por nome, CPF ou e-mail..." 
+          <input
+            className="input-field"
+            style={{ paddingLeft: 40 }}
+            placeholder="Buscar por nome, CPF ou e-mail..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
@@ -86,7 +112,7 @@ export default function PatientsPage() {
               <tr>
                 <th>Paciente</th>
                 <th>CPF</th>
-                <th>Contato</th>
+                <th>Telefone</th>
                 <th>Última Consulta</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
@@ -104,7 +130,7 @@ export default function PatientsPage() {
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div className="avatar avatar-sm avatar-placeholder">
-                          {p.user?.name.split(' ').map((n: any) => n[0]).join('').slice(0, 2)}
+                          {(p.user?.name || 'P').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{p.user?.name}</div>
@@ -112,19 +138,19 @@ export default function PatientsPage() {
                         </div>
                       </div>
                     </td>
-                    <td style={{ fontSize: 13 }}>{p.cpf || 'Não informado'}</td>
-                    <td>
-                      <div style={{ fontSize: 12 }}>{p.phone || 'N/A'}</div>
-                    </td>
-                    <td style={{ fontSize: 13 }}>
-                      {/* TODO: Fetch last appointment date if available */}
-                      -
-                    </td>
+                    <td style={{ fontSize: 13 }}>{p.cpf || '—'}</td>
+                    <td style={{ fontSize: 13 }}>{p.phone || '—'}</td>
+                    <td style={{ fontSize: 13 }}>—</td>
                     <td>
                       <div className="row-actions">
                         <button className="btn btn-icon btn-sm" onClick={() => handleEdit(p)} title="Editar"><Edit size={14} /></button>
-                        <button className="btn btn-icon btn-sm" title="Ver Prontuário"><Eye size={14} /></button>
-                        <button className="btn btn-icon btn-sm" title="Remover"><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                        <button
+                          className="btn btn-icon btn-sm"
+                          title="Remover"
+                          onClick={() => { setDeleteConfirm({ id: p.id, name: p.user?.name || 'este paciente' }); setDeleteError('') }}
+                        >
+                          <Trash2 size={14} color="var(--color-accent-danger)" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -135,49 +161,85 @@ export default function PatientsPage() {
         </div>
       )}
 
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={20} color="var(--color-accent-danger)" /> Remover Paciente
+              </h3>
+              <button className="modal-close" onClick={() => setDeleteConfirm(null)}><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              <p>Tem certeza que deseja remover <strong>{deleteConfirm.name}</strong>? Esta ação não pode ser desfeita.</p>
+              {deleteError && (
+                <p style={{ color: 'var(--color-accent-danger)', marginTop: 12, fontSize: 13 }}>{deleteError}</p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>Cancelar</button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDeleteConfirm}
+                disabled={deletePatient.isPending}
+              >
+                {deletePatient.isPending ? 'Removendo...' : 'Remover'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editingPatient ? 'Editar Paciente' : 'Novo Paciente'}</h3>
-              <button onClick={() => setShowModal(false)}><X size={20} /></button>
+              <button className="modal-close" onClick={() => setShowModal(false)}><X size={20} /></button>
             </div>
             <form onSubmit={handleSave}>
-              <div className="form-2col" style={{ marginBottom: 'var(--space-4)' }}>
-                {!editingPatient && (
-                  <>
-                    <div className="input-group">
-                      <label className="input-label">Nome Completo <span className="required">*</span></label>
-                      <input className="input-field" placeholder="Nome do paciente" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                    </div>
+              <div className="modal-body">
+                <div className="form-2col">
+                  <div className="input-group">
+                    <label className="input-label">Nome Completo <span className="required">*</span></label>
+                    <input className="input-field" placeholder="Nome do paciente" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                  </div>
+                  {!editingPatient ? (
                     <div className="input-group">
                       <label className="input-label">E-mail <span className="required">*</span></label>
                       <input className="input-field" type="email" placeholder="email@exemplo.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                     </div>
-                  </>
-                )}
-                <div className="input-group">
-                  <label className="input-label">CPF</label>
-                  <input className="input-field" value={formData.cpf} onChange={e => setFormData({ ...formData, cpf: e.target.value })} placeholder="000.000.000-00" />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Telefone</label>
-                  <input className="input-field" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="(00) 00000-0000" />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Data de Nascimento</label>
-                  <input className="input-field" type="date" value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Endereço</label>
-                  <input className="input-field" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="Rua, Número, Bairro..." />
-                </div>
-                <div className="input-group full-span">
-                  <label className="input-label">Observações Médicas / Notas</label>
-                  <textarea className="input-field" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows={3} />
+                  ) : (
+                    <div className="input-group">
+                      <label className="input-label">E-mail</label>
+                      <input className="input-field" value={formData.email} disabled style={{ opacity: 0.6 }} />
+                    </div>
+                  )}
+                  <div className="input-group">
+                    <label className="input-label">CPF</label>
+                    <input className="input-field" value={formData.cpf} onChange={e => setFormData({ ...formData, cpf: e.target.value })} placeholder="000.000.000-00" />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Telefone</label>
+                    <input className="input-field" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Data de Nascimento</label>
+                    <input className="input-field" type="date" value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Endereço</label>
+                    <input className="input-field" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="Rua, Número, Bairro..." />
+                  </div>
+                  <div className="input-group full-span">
+                    <label className="input-label">Observações</label>
+                    <textarea className="input-field" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows={3} />
+                  </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={createPatient.isPending || updatePatient.isPending}>
                   {editingPatient ? 'Salvar Alterações' : 'Criar Paciente'}
@@ -187,31 +249,6 @@ export default function PatientsPage() {
           </div>
         </div>
       )}
-
-      <style>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.5);
-          display: flex; align-items: center; justify-content: center;
-          z-index: 1000;
-          animation: fadeIn 0.2s ease-out;
-        }
-        .modal-content {
-          background: var(--color-bg-primary);
-          padding: var(--space-6);
-          border-radius: var(--radius-lg);
-          width: 90%;
-          border: 1px solid var(--color-border-subtle);
-          box-shadow: var(--shadow-lg);
-        }
-        .modal-header {
-          display: flex; justify-content: space-between; align-items: center;
-          margin-bottom: var(--space-6);
-        }
-        .modal-header h3 { font-family: var(--font-display); font-size: 20px; }
-        .modal-header button { background: none; border: none; cursor: pointer; color: var(--color-text-muted); }
-      `}</style>
     </div>
   )
 }

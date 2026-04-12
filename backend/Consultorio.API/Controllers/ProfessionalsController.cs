@@ -34,7 +34,17 @@ public class ProfessionalsController : ControllerBase
         IsAvailable = p.IsAvailable,
         CreatedAt = p.CreatedAt,
         Services = p.Services.Select(s => s.Name).ToList(),
-        ServiceIds = p.Services.Select(s => s.Id).ToList()
+        ServiceIds = p.Services.Select(s => s.Id).ToList(),
+        Schedules = p.Schedules
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.DayOfWeek).ThenBy(s => s.StartTime)
+            .Select(s => new ProfessionalScheduleDto
+            {
+                Id = s.Id,
+                DayOfWeek = s.DayOfWeek,
+                StartTime = s.StartTime.ToString(@"hh\:mm"),
+                EndTime = s.EndTime.ToString(@"hh\:mm"),
+            }).ToList()
     };
 
     // GET /api/professionals — público para o site mostrar profissionais
@@ -43,8 +53,9 @@ public class ProfessionalsController : ControllerBase
     public async Task<ActionResult<List<ProfessionalResponseDto>>> GetAll()
     {
         var pros = await _db.Professionals
-            .Include(p => p.User)        // JOIN com User para pegar nome/email
-            .Include(p => p.Services)    // JOIN com Services para listar serviços
+            .Include(p => p.User)
+            .Include(p => p.Services)
+            .Include(p => p.Schedules)
             .Where(p => p.IsAvailable)
             .OrderBy(p => p.User.Name)
             .ToListAsync();
@@ -60,6 +71,7 @@ public class ProfessionalsController : ControllerBase
         var pro = await _db.Professionals
             .Include(p => p.User)
             .Include(p => p.Services)
+            .Include(p => p.Schedules)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (pro == null)

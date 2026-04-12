@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "L7B6iWP36y4=",
+  "dgSpecHash": "BLMRw/CEqvU=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Ludimila\\Documents\\OneDrive\\Área de Trabalho\\Projetos\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
+  "projectFilePath": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Ludimila\\.nuget\\packages\\azure.core\\1.47.1\\azure.core.1.47.1.nupkg.sha512",
     "C:\\Users\\Ludimila\\.nuget\\packages\\azure.identity\\1.14.2\\azure.identity.1.14.2.nupkg.sha512",
