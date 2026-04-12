@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Search, Clock, Shield } from 'lucide-react'
-import { useServices } from '../../hooks/useServices'
+import { Search, Clock, Shield, Loader2 } from 'lucide-react'
+import { useServices, useUpdateService } from '../../hooks/useServices'
 
 function formatDuration(minutes: number): string {
   if (minutes >= 60) {
@@ -17,17 +17,35 @@ function formatPrice(cents: number): string {
 
 export default function ServicosPage() {
   const [search, setSearch] = useState('')
-  const [onlineToggle, setOnlineToggle] = useState<Record<number, boolean>>({})
-  const { data: services = [], isLoading } = useServices()
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
-  const filtered = services.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+  const { data: services = [], isLoading } = useServices()
+  const updateService = useUpdateService()
+
+  const filtered = services.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const handleToggleOnline = async (id: string, current: boolean) => {
+    setTogglingId(id)
+    try {
+      await updateService.mutateAsync({ id, onlineBooking: !current })
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   return (
     <div className="animate-fade-in">
       <div className="services-ops-search">
         <div className="search-input-wrapper">
           <Search size={16} />
-          <input className="input-field" placeholder="Buscar serviço..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input
+            className="input-field"
+            placeholder="Buscar serviço..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
@@ -42,18 +60,18 @@ export default function ServicosPage() {
               <tr>
                 <th>Serviço</th>
                 <th>Duração</th>
-                <th>Sala / Equipamento</th>
+                <th>Sala / Categoria</th>
                 <th>Agend. Online</th>
                 <th>Preço</th>
                 <th>Convênios</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((svc, i) => {
-                const isOnline = onlineToggle[i] !== undefined ? onlineToggle[i] : svc.onlineBooking
+              {filtered.map(svc => {
                 const insuranceCount = svc.insurances?.length || 0
+                const isToggling = togglingId === svc.id
                 return (
-                  <tr key={svc.id} style={{ cursor: 'pointer' }}>
+                  <tr key={svc.id}>
                     <td style={{ fontWeight: 500 }}>{svc.name}</td>
                     <td>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)' }}>
@@ -62,10 +80,16 @@ export default function ServicosPage() {
                     </td>
                     <td style={{ color: 'var(--color-text-secondary)' }}>{svc.category || '—'}</td>
                     <td>
-                      <div
-                        className={`toggle${isOnline ? ' active' : ''}`}
-                        onClick={() => setOnlineToggle({ ...onlineToggle, [i]: !isOnline })}
-                      />
+                      {isToggling ? (
+                        <Loader2 size={16} className="animate-spin" color="var(--color-accent-emerald)" />
+                      ) : (
+                        <div
+                          className={`toggle${svc.onlineBooking ? ' active' : ''}`}
+                          style={{ cursor: 'pointer' }}
+                          title={svc.onlineBooking ? 'Disponível online — clique para desativar' : 'Indisponível online — clique para ativar'}
+                          onClick={() => handleToggleOnline(svc.id, svc.onlineBooking)}
+                        />
+                      )}
                     </td>
                     <td style={{ color: 'var(--color-accent-gold)', fontWeight: 500 }}>{formatPrice(svc.price)}</td>
                     <td>
@@ -76,6 +100,13 @@ export default function ServicosPage() {
                   </tr>
                 )
               })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '32px 16px' }}>
+                    Nenhum serviço encontrado.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
