@@ -70,7 +70,8 @@ echo.
 :: ─── 5. CLOUDFLARE TUNNEL ────────────────────────────────────
 echo [5/6] Iniciando Cloudflare Tunnel...
 set CLOUDFLARED=C:\Users\Ludimila\AppData\Local\Microsoft\WinGet\Links\cloudflared.exe
-start "CLOUDFLARE - Tunnel" cmd /k ""%CLOUDFLARED%" tunnel run consultorio"
+set CF_CONFIG=C:\Users\Ludimila\.cloudflared\config.yml
+start "CLOUDFLARE - Tunnel" cmd /k ""%CLOUDFLARED%" --config "%CF_CONFIG%" tunnel run consultorio"
 timeout /t 2 /nobreak >nul
 echo       OK - Janela do Cloudflare aberta.
 echo.
