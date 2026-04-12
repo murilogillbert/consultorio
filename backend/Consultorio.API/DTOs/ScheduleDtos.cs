@@ -25,6 +25,6 @@ public class ScheduleResponseDto
 
 public class AvailableSlotDto
 {
-    public DateTime Start { get; set; }
-    public DateTime End { get; set; }
+    public string StartTime { get; set; } = null!; // "HH:mm"
+    public string EndTime { get; set; } = null!;   // "HH:mm"
 }

@@ -149,8 +149,8 @@ public class SchedulesController : ControllerBase
                 {
                     slots.Add(new AvailableSlotDto
                     {
-                        Start = current,
-                        End = slotEnd
+                        StartTime = current.ToString("HH:mm"),
+                        EndTime = slotEnd.ToString("HH:mm")
                     });
                 }
 
