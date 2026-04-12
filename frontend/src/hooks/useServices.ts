@@ -137,8 +137,21 @@ export function useUpdateService() {
   })
 }
 
-// Archive = soft delete on backend
-export function useArchiveService() {
+// Toggle active/inactive (soft deactivation)
+export function useToggleServiceActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch<ServiceResponseDtoRaw>(`/services/${id}/toggle-active`)
+      return mapService(data)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services'] })
+  })
+}
+
+// Hard delete — removes service permanently from the database.
+// Backend returns 409 if the service has appointments.
+export function useDeleteService() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
@@ -146,4 +159,9 @@ export function useArchiveService() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services'] })
   })
+}
+
+/** @deprecated Use useToggleServiceActive instead */
+export function useArchiveService() {
+  return useToggleServiceActive()
 }

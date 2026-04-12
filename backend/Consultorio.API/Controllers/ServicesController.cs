@@ -36,14 +36,15 @@ public class ServicesController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<List<ServiceResponseDto>>> GetAll([FromQuery] bool? activeOnly)
     {
-        // IQueryable permite montar a query antes de executar no banco
         IQueryable<Service> query = _db.Services;
 
-        // Se o cliente passar ?activeOnly=true, filtra só os ativos
-        if (activeOnly == true)
+        // Usuários anônimos (site público) só veem serviços ativos por padrão.
+        // Usuários autenticados (admin) veem todos, a não ser que peçam ?activeOnly=true.
+        bool isAuthenticated = User.Identity?.IsAuthenticated == true;
+        bool filterActive = activeOnly ?? !isAuthenticated;
+        if (filterActive)
             query = query.Where(s => s.IsActive);
 
-        // Ordena por nome e projeta para o DTO de resposta
         var services = await query
             .OrderBy(s => s.Name)
             .Select(s => new ServiceResponseDto
@@ -60,9 +61,9 @@ public class ServicesController : ControllerBase
                 IsActive = s.IsActive,
                 CreatedAt = s.CreatedAt
             })
-            .ToListAsync(); // Executa a query no banco
+            .ToListAsync();
 
-        return Ok(services); // HTTP 200 com o JSON
+        return Ok(services);
     }
 
     // ─── GET /api/services/{id} ────────────────────────────────────────
@@ -181,20 +182,58 @@ public class ServicesController : ControllerBase
         });
     }
 
-    // ─── DELETE /api/services/{id} ─────────────────────────────────────
-    // Deleta um serviço (soft delete — apenas desativa)
-    [HttpDelete("{id}")]
-    public async Task<ActionResult> Delete(Guid id)
+    // ─── PATCH /api/services/{id}/toggle-active ───────────────────────
+    // Ativa ou desativa um serviço (soft delete / reativação)
+    [HttpPatch("{id}/toggle-active")]
+    public async Task<ActionResult<ServiceResponseDto>> ToggleActive(Guid id)
     {
         var service = await _db.Services.FindAsync(id);
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
 
-        // Soft delete: marca como inativo ao invés de apagar do banco
-        service.IsActive = false;
+        service.IsActive = !service.IsActive;
         service.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return NoContent(); // HTTP 204 — sucesso, sem corpo na resposta
+        return Ok(new ServiceResponseDto
+        {
+            Id = service.Id,
+            Name = service.Name,
+            Description = service.Description,
+            DurationMinutes = service.DurationMinutes,
+            Price = service.Price,
+            Category = service.Category,
+            RequiresRoom = service.RequiresRoom,
+            DefaultRoomId = service.DefaultRoomId,
+            Color = service.Color,
+            IsActive = service.IsActive,
+            CreatedAt = service.CreatedAt
+        });
+    }
+
+    // ─── DELETE /api/services/{id} ─────────────────────────────────────
+    // Exclui permanentemente um serviço do banco de dados.
+    // Se o serviço tiver agendamentos vinculados, retorna 409 Conflict
+    // e orienta a desativá-lo em vez de excluir.
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var service = await _db.Services
+            .Include(s => s.Appointments)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (service == null)
+            return NotFound(new { message = "Serviço não encontrado." });
+
+        if (service.Appointments != null && service.Appointments.Count > 0)
+            return Conflict(new
+            {
+                message = $"Este serviço possui {service.Appointments.Count} agendamento(s) e não pode ser excluído. Desative-o para ocultá-lo do site."
+            });
+
+        _db.Services.Remove(service);
+        await _db.SaveChangesAsync();
+
+        return NoContent(); // HTTP 204 — excluído com sucesso
     }
 }

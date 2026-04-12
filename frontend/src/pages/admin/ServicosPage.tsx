@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Search, Plus, Edit, Archive, Camera, X } from 'lucide-react'
-import { useServices, useCreateService, useUpdateService, useArchiveService } from '../../hooks/useServices'
+import { Search, Plus, Edit, Eye, EyeOff, Trash2, Camera, X, AlertTriangle } from 'lucide-react'
+import { useServices, useCreateService, useUpdateService, useToggleServiceActive, useDeleteService } from '../../hooks/useServices'
 import { useRooms } from '../../hooks/useRooms'
 import { useInsurances } from '../../hooks/useInsurances'
 import { useProfessionals } from '../../hooks/useProfessionals'
@@ -38,13 +38,18 @@ export default function ServicosPage() {
     professionalIds: [] as string[]
   })
 
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleteConfirmName, setDeleteConfirmName] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+
   const { data: services = [], isLoading } = useServices()
   const { data: rooms = [] } = useRooms()
   const { data: insurancePlans = [] } = useInsurances()
   const { data: professionals = [] } = useProfessionals()
   const createMutation = useCreateService()
   const updateMutation = useUpdateService()
-  const archiveMutation = useArchiveService()
+  const toggleActiveMutation = useToggleServiceActive()
+  const deleteMutation = useDeleteService()
 
   const filtered = services.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
 
@@ -107,12 +112,69 @@ export default function ServicosPage() {
     setShowForm(true)
   }
 
-  const handleArchive = (id: string) => {
-    archiveMutation.mutate(id)
+  const handleToggleActive = (id: string) => {
+    toggleActiveMutation.mutate(id)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return
+    setDeleteError('')
+    try {
+      await deleteMutation.mutateAsync(deleteConfirmId)
+      setDeleteConfirmId(null)
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.message || 'Erro ao excluir serviço.')
+    }
   }
 
   return (
     <div className="animate-fade-in">
+
+      {/* ── Modal de confirmação de exclusão ── */}
+      {deleteConfirmId && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="card" style={{ maxWidth: 420, width: '90%', padding: 'var(--space-8)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-4)' }}>
+              <AlertTriangle size={24} color="var(--color-accent-danger)" />
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', margin: 0 }}>
+                Excluir Serviço
+              </h3>
+            </div>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 14, marginBottom: 'var(--space-4)' }}>
+              Tem certeza que deseja excluir permanentemente o serviço{' '}
+              <strong style={{ color: 'var(--color-text-primary)' }}>{deleteConfirmName}</strong>?
+              <br /><br />
+              Esta ação não pode ser desfeita. Se o serviço possui agendamentos, use o botão{' '}
+              <EyeOff size={12} style={{ verticalAlign: 'middle' }} /> <em>Desativar</em> para ocultá-lo do site.
+            </p>
+            {deleteError && (
+              <div style={{
+                background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.3)',
+                borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)', fontSize: 13,
+                color: 'var(--color-accent-danger)', marginBottom: 'var(--space-4)'
+              }}>
+                {deleteError}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button className="btn btn-secondary" onClick={() => { setDeleteConfirmId(null); setDeleteError('') }}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ background: 'var(--color-accent-danger)' }}
+                onClick={handleDeleteConfirm}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? 'Excluindo...' : 'Excluir permanentemente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {!showForm ? (
         <>
           <div className="crud-header">
@@ -173,8 +235,23 @@ export default function ServicosPage() {
                           <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(svc)}>
                             <Edit size={14} color="var(--color-accent-emerald)" />
                           </button>
-                          <button className="btn btn-icon btn-sm" title="Arquivar" onClick={() => handleArchive(svc.id)} disabled={archiveMutation.isPending}>
-                            <Archive size={14} color="var(--color-accent-warning)" />
+                          <button
+                            className="btn btn-icon btn-sm"
+                            title={svc.active ? 'Desativar (ocultar do site)' : 'Ativar'}
+                            onClick={() => handleToggleActive(svc.id)}
+                            disabled={toggleActiveMutation.isPending}
+                          >
+                            {svc.active
+                              ? <EyeOff size={14} color="var(--color-accent-warning)" />
+                              : <Eye size={14} color="var(--color-accent-emerald)" />
+                            }
+                          </button>
+                          <button
+                            className="btn btn-icon btn-sm"
+                            title="Excluir permanentemente"
+                            onClick={() => { setDeleteConfirmId(svc.id); setDeleteConfirmName(svc.name); setDeleteError('') }}
+                          >
+                            <Trash2 size={14} color="var(--color-accent-danger)" />
                           </button>
                         </div>
                       </td>
