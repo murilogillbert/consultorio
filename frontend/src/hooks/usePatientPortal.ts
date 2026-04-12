@@ -1,7 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
-
-// NOTE: backend does not expose a patient portal / OTP flow yet. All calls
-// are stubbed until /api/public/patient/* endpoints are implemented.
+import { api } from '../services/api'
 
 const PATIENT_TOKEN_KEY = 'patient_token'
 const PATIENT_USER_KEY = 'patient_user'
@@ -19,6 +17,15 @@ export function getPatientUser(): { id: string; name: string; email: string } | 
 export function clearPatient() {
   localStorage.removeItem(PATIENT_TOKEN_KEY)
   localStorage.removeItem(PATIENT_USER_KEY)
+}
+
+export function useRegisterPatient() {
+  return useMutation({
+    mutationFn: async (data: { name: string; email: string; cpf?: string; phone?: string }) => {
+      const { data: res } = await api.post('/public/patients/register', data)
+      return res as { message: string; email: string }
+    }
+  })
 }
 
 export function useRequestOtp() {

@@ -4,12 +4,12 @@ import {
   MessageCircle, Send, CheckCircle, XCircle, RefreshCw, LogOut, ShieldCheck
 } from 'lucide-react'
 import {
-  useRequestOtp, useVerifyOtp,
+  useRequestOtp, useVerifyOtp, useRegisterPatient,
   usePatientAppointments, usePatientConversation, useSendPatientMessage,
   getPatientUser, clearPatient, type PatientAppointment
 } from '../../hooks/usePatientPortal'
 
-type Screen = 'email' | 'otp' | 'dashboard'
+type Screen = 'email' | 'register' | 'otp' | 'dashboard'
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   SCHEDULED: { label: 'Agendada', cls: 'badge-gold' },
@@ -33,7 +33,7 @@ function formatDuration(min: number) {
 
 // ─── Tela: Login com email ─────────────────────────────────────────────────
 
-function EmailScreen({ onNext }: { onNext: (email: string) => void }) {
+function EmailScreen({ onNext, onRegister }: { onNext: (email: string) => void; onRegister: () => void }) {
   const [email, setEmail] = useState('')
   const requestOtp = useRequestOtp()
 
@@ -78,6 +78,110 @@ function EmailScreen({ onNext }: { onNext: (email: string) => void }) {
           <CheckCircle size={14} /> Código enviado! Verifique sua caixa de entrada.
         </p>
       )}
+      <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--color-border-default)', textAlign: 'center' }}>
+        <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 12 }}>
+          Você é novo? Cadastre-se para acessar o portal.
+        </p>
+        <button className="btn btn-secondary" style={{ width: '100%' }} onClick={onRegister}>
+          Criar minha conta
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Tela: Cadastro de novo paciente ───────────────────────────────────────
+
+function RegisterScreen({ onBack, onSuccess }: { onBack: () => void; onSuccess: (email: string) => void }) {
+  const [form, setForm] = useState({ name: '', email: '', cpf: '', phone: '' })
+  const [error, setError] = useState('')
+  const register = useRegisterPatient()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!form.name.trim() || !form.email.trim()) {
+      setError('Nome e e-mail são obrigatórios.')
+      return
+    }
+    try {
+      await register.mutateAsync({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        cpf: form.cpf.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+      })
+      onSuccess(form.email.trim())
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Erro ao realizar cadastro. Tente novamente.')
+    }
+  }
+
+  return (
+    <div className="patient-auth-card animate-fade-in">
+      <div className="patient-auth-icon" style={{ background: 'rgba(201,168,76,0.12)' }}>
+        <UserCheck size={32} color="var(--color-accent-gold)" />
+      </div>
+      <h2>Criar conta</h2>
+      <p>Preencha seus dados para acessar o portal de consultas.</p>
+      <form onSubmit={handleSubmit} className="patient-auth-form">
+        <div className="input-group">
+          <label className="input-label">Nome Completo <span className="required">*</span></label>
+          <input
+            className="input-field"
+            placeholder="Seu nome completo"
+            value={form.name}
+            onChange={e => setForm({ ...form, name: e.target.value })}
+            required
+            autoFocus
+          />
+        </div>
+        <div className="input-group">
+          <label className="input-label">E-mail <span className="required">*</span></label>
+          <input
+            className="input-field"
+            type="email"
+            placeholder="seu@email.com.br"
+            value={form.email}
+            onChange={e => setForm({ ...form, email: e.target.value })}
+            required
+          />
+        </div>
+        <div className="input-group">
+          <label className="input-label">CPF</label>
+          <input
+            className="input-field"
+            placeholder="000.000.000-00"
+            value={form.cpf}
+            onChange={e => setForm({ ...form, cpf: e.target.value })}
+          />
+        </div>
+        <div className="input-group">
+          <label className="input-label">Telefone</label>
+          <input
+            className="input-field"
+            placeholder="(11) 99999-9999"
+            value={form.phone}
+            onChange={e => setForm({ ...form, phone: e.target.value })}
+          />
+        </div>
+        {error && (
+          <p className="patient-auth-hint error"><XCircle size={14} /> {error}</p>
+        )}
+        <button
+          type="submit"
+          className="btn btn-primary"
+          style={{ width: '100%' }}
+          disabled={register.isPending}
+        >
+          {register.isPending
+            ? <><Loader2 size={16} className="animate-spin" /> Cadastrando...</>
+            : <><CheckCircle size={16} /> Criar conta</>}
+        </button>
+      </form>
+      <div style={{ marginTop: 16, textAlign: 'center' }}>
+        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Já tenho conta</button>
+      </div>
     </div>
   )
 }
@@ -346,9 +450,26 @@ export default function MinhasConsultasPage() {
     setEmail('')
   }
 
+  // Após cadastro, vai direto para login com o email preenchido
+  const handleRegisterSuccess = (e: string) => {
+    setEmail(e)
+    setScreen('otp')
+  }
+
   return (
     <div className="patient-portal-wrapper">
-      {screen === 'email' && <EmailScreen onNext={handleEmailNext} />}
+      {screen === 'email' && (
+        <EmailScreen
+          onNext={handleEmailNext}
+          onRegister={() => setScreen('register')}
+        />
+      )}
+      {screen === 'register' && (
+        <RegisterScreen
+          onBack={() => setScreen('email')}
+          onSuccess={handleRegisterSuccess}
+        />
+      )}
       {screen === 'otp' && (
         <OtpScreen
           email={email}

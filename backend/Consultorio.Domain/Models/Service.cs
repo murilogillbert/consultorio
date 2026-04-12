@@ -6,6 +6,9 @@ public class Service
     public Guid ClinicId { get; set; }
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
+    public string? ShortDescription { get; set; }
+    public string? Preparation { get; set; }
+    public bool OnlineBooking { get; set; } = true;
     public int DurationMinutes { get; set; } = 60;
     public decimal Price { get; set; }
     public string? Category { get; set; }

@@ -8,213 +8,242 @@ using Consultorio.Infra.Context;
 
 namespace Consultorio.API.Controllers;
 
-// [Authorize] protege TODOS os endpoints deste controller — exige token JWT válido
-// [AllowAnonymous] em endpoints individuais pode liberar acesso público
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
 public class ServicesController : ControllerBase
 {
-    // O EF Core injeta o AppDbContext automaticamente via DI (Dependency Injection)
     private readonly AppDbContext _db;
 
-    public ServicesController(AppDbContext db)
-    {
-        _db = db;
-    }
+    public ServicesController(AppDbContext db) => _db = db;
 
-    // Helper: extrai o ClinicId do token JWT do usuário logado
     private Guid GetClinicId()
     {
         var claim = User.FindFirst("clinicId");
         return claim != null ? Guid.Parse(claim.Value) : Guid.Empty;
     }
 
+    // Converte entidade → DTO (carregue Professionals e InsurancePlans antes de chamar)
+    private static ServiceResponseDto ToDto(Service s) => new()
+    {
+        Id             = s.Id,
+        Name           = s.Name,
+        Description    = s.Description,
+        ShortDescription = s.ShortDescription,
+        Preparation    = s.Preparation,
+        OnlineBooking  = s.OnlineBooking,
+        DurationMinutes = s.DurationMinutes,
+        Price          = s.Price,
+        Category       = s.Category,
+        RequiresRoom   = s.RequiresRoom,
+        DefaultRoomId  = s.DefaultRoomId,
+        Color          = s.Color,
+        IsActive       = s.IsActive,
+        CreatedAt      = s.CreatedAt,
+        Professionals  = s.Professionals.Select(p => new ServiceProfessionalSummaryDto
+        {
+            Id   = p.Id,
+            Name = p.User?.Name ?? "",
+            AvatarUrl = p.User?.AvatarUrl
+        }).ToList(),
+        InsurancePlans = s.InsurancePlans.Select(i => new ServiceInsuranceSummaryDto
+        {
+            Id   = i.Id,
+            Name = i.Name
+        }).ToList(),
+    };
+
     // ─── GET /api/services ─────────────────────────────────────────────
-    // Lista todos os serviços — público (site pode acessar sem login)
     [HttpGet]
     [AllowAnonymous]
     public async Task<ActionResult<List<ServiceResponseDto>>> GetAll([FromQuery] bool? activeOnly)
     {
-        IQueryable<Service> query = _db.Services;
-
-        // Usuários anônimos (site público) só veem serviços ativos por padrão.
-        // Usuários autenticados (admin) veem todos, a não ser que peçam ?activeOnly=true.
         bool isAuthenticated = User.Identity?.IsAuthenticated == true;
         bool filterActive = activeOnly ?? !isAuthenticated;
+
+        var query = _db.Services
+            .Include(s => s.Professionals).ThenInclude(p => p.User)
+            .Include(s => s.InsurancePlans)
+            .AsQueryable();
+
         if (filterActive)
             query = query.Where(s => s.IsActive);
 
-        var services = await query
-            .OrderBy(s => s.Name)
-            .Select(s => new ServiceResponseDto
-            {
-                Id = s.Id,
-                Name = s.Name,
-                Description = s.Description,
-                DurationMinutes = s.DurationMinutes,
-                Price = s.Price,
-                Category = s.Category,
-                RequiresRoom = s.RequiresRoom,
-                DefaultRoomId = s.DefaultRoomId,
-                Color = s.Color,
-                IsActive = s.IsActive,
-                CreatedAt = s.CreatedAt
-            })
-            .ToListAsync();
-
-        return Ok(services);
+        var services = await query.OrderBy(s => s.Name).ToListAsync();
+        return Ok(services.Select(ToDto));
     }
 
     // ─── GET /api/services/{id} ────────────────────────────────────────
-    // Busca um serviço por ID
     [HttpGet("{id}")]
     public async Task<ActionResult<ServiceResponseDto>> GetById(Guid id)
     {
-        var service = await _db.Services.FindAsync(id);
+        var service = await _db.Services
+            .Include(s => s.Professionals).ThenInclude(p => p.User)
+            .Include(s => s.InsurancePlans)
+            .FirstOrDefaultAsync(s => s.Id == id);
 
         if (service == null)
-            return NotFound(new { message = "Serviço não encontrado." }); // HTTP 404
+            return NotFound(new { message = "Serviço não encontrado." });
 
-        return Ok(new ServiceResponseDto
-        {
-            Id = service.Id,
-            Name = service.Name,
-            Description = service.Description,
-            DurationMinutes = service.DurationMinutes,
-            Price = service.Price,
-            Category = service.Category,
-            RequiresRoom = service.RequiresRoom,
-            DefaultRoomId = service.DefaultRoomId,
-            Color = service.Color,
-            IsActive = service.IsActive,
-            CreatedAt = service.CreatedAt
-        });
+        return Ok(ToDto(service));
     }
 
     // ─── POST /api/services ────────────────────────────────────────────
-    // Cria um novo serviço
     [HttpPost]
     public async Task<ActionResult<ServiceResponseDto>> Create([FromBody] CreateServiceDto dto)
     {
-        // Pega o ClinicId do token JWT do usuário logado
         var clinicId = GetClinicId();
         if (clinicId == Guid.Empty)
             return BadRequest(new { message = "Usuário não está vinculado a nenhuma clínica." });
 
-        // Cria a entidade a partir do DTO
         var service = new Service
         {
-            Id = Guid.NewGuid(),
-            ClinicId = clinicId,
-            Name = dto.Name,
-            Description = dto.Description,
+            Id              = Guid.NewGuid(),
+            ClinicId        = clinicId,
+            Name            = dto.Name,
+            Description     = dto.Description,
+            ShortDescription = dto.ShortDescription,
+            Preparation     = dto.Preparation,
+            OnlineBooking   = dto.OnlineBooking,
             DurationMinutes = dto.DurationMinutes,
-            Price = dto.Price,
-            Category = dto.Category,
-            RequiresRoom = dto.RequiresRoom,
-            DefaultRoomId = dto.DefaultRoomId,
-            Color = dto.Color,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            Price           = dto.Price,
+            Category        = dto.Category,
+            RequiresRoom    = dto.RequiresRoom,
+            DefaultRoomId   = dto.DefaultRoomId,
+            Color           = dto.Color,
+            IsActive        = true,
+            CreatedAt       = DateTime.UtcNow,
         };
 
-        _db.Services.Add(service);       // Adiciona no contexto (não salva ainda)
-        await _db.SaveChangesAsync();    // Persiste no banco de dados
+        _db.Services.Add(service);
+        await _db.SaveChangesAsync();
 
-        // Retorna HTTP 201 Created com o header Location apontando para o GET
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = service.Id },
-            new ServiceResponseDto
-            {
-                Id = service.Id,
-                Name = service.Name,
-                Description = service.Description,
-                DurationMinutes = service.DurationMinutes,
-                Price = service.Price,
-                Category = service.Category,
-                RequiresRoom = service.RequiresRoom,
-                DefaultRoomId = service.DefaultRoomId,
-                Color = service.Color,
-                IsActive = service.IsActive,
-                CreatedAt = service.CreatedAt
-            }
-        );
+        // Vincula profissionais
+        if (dto.ProfessionalIds?.Count > 0)
+        {
+            var pros = await _db.Professionals
+                .Include(p => p.Services)
+                .Where(p => dto.ProfessionalIds.Contains(p.Id))
+                .ToListAsync();
+            foreach (var pro in pros)
+                if (!pro.Services.Any(s => s.Id == service.Id))
+                    pro.Services.Add(service);
+            await _db.SaveChangesAsync();
+        }
+
+        // Vincula convênios
+        if (dto.InsuranceIds?.Count > 0)
+        {
+            var plans = await _db.InsurancePlans
+                .Where(p => dto.InsuranceIds.Contains(p.Id))
+                .ToListAsync();
+            foreach (var plan in plans)
+                service.InsurancePlans.Add(plan);
+            await _db.SaveChangesAsync();
+        }
+
+        // Recarrega com navegação para montar DTO completo
+        await _db.Entry(service).Collection(s => s.Professionals).Query().Include(p => p.User).LoadAsync();
+        await _db.Entry(service).Collection(s => s.InsurancePlans).LoadAsync();
+
+        return CreatedAtAction(nameof(GetById), new { id = service.Id }, ToDto(service));
     }
 
     // ─── PUT /api/services/{id} ────────────────────────────────────────
-    // Atualiza um serviço existente (atualização parcial)
     [HttpPut("{id}")]
     public async Task<ActionResult<ServiceResponseDto>> Update(Guid id, [FromBody] UpdateServiceDto dto)
     {
-        var service = await _db.Services.FindAsync(id);
+        var service = await _db.Services
+            .Include(s => s.Professionals).ThenInclude(p => p.User)
+            .Include(s => s.InsurancePlans)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
 
-        // Só atualiza os campos que vieram preenchidos (não-null)
-        if (dto.Name != null) service.Name = dto.Name;
-        if (dto.Description != null) service.Description = dto.Description;
+        if (dto.Name            != null) service.Name            = dto.Name;
+        if (dto.Description     != null) service.Description     = dto.Description;
+        if (dto.ShortDescription != null) service.ShortDescription = dto.ShortDescription;
+        if (dto.Preparation     != null) service.Preparation     = dto.Preparation;
+        if (dto.OnlineBooking.HasValue)  service.OnlineBooking   = dto.OnlineBooking.Value;
         if (dto.DurationMinutes.HasValue) service.DurationMinutes = dto.DurationMinutes.Value;
-        if (dto.Price.HasValue) service.Price = dto.Price.Value;
-        if (dto.Category != null) service.Category = dto.Category;
-        if (dto.RequiresRoom.HasValue) service.RequiresRoom = dto.RequiresRoom.Value;
-        if (dto.DefaultRoomId.HasValue) service.DefaultRoomId = dto.DefaultRoomId.Value;
-        if (dto.Color != null) service.Color = dto.Color;
-        if (dto.IsActive.HasValue) service.IsActive = dto.IsActive.Value;
+        if (dto.Price.HasValue)          service.Price           = dto.Price.Value;
+        if (dto.Category        != null) service.Category        = dto.Category;
+        if (dto.RequiresRoom.HasValue)   service.RequiresRoom    = dto.RequiresRoom.Value;
+        if (dto.DefaultRoomId.HasValue)  service.DefaultRoomId   = dto.DefaultRoomId.Value;
+        if (dto.Color           != null) service.Color           = dto.Color;
+        if (dto.IsActive.HasValue)       service.IsActive        = dto.IsActive.Value;
         service.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
-
-        return Ok(new ServiceResponseDto
+        // Sincroniza profissionais (substitui lista completa se enviada)
+        if (dto.ProfessionalIds != null)
         {
-            Id = service.Id,
-            Name = service.Name,
-            Description = service.Description,
-            DurationMinutes = service.DurationMinutes,
-            Price = service.Price,
-            Category = service.Category,
-            RequiresRoom = service.RequiresRoom,
-            DefaultRoomId = service.DefaultRoomId,
-            Color = service.Color,
-            IsActive = service.IsActive,
-            CreatedAt = service.CreatedAt
-        });
+            // Carrega profissionais que precisam ser adicionados
+            var newPros = dto.ProfessionalIds.Count > 0
+                ? await _db.Professionals
+                    .Include(p => p.Services)
+                    .Where(p => dto.ProfessionalIds.Contains(p.Id))
+                    .ToListAsync()
+                : new List<Professional>();
+
+            // Remove profissionais que não estão mais na lista
+            var toRemove = service.Professionals
+                .Where(p => !dto.ProfessionalIds.Contains(p.Id))
+                .ToList();
+            foreach (var p in toRemove)
+                service.Professionals.Remove(p);
+
+            // Adiciona novos
+            foreach (var p in newPros)
+                if (!service.Professionals.Any(sp => sp.Id == p.Id))
+                    service.Professionals.Add(p);
+        }
+
+        // Sincroniza convênios
+        if (dto.InsuranceIds != null)
+        {
+            var newPlans = dto.InsuranceIds.Count > 0
+                ? await _db.InsurancePlans
+                    .Where(p => dto.InsuranceIds.Contains(p.Id))
+                    .ToListAsync()
+                : new List<InsurancePlan>();
+
+            var toRemove = service.InsurancePlans
+                .Where(p => !dto.InsuranceIds.Contains(p.Id))
+                .ToList();
+            foreach (var p in toRemove)
+                service.InsurancePlans.Remove(p);
+
+            foreach (var p in newPlans)
+                if (!service.InsurancePlans.Any(ip => ip.Id == p.Id))
+                    service.InsurancePlans.Add(p);
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ToDto(service));
     }
 
     // ─── PATCH /api/services/{id}/toggle-active ───────────────────────
-    // Ativa ou desativa um serviço (soft delete / reativação)
     [HttpPatch("{id}/toggle-active")]
     public async Task<ActionResult<ServiceResponseDto>> ToggleActive(Guid id)
     {
-        var service = await _db.Services.FindAsync(id);
+        var service = await _db.Services
+            .Include(s => s.Professionals).ThenInclude(p => p.User)
+            .Include(s => s.InsurancePlans)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
 
-        service.IsActive = !service.IsActive;
+        service.IsActive  = !service.IsActive;
         service.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(new ServiceResponseDto
-        {
-            Id = service.Id,
-            Name = service.Name,
-            Description = service.Description,
-            DurationMinutes = service.DurationMinutes,
-            Price = service.Price,
-            Category = service.Category,
-            RequiresRoom = service.RequiresRoom,
-            DefaultRoomId = service.DefaultRoomId,
-            Color = service.Color,
-            IsActive = service.IsActive,
-            CreatedAt = service.CreatedAt
-        });
+        return Ok(ToDto(service));
     }
 
     // ─── DELETE /api/services/{id} ─────────────────────────────────────
-    // Exclui permanentemente um serviço do banco de dados.
-    // Se o serviço tiver agendamentos vinculados, retorna 409 Conflict
-    // e orienta a desativá-lo em vez de excluir.
+    // Exclui permanentemente. Retorna 409 se houver agendamentos.
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(Guid id)
     {
@@ -225,7 +254,7 @@ public class ServicesController : ControllerBase
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
 
-        if (service.Appointments != null && service.Appointments.Count > 0)
+        if (service.Appointments?.Count > 0)
             return Conflict(new
             {
                 message = $"Este serviço possui {service.Appointments.Count} agendamento(s) e não pode ser excluído. Desative-o para ocultá-lo do site."
@@ -233,7 +262,6 @@ public class ServicesController : ControllerBase
 
         _db.Services.Remove(service);
         await _db.SaveChangesAsync();
-
-        return NoContent(); // HTTP 204 — excluído com sucesso
+        return NoContent();
     }
 }

@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
-// Backend ServiceResponseDto:
-// { id, name, description, durationMinutes, price, category, requiresRoom, defaultRoomId, color, isActive, createdAt }
+// Backend ServiceResponseDto shape
 interface ServiceResponseDtoRaw {
   id: string
   name: string
   description?: string
+  shortDescription?: string
+  preparation?: string
+  onlineBooking: boolean
   durationMinutes: number
   price: number
   category?: string
@@ -15,6 +17,8 @@ interface ServiceResponseDtoRaw {
   color?: string
   isActive: boolean
   createdAt: string
+  professionals: Array<{ id: string; name: string; avatarUrl?: string }>
+  insurancePlans: Array<{ id: string; name: string }>
 }
 
 // Shape expected by the UI pages
@@ -23,16 +27,16 @@ export interface Service {
   name: string
   description?: string
   shortDescription?: string
+  preparation?: string
   category?: string
   duration: number
-  price: number
-  preparation?: string
+  price: number          // cents
   onlineBooking: boolean
   active: boolean
   imageUrl?: string
   createdAt: string
   updatedAt: string
-  professionals?: Array<{ professional: { id: string; user?: { name: string } } }>
+  professionals?: Array<{ professional: { id: string; user?: { name: string; avatarUrl?: string } } }>
   insurances?: Array<{ insurancePlan: { id: string; name: string } }>
 }
 
@@ -41,16 +45,21 @@ function mapService(raw: ServiceResponseDtoRaw): Service {
     id: raw.id,
     name: raw.name,
     description: raw.description,
+    shortDescription: raw.shortDescription,
+    preparation: raw.preparation,
     category: raw.category,
     duration: raw.durationMinutes,
-    // Backend stores price as decimal (reais). UI expects cents.
     price: Math.round(Number(raw.price) * 100),
-    onlineBooking: true,
+    onlineBooking: raw.onlineBooking,
     active: raw.isActive,
     createdAt: raw.createdAt,
     updatedAt: raw.createdAt,
-    professionals: [],
-    insurances: [],
+    professionals: (raw.professionals || []).map(p => ({
+      professional: { id: p.id, user: { name: p.name, avatarUrl: p.avatarUrl } }
+    })),
+    insurances: (raw.insurancePlans || []).map(i => ({
+      insurancePlan: { id: i.id, name: i.name }
+    })),
   }
 }
 
@@ -79,10 +88,10 @@ interface CreateServicePayload {
   name: string
   description?: string
   shortDescription?: string
+  preparation?: string
   category?: string
   duration: number
   price: number
-  preparation?: string
   onlineBooking?: boolean
   imageUrl?: string
   roomId?: string
@@ -94,13 +103,17 @@ function toBackendCreate(p: CreateServicePayload) {
   return {
     name: p.name,
     description: p.description,
+    shortDescription: p.shortDescription,
+    preparation: p.preparation,
+    onlineBooking: p.onlineBooking ?? true,
     durationMinutes: p.duration,
-    // UI sends cents, backend expects decimal reais
     price: (p.price || 0) / 100,
     category: p.category,
     requiresRoom: !!p.roomId,
     defaultRoomId: p.roomId || null,
     color: '#007BFF',
+    professionalIds: p.professionalIds?.map(id => id) || [],
+    insuranceIds: p.insuranceIds?.map(id => id) || [],
   }
 }
 
@@ -120,16 +133,21 @@ export function useUpdateService() {
   return useMutation({
     mutationFn: async ({ id, ...updateData }: { id: string; [key: string]: any }) => {
       const payload: any = {}
-      if (updateData.name !== undefined) payload.name = updateData.name
-      if (updateData.description !== undefined) payload.description = updateData.description
-      if (updateData.category !== undefined) payload.category = updateData.category
-      if (updateData.duration !== undefined) payload.durationMinutes = updateData.duration
-      if (updateData.price !== undefined) payload.price = updateData.price / 100
+      if (updateData.name !== undefined)             payload.name             = updateData.name
+      if (updateData.description !== undefined)      payload.description      = updateData.description
+      if (updateData.shortDescription !== undefined) payload.shortDescription = updateData.shortDescription
+      if (updateData.preparation !== undefined)      payload.preparation      = updateData.preparation
+      if (updateData.onlineBooking !== undefined)    payload.onlineBooking    = updateData.onlineBooking
+      if (updateData.category !== undefined)         payload.category         = updateData.category
+      if (updateData.duration !== undefined)         payload.durationMinutes  = updateData.duration
+      if (updateData.price !== undefined)            payload.price            = updateData.price / 100
       if (updateData.roomId !== undefined) {
-        payload.requiresRoom = !!updateData.roomId
+        payload.requiresRoom  = !!updateData.roomId
         payload.defaultRoomId = updateData.roomId || null
       }
-      if (updateData.active !== undefined) payload.isActive = updateData.active
+      if (updateData.active !== undefined)           payload.isActive         = updateData.active
+      if (updateData.professionalIds !== undefined)  payload.professionalIds  = updateData.professionalIds
+      if (updateData.insuranceIds !== undefined)     payload.insuranceIds     = updateData.insuranceIds
       const { data } = await api.put<ServiceResponseDtoRaw>(`/services/${id}`, payload)
       return mapService(data)
     },

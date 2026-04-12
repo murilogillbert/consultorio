@@ -55,14 +55,16 @@ export default function ServicosPage() {
 
   const handleSave = async () => {
     setFormError('')
+    if (!formData.name.trim()) { setFormError('Nome é obrigatório.'); return }
     try {
+      const priceRaw = formData.price.replace(/[^\d,]/g, '').replace(',', '.')
       const payload = {
-        name: formData.name,
+        name: formData.name.trim(),
         category: formData.category || undefined,
         shortDescription: formData.shortDescription || undefined,
         description: formData.description || undefined,
         duration: parseInt(formData.duration) || 30,
-        price: Math.round(parseFloat(formData.price.replace(/[^\d,]/g, '').replace(',', '.')) * 100) || 0,
+        price: Math.round(parseFloat(priceRaw) * 100) || 0,
         preparation: formData.preparation || undefined,
         onlineBooking: formData.onlineBooking,
         roomId: formData.roomId || undefined,
@@ -96,16 +98,16 @@ export default function ServicosPage() {
 
   const handleEdit = (svc: typeof services[0]) => {
     setEditingId(svc.id)
-    setFormData({ 
-      name: svc.name, 
-      category: svc.category || '', 
-      shortDescription: svc.shortDescription || '', 
-      description: svc.description || '', 
-      duration: String(svc.duration), 
-      price: (svc.price / 100).toFixed(2).replace('.', ','), 
-      preparation: svc.preparation || '', 
+    setFormData({
+      name: svc.name,
+      category: svc.category || '',
+      shortDescription: svc.shortDescription || '',
+      description: svc.description || '',
+      duration: String(svc.duration),
+      price: (svc.price / 100).toFixed(2).replace('.', ','),
+      preparation: svc.preparation || '',
       onlineBooking: svc.onlineBooking,
-      roomId: (svc as any).roomId || '',
+      roomId: (svc as any).defaultRoomId || (svc as any).roomId || '',
       insuranceIds: svc.insurances?.map(i => i.insurancePlan.id) || [],
       professionalIds: svc.professionals?.map(p => p.professional.id) || []
     })

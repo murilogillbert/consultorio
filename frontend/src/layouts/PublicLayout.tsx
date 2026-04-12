@@ -116,17 +116,6 @@ export default function PublicLayout() {
         <div className="container">
           <div className="footer-grid">
             <div className="footer-col">
-              <div className="footer-description">
-                <ClinicLogo logoUrl={clinic?.logoUrl} />
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{clinicName}</span>
-              </div>
-              {clinic?.description && (
-                <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 8 }}>
-                  {clinic.description}
-                </p>
-              )}
-            </div>
-            <div className="footer-col">
               <h4>Links Rápidos</h4>
               <Link to="/servicos">Nossos Serviços</Link>
               <Link to="/profissionais">Equipe Médica</Link>
