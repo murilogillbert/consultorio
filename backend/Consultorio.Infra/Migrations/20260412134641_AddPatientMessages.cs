@@ -43,7 +43,7 @@ namespace Consultorio.Infra.Migrations
                         column: x => x.SentByUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(

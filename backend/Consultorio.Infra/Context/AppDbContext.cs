@@ -327,6 +327,6 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(pm => pm.SentByUserId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }

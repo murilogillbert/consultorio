@@ -1276,7 +1276,7 @@ namespace Consultorio.Infra.Migrations
                     b.HasOne("Consultorio.Domain.Models.User", "SentByUser")
                         .WithMany()
                         .HasForeignKey("SentByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Clinic");
 
