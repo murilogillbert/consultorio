@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Check, ArrowLeft, ArrowRight, Calendar, Clock, User, Stethoscope } from 'lucide-react'
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'
@@ -14,15 +14,28 @@ export default function AgendamentoPage() {
   })
   const [bookingSuccess, setBookingSuccess] = useState(false)
 
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
   const { data: services = [], isLoading: loadingServices } = useServices()
   const { data: allProfessionals = [], isLoading: loadingProfessionals } = useProfessionals()
 
-  // Filter professionals by the selected service's linked professionals
-  const selectedService = services.find(s => s.id === formData.serviceId)
-  const linkedIds = selectedService?.professionals?.map(p => p.professional.id) ?? []
-  const professionals = linkedIds.length > 0
-    ? allProfessionals.filter(p => linkedIds.includes(p.id))
+  // Filtra profissionais que têm o serviço selecionado vinculado.
+  // Se nenhum estiver vinculado (serviço sem restrição), mostra todos.
+  const professionals = formData.serviceId
+    ? allProfessionals.filter(p =>
+        !p.serviceIds?.length || p.serviceIds.includes(formData.serviceId)
+      )
     : allProfessionals
+
+  // Abre o picker de data automaticamente ao entrar no passo 2
+  useEffect(() => {
+    if (currentStep === 2) {
+      const timer = setTimeout(() => {
+        try { dateInputRef.current?.showPicker?.() } catch {}
+      }, 200)
+      return () => clearTimeout(timer)
+    }
+  }, [currentStep])
   const { data: availableSlots = [], isLoading: loadingSlots } = useAvailableSlots(
     formData.professionalId || undefined,
     formData.date || undefined,
@@ -138,8 +151,14 @@ export default function AgendamentoPage() {
               </h2>
               <div className="input-group" style={{ marginBottom: 'var(--space-6)' }}>
                 <label className="input-label">Data <span className="required">*</span></label>
-                <input type="date" className="input-field" value={formData.date}
-                  onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  className="input-field"
+                  value={formData.date}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setFormData({ ...formData, date: e.target.value })}
+                />
               </div>
               <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
                 <Clock size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />

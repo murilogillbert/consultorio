@@ -33,7 +33,8 @@ public class ProfessionalsController : ControllerBase
         Bio = p.Bio,
         IsAvailable = p.IsAvailable,
         CreatedAt = p.CreatedAt,
-        Services = p.Services.Select(s => s.Name).ToList()
+        Services = p.Services.Select(s => s.Name).ToList(),
+        ServiceIds = p.Services.Select(s => s.Id).ToList()
     };
 
     // GET /api/professionals — público para o site mostrar profissionais

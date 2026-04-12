@@ -36,4 +36,6 @@ public class ProfessionalResponseDto
     public bool IsAvailable { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<string> Services { get; set; } = new();
+    // IDs dos serviços vinculados — usados pelo frontend para filtrar profissionais por serviço
+    public List<Guid> ServiceIds { get; set; } = new();
 }

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 // Backend ProfessionalResponseDto:
-// { id, userId, name, email, phone, avatarUrl, licenseNumber, specialty, bio, isAvailable, createdAt, services: string[] }
+// { id, userId, name, email, phone, avatarUrl, licenseNumber, specialty, bio, isAvailable, createdAt, services: string[], serviceIds: string[] }
 interface ProfessionalResponseDtoRaw {
   id: string
   userId: string
@@ -16,6 +16,7 @@ interface ProfessionalResponseDtoRaw {
   isAvailable: boolean
   createdAt: string
   services: string[]
+  serviceIds: string[]
 }
 
 // Shape expected by UI
@@ -34,6 +35,8 @@ export interface Professional {
     email: string
     avatarUrl?: string
   }
+  // IDs dos serviços vinculados — para filtrar profissionais por serviço no agendamento
+  serviceIds?: string[]
   services?: Array<{ service: { id: string; name: string } }>
   schedules?: Array<{ id: string; dayOfWeek: number; startTime: string; endTime: string }>
   educations?: Array<{ id: string; institution: string; degree: string; fieldOfStudy: string; year: number }>
@@ -56,7 +59,10 @@ function mapProfessional(raw: ProfessionalResponseDtoRaw): Professional {
       email: raw.email,
       avatarUrl: raw.avatarUrl,
     },
-    services: (raw.services || []).map(s => ({ service: { id: s, name: s } })),
+    serviceIds: raw.serviceIds || [],
+    services: (raw.services || []).map((name, i) => ({
+      service: { id: (raw.serviceIds || [])[i] || name, name }
+    })),
     schedules: [],
   }
 }

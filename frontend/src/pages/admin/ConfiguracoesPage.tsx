@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, X, Camera, Wrench } from 'lucide-react'
+import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, X, Camera, Wrench, AlertTriangle } from 'lucide-react'
 import IntegrationsPanel from './IntegrationsPanel'
 import { useClinics, useUpdateClinic } from '../../hooks/useClinics'
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../../hooks/useRooms'
@@ -89,6 +89,28 @@ export default function ConfiguracoesPage() {
   const [aboutForm, setAboutForm] = useState({ mission: '', vision: '', values: '', milestones: [] as { year: string; title: string; description: string }[], galleryUrls: [] as string[] })
   const [aboutSaveMsg, setAboutSaveMsg] = useState('')
   const [newMilestone, setNewMilestone] = useState({ year: '', title: '', description: '' })
+
+  // ─── Confirmação de exclusão genérica ───────────────────────────────────
+  const [deleteConfirm, setDeleteConfirm] = useState<{ label: string; action: () => Promise<void> } | null>(null)
+  const [deleteConfirmError, setDeleteConfirmError] = useState('')
+  const [deleteConfirmPending, setDeleteConfirmPending] = useState(false)
+
+  const askDelete = (label: string, action: () => Promise<void>) => {
+    setDeleteConfirmError('')
+    setDeleteConfirm({ label, action })
+  }
+  const runDelete = async () => {
+    if (!deleteConfirm) return
+    setDeleteConfirmPending(true)
+    try {
+      await deleteConfirm.action()
+      setDeleteConfirm(null)
+    } catch (err: any) {
+      setDeleteConfirmError(err?.response?.data?.message || 'Erro ao excluir. Tente novamente.')
+    } finally {
+      setDeleteConfirmPending(false)
+    }
+  }
 
   // Jobs State
   const { data: jobOpenings = [] } = useJobOpenings()
@@ -293,6 +315,33 @@ export default function ConfiguracoesPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* ── Modal de confirmação de exclusão ── */}
+      {deleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card" style={{ maxWidth: 400, width: '90%', padding: 'var(--space-8)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-4)' }}>
+              <AlertTriangle size={22} color="var(--color-accent-danger)" />
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', margin: 0 }}>Confirmar exclusão</h3>
+            </div>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 14, marginBottom: 'var(--space-4)' }}>
+              {deleteConfirm.label}
+              <br /><br />Esta ação não pode ser desfeita.
+            </p>
+            {deleteConfirmError && (
+              <div style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)', fontSize: 13, color: 'var(--color-accent-danger)', marginBottom: 'var(--space-4)' }}>
+                {deleteConfirmError}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button className="btn btn-secondary" onClick={() => { setDeleteConfirm(null); setDeleteConfirmError('') }}>Cancelar</button>
+              <button className="btn btn-primary" style={{ background: 'var(--color-accent-danger)' }} onClick={runDelete} disabled={deleteConfirmPending}>
+                {deleteConfirmPending ? 'Excluindo...' : 'Confirmar exclusão'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="settings-layout">
         <div className="settings-tabs-vertical">
           {tabs.map(t => {
@@ -586,7 +635,7 @@ export default function ConfiguracoesPage() {
                       <td>
                         <div className="row-actions">
                           <button className="btn btn-icon btn-sm" onClick={() => { setEditingUserId(su.id); setUserForm({ name: su.user.name, email: su.user.email, role: su.role, active: su.active, permissions: (su.permissions as Record<string, boolean>) || {} }) }}><Edit size={14} /></button>
-                          <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Remover acesso?')) await deleteSystemUser.mutateAsync(su.id) }}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                          <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover acesso do usuário "${su.name}"?`, () => deleteSystemUser.mutateAsync(su.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                         </div>
                       </td>
                     </tr>
@@ -633,7 +682,7 @@ export default function ConfiguracoesPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-icon btn-sm" onClick={() => { setEditingInsuranceId(ins.id); setInsuranceForm({ name: ins.name, documentsRequired: ins.documentsRequired || '' }) }}><Edit size={14} /></button>
-                    <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Remover convênio?')) await deleteInsurance.mutateAsync(ins.id) }}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                    <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover o convênio "${ins.name}"?`, () => deleteInsurance.mutateAsync(ins.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                   </div>
                 </div>
               ))}
@@ -688,7 +737,7 @@ export default function ConfiguracoesPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-icon btn-sm" onClick={() => { setEditingRoomId(r.id); setRoomForm({ name: r.name, type: r.type }) }}><Edit size={14} /></button>
-                    <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Remover sala?')) await deleteRoom.mutateAsync(r.id) }}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                    <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover a sala "${r.name}"?`, () => deleteRoom.mutateAsync(r.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                   </div>
                 </div>
               ))}
@@ -770,7 +819,7 @@ export default function ConfiguracoesPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-icon btn-sm" onClick={() => { setEditingEquipmentId(eq.id); setEquipmentForm({ name: eq.name, category: eq.category, serialNumber: eq.serialNumber || '', isMobile: eq.isMobile, defaultRoomId: eq.defaultRoomId || '', status: eq.status, notes: eq.notes || '' }) }}><Edit size={14} /></button>
-                    <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Remover equipamento?')) await deleteEquipment.mutateAsync(eq.id) }}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                    <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover o equipamento "${eq.name}"?`, () => deleteEquipment.mutateAsync(eq.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                   </div>
                 </div>
               ))}
@@ -825,7 +874,7 @@ export default function ConfiguracoesPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-icon btn-sm" onClick={() => { setEditingChannelId(ch.id); setChannelForm({ name: ch.name, description: ch.description || '', adminOnly: ch.adminOnly }) }}><Edit size={14} /></button>
-                    <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Remover canal?')) await deleteChannel.mutateAsync(ch.id) }}><Trash2 size={14} color="var(--color-accent-warning)" /></button>
+                    <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover o canal "${ch.name}"?`, () => deleteChannel.mutateAsync(ch.id))}><Trash2 size={14} color="var(--color-accent-warning)" /></button>
                   </div>
                 </div>
               ))}
@@ -993,7 +1042,7 @@ export default function ConfiguracoesPage() {
                       <td>
                         <div className="row-actions">
                           <button className="btn btn-icon btn-sm" onClick={() => { setEditingJobId(job.id); setJobForm({ title: job.title, area: job.area || '', regime: job.regime || 'CLT', location: job.location || '', hours: job.hours || '', requirements: job.requirements || '', responsibilities: job.responsibilities || '', benefits: job.benefits || '', expiresAt: job.expiresAt ? job.expiresAt.substring(0, 10) : '' }) }}><Edit size={14} /></button>
-                          <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Desativar vaga?')) await deleteJob.mutateAsync(job.id) }}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                          <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Excluir a vaga "${job.title}"?`, () => deleteJob.mutateAsync(job.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                         </div>
                       </td>
                     </tr>
@@ -1099,7 +1148,7 @@ export default function ConfiguracoesPage() {
                     </div>
                     <div className="row-actions">
                       <button className="btn btn-icon btn-sm" onClick={() => { setEditingBannerId(banner.id); setBannerForm({ title: banner.title, subtitle: banner.subtitle || '', imageUrl: banner.imageUrl || '', ctaLabel: banner.ctaLabel || '', ctaUrl: banner.ctaUrl || '', order: banner.order, active: banner.active }) }}><Edit size={14} /></button>
-                      <button className="btn btn-icon btn-sm" onClick={async () => { if(confirm('Remover banner?')) await deleteBanner.mutateAsync(banner.id) }}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                      <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover o banner "${banner.title}"?`, () => deleteBanner.mutateAsync(banner.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                     </div>
                   </div>
                 ))}
