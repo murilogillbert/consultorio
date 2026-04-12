@@ -1,23 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Mail, ArrowRight, Loader2, CalendarDays, Clock, UserCheck,
-  MessageCircle, Send, CheckCircle, XCircle, RefreshCw, LogOut, ShieldCheck, X, AlertTriangle
+  Mail, Loader2, CalendarDays, Clock, UserCheck,
+  MessageCircle, Send, CheckCircle, XCircle, LogOut, Lock, Eye, EyeOff, AlertTriangle, X
 } from 'lucide-react'
 import {
-  useRequestOtp, useVerifyOtp, useRegisterPatient,
+  usePatientLogin, useRegisterPatient,
   usePatientAppointments, usePatientConversation, useSendPatientMessage,
   useCancelPatientAppointment,
   getPatientUser, clearPatient, type PatientAppointment
 } from '../../hooks/usePatientPortal'
 
-type Screen = 'email' | 'register' | 'otp' | 'dashboard'
+type Screen = 'login' | 'register' | 'dashboard'
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  SCHEDULED: { label: 'Agendada', cls: 'badge-gold' },
-  CONFIRMED: { label: 'Confirmada', cls: 'badge-emerald' },
+  SCHEDULED:   { label: 'Agendada',     cls: 'badge-gold' },
+  CONFIRMED:   { label: 'Confirmada',   cls: 'badge-emerald' },
   IN_PROGRESS: { label: 'Em andamento', cls: 'badge-brand' },
-  COMPLETED: { label: 'Concluída', cls: 'badge-emerald' },
-  CANCELLED: { label: 'Cancelada', cls: 'badge-danger' },
+  COMPLETED:   { label: 'Concluída',    cls: 'badge-emerald' },
+  CANCELLED:   { label: 'Cancelada',    cls: 'badge-danger' },
 }
 
 function formatDate(iso: string) {
@@ -32,27 +32,35 @@ function formatDuration(min: number) {
   return `${min} min`
 }
 
-// ─── Tela: Login com email ─────────────────────────────────────────────────
+// ─── Tela: Login ───────────────────────────────────────────────────────────
 
-function EmailScreen({ onNext, onRegister }: { onNext: (email: string) => void; onRegister: () => void }) {
-  const [email, setEmail] = useState('')
-  const requestOtp = useRequestOtp()
+function LoginScreen({ onSuccess, onRegister }: { onSuccess: () => void; onRegister: () => void }) {
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [error, setError]       = useState('')
+  const login = usePatientLogin()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) return
-    await requestOtp.mutateAsync(email.trim())
-    onNext(email.trim())
+    setError('')
+    try {
+      await login.mutateAsync({ email: email.trim(), password })
+      onSuccess()
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'E-mail ou senha incorretos.')
+    }
   }
 
   return (
     <div className="patient-auth-card animate-fade-in">
-      <div className="patient-auth-icon"><Mail size={32} /></div>
+      <div className="patient-auth-icon"><Lock size={32} /></div>
       <h2>Minhas Consultas</h2>
-      <p>Digite seu email cadastrado e enviaremos um código de acesso.</p>
+      <p>Acesse o portal com seu e-mail e senha cadastrados.</p>
+
       <form onSubmit={handleSubmit} className="patient-auth-form">
         <div className="input-group">
-          <label className="input-label">Email</label>
+          <label className="input-label">E-mail</label>
           <input
             className="input-field"
             type="email"
@@ -63,25 +71,46 @@ function EmailScreen({ onNext, onRegister }: { onNext: (email: string) => void; 
             autoFocus
           />
         </div>
+
+        <div className="input-group">
+          <label className="input-label">Senha</label>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="input-field"
+              type={showPass ? 'text' : 'password'}
+              placeholder="••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              style={{ paddingRight: 40 }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPass(v => !v)}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}
+            >
+              {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {error && <p className="patient-auth-hint error"><XCircle size={14} /> {error}</p>}
+
         <button
           type="submit"
           className="btn btn-primary"
           style={{ width: '100%' }}
-          disabled={requestOtp.isPending}
+          disabled={login.isPending}
         >
-          {requestOtp.isPending
-            ? <><Loader2 size={16} className="animate-spin" /> Enviando...</>
-            : <><Send size={16} /> Enviar código por email</>}
+          {login.isPending
+            ? <><Loader2 size={16} className="animate-spin" /> Entrando...</>
+            : 'Entrar'}
         </button>
       </form>
-      {requestOtp.isSuccess && (
-        <p className="patient-auth-hint success">
-          <CheckCircle size={14} /> Código enviado! Verifique sua caixa de entrada.
-        </p>
-      )}
+
       <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--color-border-default)', textAlign: 'center' }}>
         <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 12 }}>
-          Você é novo? Cadastre-se para acessar o portal.
+          Ainda não tem conta?
         </p>
         <button className="btn btn-secondary" style={{ width: '100%' }} onClick={onRegister}>
           Criar minha conta
@@ -91,32 +120,40 @@ function EmailScreen({ onNext, onRegister }: { onNext: (email: string) => void; 
   )
 }
 
-// ─── Tela: Cadastro de novo paciente ───────────────────────────────────────
+// ─── Tela: Cadastro ────────────────────────────────────────────────────────
 
-function RegisterScreen({ onBack, onSuccess }: { onBack: () => void; onSuccess: (email: string) => void }) {
-  const [form, setForm] = useState({ name: '', email: '', cpf: '', phone: '' })
-  const [error, setError] = useState('')
-  const register = useRegisterPatient()
+function RegisterScreen({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', cpf: '', phone: '' })
+  const [showPass, setShowPass]   = useState(false)
+  const [showConf, setShowConf]   = useState(false)
+  const [error, setError]         = useState('')
+  const register  = useRegisterPatient()
+  const login     = usePatientLogin()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (!form.name.trim() || !form.email.trim()) {
-      setError('Nome e e-mail são obrigatórios.')
-      return
-    }
+    if (!form.name.trim() || !form.email.trim()) { setError('Nome e e-mail são obrigatórios.'); return }
+    if (form.password.length < 6)                { setError('A senha deve ter no mínimo 6 caracteres.'); return }
+    if (form.password !== form.confirm)          { setError('As senhas não coincidem.'); return }
+
     try {
       await register.mutateAsync({
-        name: form.name.trim(),
-        email: form.email.trim(),
-        cpf: form.cpf.trim() || undefined,
-        phone: form.phone.trim() || undefined,
+        name:     form.name.trim(),
+        email:    form.email.trim(),
+        password: form.password,
+        cpf:      form.cpf.trim()   || undefined,
+        phone:    form.phone.trim() || undefined,
       })
-      onSuccess(form.email.trim())
+      // Faz login automático após cadastro
+      await login.mutateAsync({ email: form.email.trim(), password: form.password })
+      onSuccess()
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Erro ao realizar cadastro. Tente novamente.')
     }
   }
+
+  const isPending = register.isPending || login.isPending
 
   return (
     <div className="patient-auth-card animate-fade-in">
@@ -125,133 +162,69 @@ function RegisterScreen({ onBack, onSuccess }: { onBack: () => void; onSuccess: 
       </div>
       <h2>Criar conta</h2>
       <p>Preencha seus dados para acessar o portal de consultas.</p>
+
       <form onSubmit={handleSubmit} className="patient-auth-form">
         <div className="input-group">
           <label className="input-label">Nome Completo <span className="required">*</span></label>
-          <input
-            className="input-field"
-            placeholder="Seu nome completo"
-            value={form.name}
-            onChange={e => setForm({ ...form, name: e.target.value })}
-            required
-            autoFocus
-          />
+          <input className="input-field" placeholder="Seu nome completo" value={form.name}
+            onChange={e => setForm({ ...form, name: e.target.value })} required autoFocus />
         </div>
+
         <div className="input-group">
           <label className="input-label">E-mail <span className="required">*</span></label>
-          <input
-            className="input-field"
-            type="email"
-            placeholder="seu@email.com.br"
-            value={form.email}
-            onChange={e => setForm({ ...form, email: e.target.value })}
-            required
-          />
+          <input className="input-field" type="email" placeholder="seu@email.com.br" value={form.email}
+            onChange={e => setForm({ ...form, email: e.target.value })} required />
         </div>
+
+        <div className="input-group">
+          <label className="input-label">Senha <span className="required">*</span></label>
+          <div style={{ position: 'relative' }}>
+            <input className="input-field" type={showPass ? 'text' : 'password'} placeholder="Mínimo 6 caracteres"
+              value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+              required style={{ paddingRight: 40 }} />
+            <button type="button" onClick={() => setShowPass(v => !v)}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
+              {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="input-group">
+          <label className="input-label">Confirmar senha <span className="required">*</span></label>
+          <div style={{ position: 'relative' }}>
+            <input className="input-field" type={showConf ? 'text' : 'password'} placeholder="Repita a senha"
+              value={form.confirm} onChange={e => setForm({ ...form, confirm: e.target.value })}
+              required style={{ paddingRight: 40 }} />
+            <button type="button" onClick={() => setShowConf(v => !v)}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
+              {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
         <div className="input-group">
           <label className="input-label">CPF</label>
-          <input
-            className="input-field"
-            placeholder="000.000.000-00"
-            value={form.cpf}
-            onChange={e => setForm({ ...form, cpf: e.target.value })}
-          />
+          <input className="input-field" placeholder="000.000.000-00" value={form.cpf}
+            onChange={e => setForm({ ...form, cpf: e.target.value })} />
         </div>
+
         <div className="input-group">
           <label className="input-label">Telefone</label>
-          <input
-            className="input-field"
-            placeholder="(11) 99999-9999"
-            value={form.phone}
-            onChange={e => setForm({ ...form, phone: e.target.value })}
-          />
+          <input className="input-field" placeholder="(11) 99999-9999" value={form.phone}
+            onChange={e => setForm({ ...form, phone: e.target.value })} />
         </div>
-        {error && (
-          <p className="patient-auth-hint error"><XCircle size={14} /> {error}</p>
-        )}
-        <button
-          type="submit"
-          className="btn btn-primary"
-          style={{ width: '100%' }}
-          disabled={register.isPending}
-        >
-          {register.isPending
+
+        {error && <p className="patient-auth-hint error"><XCircle size={14} /> {error}</p>}
+
+        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isPending}>
+          {isPending
             ? <><Loader2 size={16} className="animate-spin" /> Cadastrando...</>
             : <><CheckCircle size={16} /> Criar conta</>}
         </button>
       </form>
+
       <div style={{ marginTop: 16, textAlign: 'center' }}>
         <button className="btn btn-ghost btn-sm" onClick={onBack}>← Já tenho conta</button>
-      </div>
-    </div>
-  )
-}
-
-// ─── Tela: OTP ─────────────────────────────────────────────────────────────
-
-function OtpScreen({ email, onSuccess, onBack }: { email: string; onSuccess: () => void; onBack: () => void }) {
-  const [otp, setOtp] = useState('')
-  const [error, setError] = useState('')
-  const verifyOtp = useVerifyOtp()
-  const requestOtp = useRequestOtp()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    try {
-      await verifyOtp.mutateAsync({ email, otp })
-      onSuccess()
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Código inválido. Tente novamente.')
-    }
-  }
-
-  const handleResend = async () => {
-    setOtp(''); setError('')
-    await requestOtp.mutateAsync(email)
-  }
-
-  return (
-    <div className="patient-auth-card animate-fade-in">
-      <div className="patient-auth-icon"><ShieldCheck size={32} /></div>
-      <h2>Código de acesso</h2>
-      <p>Enviamos um código de 6 dígitos para <strong>{email}</strong></p>
-      <form onSubmit={handleSubmit} className="patient-auth-form">
-        <div className="input-group">
-          <label className="input-label">Código</label>
-          <input
-            className="input-field patient-otp-input"
-            type="text"
-            inputMode="numeric"
-            maxLength={6}
-            placeholder="000000"
-            value={otp}
-            onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            required
-            autoFocus
-          />
-        </div>
-        {error && <p className="patient-auth-hint error"><XCircle size={14} /> {error}</p>}
-        <button
-          type="submit"
-          className="btn btn-primary"
-          style={{ width: '100%' }}
-          disabled={verifyOtp.isPending || otp.length < 6}
-        >
-          {verifyOtp.isPending
-            ? <><Loader2 size={16} className="animate-spin" /> Verificando...</>
-            : <><ArrowRight size={16} /> Entrar</>}
-        </button>
-      </form>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Voltar</button>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={handleResend}
-          disabled={requestOtp.isPending}
-        >
-          <RefreshCw size={12} /> Reenviar código
-        </button>
       </div>
     </div>
   )
@@ -284,7 +257,7 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
   }
 
   const upcoming = appointments.filter(a => new Date(a.startTime) >= new Date() && a.status !== 'CANCELLED')
-  const past = appointments.filter(a => new Date(a.startTime) < new Date() || a.status === 'CANCELLED')
+  const past     = appointments.filter(a => new Date(a.startTime) <  new Date() || a.status === 'CANCELLED')
 
   return (
     <div className="patient-dashboard animate-fade-in">
@@ -404,6 +377,8 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
   )
 }
 
+// ─── Card de consulta ──────────────────────────────────────────────────────
+
 function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }) {
   const [confirming, setConfirming] = useState(false)
   const cancel = useCancelPatientAppointment()
@@ -485,49 +460,27 @@ function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }
 export default function MinhasConsultasPage() {
   const [screen, setScreen] = useState<Screen>(() => {
     const token = localStorage.getItem('patient_token')
-    const user = localStorage.getItem('patient_user')
-    return token && user ? 'dashboard' : 'email'
+    const user  = localStorage.getItem('patient_user')
+    return token && user ? 'dashboard' : 'login'
   })
-  const [email, setEmail] = useState('')
-
-  const handleEmailNext = (e: string) => {
-    setEmail(e)
-    setScreen('otp')
-  }
-
-  const handleOtpSuccess = () => setScreen('dashboard')
 
   const handleLogout = () => {
     clearPatient()
-    setScreen('email')
-    setEmail('')
-  }
-
-  // Após cadastro, vai direto para login com o email preenchido
-  const handleRegisterSuccess = (e: string) => {
-    setEmail(e)
-    setScreen('otp')
+    setScreen('login')
   }
 
   return (
     <div className="patient-portal-wrapper">
-      {screen === 'email' && (
-        <EmailScreen
-          onNext={handleEmailNext}
+      {screen === 'login' && (
+        <LoginScreen
+          onSuccess={() => setScreen('dashboard')}
           onRegister={() => setScreen('register')}
         />
       )}
       {screen === 'register' && (
         <RegisterScreen
-          onBack={() => setScreen('email')}
-          onSuccess={handleRegisterSuccess}
-        />
-      )}
-      {screen === 'otp' && (
-        <OtpScreen
-          email={email}
-          onSuccess={handleOtpSuccess}
-          onBack={() => setScreen('email')}
+          onBack={() => setScreen('login')}
+          onSuccess={() => setScreen('dashboard')}
         />
       )}
       {screen === 'dashboard' && <PatientDashboard onLogout={handleLogout} />}

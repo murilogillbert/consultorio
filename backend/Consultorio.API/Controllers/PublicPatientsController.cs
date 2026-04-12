@@ -10,7 +10,7 @@ namespace Consultorio.API.Controllers;
 
 /// <summary>
 /// Endpoints públicos para o portal do paciente (sem autenticação de staff).
-/// Permite que pacientes se cadastrem, façam login via OTP e consultem seus dados.
+/// Permite que pacientes se cadastrem, façam login com senha e consultem seus dados.
 /// </summary>
 [ApiController]
 [Route("api/public/patients")]
@@ -35,6 +35,9 @@ public class PublicPatientsController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Email))
             return BadRequest(new { message = "Nome e e-mail são obrigatórios." });
 
+        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+            return BadRequest(new { message = "A senha deve ter no mínimo 6 caracteres." });
+
         var email = dto.Email.ToLower().Trim();
         var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
 
@@ -51,14 +54,15 @@ public class PublicPatientsController : ControllerBase
 
         var user = existingUser ?? new User
         {
-            Id           = Guid.NewGuid(),
-            Name         = dto.Name.Trim(),
-            Email        = email,
-            Phone        = dto.Phone?.Trim(),
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
-            IsActive     = true,
-            CreatedAt    = DateTime.UtcNow,
+            Id        = Guid.NewGuid(),
+            Name      = dto.Name.Trim(),
+            Email     = email,
+            Phone     = dto.Phone?.Trim(),
+            IsActive  = true,
+            CreatedAt = DateTime.UtcNow,
         };
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
         if (existingUser == null)
             _db.Users.Add(user);
@@ -77,45 +81,16 @@ public class PublicPatientsController : ControllerBase
         _db.Patients.Add(patient);
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = "Cadastro realizado com sucesso!", email = user.Email });
+        return Ok(new { message = "Cadastro realizado com sucesso! Faça login para continuar.", email = user.Email });
     }
 
-    // ─── POST /api/public/patients/otp/request ────────────────────────────────
-    [HttpPost("otp/request")]
+    // ─── POST /api/public/patients/login ──────────────────────────────────────
+    [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<ActionResult> RequestOtp([FromBody] OtpRequestDto dto)
+    public async Task<ActionResult> Login([FromBody] PatientLoginDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Email))
-            return BadRequest(new { message = "Email é obrigatório." });
-
-        var email = dto.Email.ToLower().Trim();
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
-
-        if (user != null)
-        {
-            var isPatient = await _db.Patients.AnyAsync(p => p.UserId == user.Id);
-            if (isPatient)
-            {
-                var otp = new Random().Next(100000, 999999).ToString();
-                user.OtpCode   = otp;
-                user.OtpExpiry = DateTime.UtcNow.AddMinutes(10);
-                await _db.SaveChangesAsync();
-
-                await TrySendOtpEmailAsync(email, user.Name, otp);
-            }
-        }
-
-        // Sempre retorna 200 para não revelar se o email está cadastrado
-        return Ok(new { message = "Se o e-mail estiver cadastrado, você receberá o código em breve." });
-    }
-
-    // ─── POST /api/public/patients/otp/verify ─────────────────────────────────
-    [HttpPost("otp/verify")]
-    [AllowAnonymous]
-    public async Task<ActionResult> VerifyOtp([FromBody] OtpVerifyDto dto)
-    {
-        if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Otp))
-            return BadRequest(new { message = "Email e código são obrigatórios." });
+        if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+            return BadRequest(new { message = "E-mail e senha são obrigatórios." });
 
         var email = dto.Email.ToLower().Trim();
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
@@ -123,17 +98,11 @@ public class PublicPatientsController : ControllerBase
             ? await _db.Patients.FirstOrDefaultAsync(p => p.UserId == user.Id)
             : null;
 
-        if (user == null || patient == null ||
-            user.OtpCode != dto.Otp.Trim() ||
-            user.OtpExpiry == null || user.OtpExpiry < DateTime.UtcNow)
-        {
-            return Unauthorized(new { message = "Código inválido ou expirado." });
-        }
+        if (user == null || patient == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+            return Unauthorized(new { message = "E-mail ou senha incorretos." });
 
-        // Invalida OTP após uso
-        user.OtpCode   = null;
-        user.OtpExpiry = null;
-        await _db.SaveChangesAsync();
+        if (!user.IsActive)
+            return Unauthorized(new { message = "Conta desativada. Entre em contato com a clínica." });
 
         var token = _tokenService.GeneratePatientToken(user.Id, user.Email, patient.Id);
 
@@ -145,7 +114,6 @@ public class PublicPatientsController : ControllerBase
     }
 
     // ─── GET /api/public/patients/appointments ────────────────────────────────
-    // Requer JWT de paciente (role = PATIENT com claim patientId)
     [HttpGet("appointments")]
     [Authorize(Roles = "PATIENT")]
     public async Task<ActionResult> GetMyAppointments()
@@ -259,45 +227,6 @@ public class PublicPatientsController : ControllerBase
 
         return Ok(new { id = msg.Id, direction = msg.Direction, content = msg.Content, isRead = msg.IsRead, createdAt = msg.CreatedAt });
     }
-
-    // ─── Envio de email (com fallback para console) ───────────────────────────
-    private async Task TrySendOtpEmailAsync(string toEmail, string name, string otp)
-    {
-        var host = _config["Smtp:Host"];
-
-        if (string.IsNullOrEmpty(host))
-        {
-            // SMTP não configurado — loga no console para debug
-            Console.WriteLine($"[OTP] {toEmail} → código: {otp} (expira em 10 min)");
-            return;
-        }
-
-        try
-        {
-            var port     = int.Parse(_config["Smtp:Port"] ?? "587");
-            var user     = _config["Smtp:Username"] ?? "";
-            var pass     = _config["Smtp:Password"] ?? "";
-            var fromAddr = _config["Smtp:From"] ?? user;
-
-            var body = $"Olá, {name}!\n\n" +
-                       $"Seu código de acesso ao portal é: {otp}\n\n" +
-                       $"Este código expira em 10 minutos.\n\n" +
-                       $"Equipe Psicologia e Existir";
-
-            using var smtp = new SmtpClient(host, port)
-            {
-                EnableSsl   = true,
-                Credentials = new System.Net.NetworkCredential(user, pass)
-            };
-            var mail = new MailMessage(fromAddr, toEmail, "Código de Acesso - Portal do Paciente", body);
-            await smtp.SendMailAsync(mail);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[OTP] Falha ao enviar email para {toEmail}: {ex.Message}");
-            Console.WriteLine($"[OTP] Código gerado: {otp}");
-        }
-    }
 }
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
@@ -306,19 +235,15 @@ public class PublicRegisterPatientDto
 {
     public string Name { get; set; } = null!;
     public string Email { get; set; } = null!;
+    public string Password { get; set; } = null!;
     public string? CPF { get; set; }
     public string? Phone { get; set; }
 }
 
-public class OtpRequestDto
+public class PatientLoginDto
 {
     public string Email { get; set; } = null!;
-}
-
-public class OtpVerifyDto
-{
-    public string Email { get; set; } = null!;
-    public string Otp { get; set; } = null!;
+    public string Password { get; set; } = null!;
 }
 
 public class SendPatientMessageDto

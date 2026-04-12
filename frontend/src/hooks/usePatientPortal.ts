@@ -21,27 +21,18 @@ export function clearPatient() {
 
 export function useRegisterPatient() {
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; cpf?: string; phone?: string }) => {
+    mutationFn: async (data: { name: string; email: string; password: string; cpf?: string; phone?: string }) => {
       const { data: res } = await api.post('/public/patients/register', data)
       return res as { message: string; email: string }
     }
   })
 }
 
-export function useRequestOtp() {
-  return useMutation({
-    mutationFn: async (email: string) => {
-      const { data } = await api.post('/public/patients/otp/request', { email })
-      return data as { message: string }
-    }
-  })
-}
-
-export function useVerifyOtp() {
+export function usePatientLogin() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ email, otp }: { email: string; otp: string }) => {
-      const { data } = await api.post('/public/patients/otp/verify', { email, otp })
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const { data } = await api.post('/public/patients/login', { email, password })
       const res = data as { token: string; user: { id: string; name: string; email: string } }
       localStorage.setItem(PATIENT_TOKEN_KEY, res.token)
       localStorage.setItem(PATIENT_USER_KEY, JSON.stringify(res.user))
