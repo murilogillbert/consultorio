@@ -100,8 +100,8 @@ export default function AgendaPage() {
 
   const handleCheckin = async () => {
     if (!selectedAppointment) return
-    await updateStatus.mutateAsync({ id: selectedAppointment.id, status: 'CONFIRMED' })
-    setSelectedAppointment(null)
+    const updated = await updateStatus.mutateAsync({ id: selectedAppointment.id, status: 'CONFIRMED' })
+    setSelectedAppointment(updated)
   }
 
   const handleCancel = async () => {

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Mail, ArrowRight, Loader2, CalendarDays, Clock, UserCheck,
-  MessageCircle, Send, CheckCircle, XCircle, RefreshCw, LogOut, ShieldCheck
+  MessageCircle, Send, CheckCircle, XCircle, RefreshCw, LogOut, ShieldCheck, X, AlertTriangle
 } from 'lucide-react'
 import {
   useRequestOtp, useVerifyOtp, useRegisterPatient,
   usePatientAppointments, usePatientConversation, useSendPatientMessage,
+  useCancelPatientAppointment,
   getPatientUser, clearPatient, type PatientAppointment
 } from '../../hooks/usePatientPortal'
 
@@ -354,10 +355,10 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
                 <Loader2 size={20} className="animate-spin" color="var(--color-text-muted)" />
               </div>
             )}
-            {!loadingConv && !convData?.conversation && (
+            {!loadingConv && (!convData?.messages || convData.messages.length === 0) && (
               <div className="patient-empty">
                 <MessageCircle size={36} color="var(--color-text-muted)" />
-                <p>Agende uma consulta para iniciar o chat com a clínica.</p>
+                <p>Nenhuma mensagem ainda. Envie uma mensagem para a clínica!</p>
               </div>
             )}
             {convData?.messages.map(msg => {
@@ -387,13 +388,12 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
               value={message}
               onChange={e => setMessage(e.target.value)}
               onKeyDown={handleKey}
-              disabled={!convData?.conversation}
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: 'var(--color-text-primary)' }}
             />
             <button
               className="btn btn-primary btn-icon"
               onClick={handleSend}
-              disabled={!message.trim() || sendMsg.isPending || !convData?.conversation}
+              disabled={!message.trim() || sendMsg.isPending}
             >
               {sendMsg.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>
@@ -405,8 +405,22 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
 }
 
 function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }) {
+  const [confirming, setConfirming] = useState(false)
+  const cancel = useCancelPatientAppointment()
   const status = STATUS_LABEL[a.status] || { label: a.status, cls: 'badge-gold' }
   const proName = a.professional?.user?.name || 'Profissional'
+  const canCancel = a.status !== 'CANCELLED' && a.status !== 'COMPLETED' && new Date(a.startTime) > new Date()
+
+  const handleCancel = async () => {
+    try {
+      await cancel.mutateAsync(a.id)
+      setConfirming(false)
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Erro ao cancelar consulta.')
+      setConfirming(false)
+    }
+  }
+
   return (
     <div className="patient-appointment-card">
       <div className="patient-appointment-header">
@@ -423,6 +437,45 @@ function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }
         <span><Clock size={13} /> {formatDuration(a.service?.duration || 0)}</span>
       </div>
       {a.notes && <div className="patient-appointment-notes">{a.notes}</div>}
+
+      {canCancel && !confirming && (
+        <div style={{ marginTop: 10 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'var(--color-danger)', fontSize: 12 }}
+            onClick={() => setConfirming(true)}
+          >
+            <X size={12} /> Cancelar consulta
+          </button>
+        </div>
+      )}
+
+      {confirming && (
+        <div style={{
+          marginTop: 10, padding: '10px 12px', borderRadius: 8,
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'var(--color-danger)' }}>
+            <AlertTriangle size={14} /> Confirmar cancelamento?
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 10 }}>
+            Esta ação não pode ser desfeita. Deseja cancelar a consulta?
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'var(--color-danger)', color: '#fff', flex: 1 }}
+              onClick={handleCancel}
+              disabled={cancel.isPending}
+            >
+              {cancel.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Sim, cancelar'}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setConfirming(false)}>
+              Não
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

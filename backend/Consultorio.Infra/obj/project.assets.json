@@ -1691,7 +1691,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Ludimila\\.nuget\\packages": {},
+    "C:\\Users\\Ludimila\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -1700,7 +1700,7 @@
       "projectUniqueName": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
       "projectName": "Consultorio.Infra",
       "projectPath": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
-      "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages",
+      "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages\\",
       "outputPath": "C:\\consultorio\\backend\\Consultorio.Infra\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [

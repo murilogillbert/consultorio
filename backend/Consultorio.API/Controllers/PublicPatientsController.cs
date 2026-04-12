@@ -174,6 +174,92 @@ public class PublicPatientsController : ControllerBase
         return Ok(appointments);
     }
 
+    // ─── POST /api/public/patients/appointments/{id}/cancel ───────────────────
+    [HttpPost("appointments/{id}/cancel")]
+    [Authorize(Roles = "PATIENT")]
+    public async Task<ActionResult> CancelAppointment(Guid id)
+    {
+        var patientIdStr = User.FindFirst("patientId")?.Value;
+        if (!Guid.TryParse(patientIdStr, out var patientId))
+            return Unauthorized(new { message = "Token inválido." });
+
+        var appt = await _db.Appointments.FirstOrDefaultAsync(a => a.Id == id && a.PatientId == patientId);
+        if (appt == null)
+            return NotFound(new { message = "Consulta não encontrada." });
+
+        if (appt.Status == "CANCELLED")
+            return BadRequest(new { message = "Esta consulta já foi cancelada." });
+
+        if (appt.StartTime <= DateTime.UtcNow.AddHours(2))
+            return BadRequest(new { message = "Consultas não podem ser canceladas com menos de 2 horas de antecedência." });
+
+        appt.Status = "CANCELLED";
+        appt.Notes = string.IsNullOrEmpty(appt.Notes)
+            ? "[CANCELADO pelo paciente]"
+            : $"[CANCELADO pelo paciente] {appt.Notes}";
+        appt.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    // ─── GET /api/public/patients/conversation ────────────────────────────────
+    [HttpGet("conversation")]
+    [Authorize(Roles = "PATIENT")]
+    public async Task<ActionResult> GetConversation()
+    {
+        var patientIdStr = User.FindFirst("patientId")?.Value;
+        if (!Guid.TryParse(patientIdStr, out var patientId))
+            return Unauthorized(new { message = "Token inválido." });
+
+        var messages = await _db.PatientMessages
+            .Where(m => m.PatientId == patientId)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new
+            {
+                id        = m.Id,
+                direction = m.Direction,
+                content   = m.Content,
+                isRead    = m.IsRead,
+                createdAt = m.CreatedAt,
+            })
+            .ToListAsync();
+
+        return Ok(new { messages });
+    }
+
+    // ─── POST /api/public/patients/message ────────────────────────────────────
+    [HttpPost("message")]
+    [Authorize(Roles = "PATIENT")]
+    public async Task<ActionResult> SendMessage([FromBody] SendPatientMessageDto dto)
+    {
+        var patientIdStr = User.FindFirst("patientId")?.Value;
+        if (!Guid.TryParse(patientIdStr, out var patientId))
+            return Unauthorized(new { message = "Token inválido." });
+
+        if (string.IsNullOrWhiteSpace(dto.Content))
+            return BadRequest(new { message = "Mensagem não pode estar vazia." });
+
+        var patient = await _db.Patients.FindAsync(patientId);
+        if (patient == null) return NotFound(new { message = "Paciente não encontrado." });
+
+        var msg = new PatientMessage
+        {
+            Id        = Guid.NewGuid(),
+            PatientId = patientId,
+            ClinicId  = patient.ClinicId,
+            Content   = dto.Content.Trim(),
+            Direction = "IN",
+            IsRead    = false,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        _db.PatientMessages.Add(msg);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { id = msg.Id, direction = msg.Direction, content = msg.Content, isRead = msg.IsRead, createdAt = msg.CreatedAt });
+    }
+
     // ─── Envio de email (com fallback para console) ───────────────────────────
     private async Task TrySendOtpEmailAsync(string toEmail, string name, string otp)
     {
@@ -233,4 +319,9 @@ public class OtpVerifyDto
 {
     public string Email { get; set; } = null!;
     public string Otp { get; set; } = null!;
+}
+
+public class SendPatientMessageDto
+{
+    public string Content { get; set; } = null!;
 }

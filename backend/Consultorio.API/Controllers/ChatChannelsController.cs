@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -125,5 +126,76 @@ public class ChatChannelsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    // GET /api/chatchannels/{id}/messages
+    [HttpGet("{id}/messages")]
+    public async Task<ActionResult> GetMessages(Guid id)
+    {
+        var channel = await _db.ChatChannels.FindAsync(id);
+        if (channel == null) return NotFound(new { message = "Canal não encontrado." });
+
+        var messages = await _db.ChatMessages
+            .Include(m => m.User)
+            .Where(m => m.ChatChannelId == id)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new
+            {
+                id        = m.Id,
+                channelId = m.ChatChannelId,
+                content   = m.Content,
+                isEdited  = m.IsEdited,
+                createdAt = m.CreatedAt,
+                sender    = new
+                {
+                    id        = m.User.Id,
+                    name      = m.User.Name,
+                    avatarUrl = m.User.AvatarUrl,
+                }
+            })
+            .ToListAsync();
+
+        return Ok(messages);
+    }
+
+    // POST /api/chatchannels/{id}/messages
+    [HttpPost("{id}/messages")]
+    public async Task<ActionResult> SendMessage(Guid id, [FromBody] SendChannelMessageDto dto)
+    {
+        var channel = await _db.ChatChannels.FindAsync(id);
+        if (channel == null) return NotFound(new { message = "Canal não encontrado." });
+
+        if (string.IsNullOrWhiteSpace(dto.Content))
+            return BadRequest(new { message = "Mensagem não pode estar vazia." });
+
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized(new { message = "Usuário não identificado." });
+
+        var msg = new ChatMessage
+        {
+            Id            = Guid.NewGuid(),
+            ChatChannelId = id,
+            UserId        = userId,
+            Content       = dto.Content.Trim(),
+            IsEdited      = false,
+            CreatedAt     = DateTime.UtcNow,
+        };
+
+        _db.ChatMessages.Add(msg);
+        await _db.SaveChangesAsync();
+
+        // Recarrega com sender para retorno
+        var user = await _db.Users.FindAsync(userId);
+
+        return Ok(new
+        {
+            id        = msg.Id,
+            channelId = msg.ChatChannelId,
+            content   = msg.Content,
+            isEdited  = msg.IsEdited,
+            createdAt = msg.CreatedAt,
+            sender    = new { id = userId, name = user?.Name, avatarUrl = user?.AvatarUrl }
+        });
     }
 }

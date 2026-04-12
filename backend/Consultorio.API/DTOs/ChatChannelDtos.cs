@@ -31,3 +31,8 @@ public class ChatChannelResponseDto
     public int MemberCount { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+public class SendChannelMessageDto
+{
+    public string Content { get; set; } = null!;
+}

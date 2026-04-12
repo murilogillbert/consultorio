@@ -1,15 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, MessageSquare, Star, Phone, Mail, MessageCircle as WhatsAppIcon, Loader2 } from 'lucide-react'
+import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, MessageSquare, Mail, Loader2, MessageCircle, User } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChannels } from '../../hooks/useChannels'
 import { useChannelMessages, useSendChannelMessage } from '../../hooks/useInternalMessages'
-import { useConversations, useConversationMessages, useSendConversationMessage, useMarkConversationRead } from '../../hooks/useConversations'
-
-const channelIcon = (ch: string) => {
-  if (ch === 'whatsapp' || ch === 'WHATSAPP') return <WhatsAppIcon size={14} color="var(--color-accent-emerald)" />
-  if (ch === 'email' || ch === 'EMAIL') return <Mail size={14} color="var(--color-accent-gold)" />
-  return <MessageSquare size={14} color="var(--color-text-muted)" />
-}
+import {
+  useConversations,
+  usePatientConversationDetail,
+  useSendConversationMessage,
+  useMarkConversationRead,
+} from '../../hooks/useConversations'
 
 export default function MensagensPage() {
   const { user } = useAuth()
@@ -17,22 +16,19 @@ export default function MensagensPage() {
   const myUserId = (user as any)?.id
 
   const [activeTab, setActiveTab] = useState<'patients' | 'internal'>('patients')
-  const [selectedConvoId, setSelectedConvoId] = useState<string | null>(null)
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
-  const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'email' | 'chat'>('all')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Internal channels (from API)
+  // Internal channels
   const { data: channels = [], isLoading: loadingChannels } = useChannels(clinicId)
-
-  // Internal messages for selected channel
   const { data: internalMessages = [], isLoading: loadingMsgs } = useChannelMessages(selectedChannelId)
   const sendInternal = useSendChannelMessage()
 
-  // Patient conversations (from API)
+  // Patient conversations
   const { data: conversations = [], isLoading: loadingConvos } = useConversations(clinicId)
-  const { data: externalMessages = [], isLoading: loadingExtMsgs } = useConversationMessages(selectedConvoId)
+  const { data: convDetail, isLoading: loadingExtMsgs } = usePatientConversationDetail(selectedPatientId)
   const sendExternal = useSendConversationMessage()
   const markRead = useMarkConversationRead()
 
@@ -41,13 +37,13 @@ export default function MensagensPage() {
     if (channels.length > 0 && !selectedChannelId) setSelectedChannelId(channels[0].id)
   }, [channels])
   useEffect(() => {
-    if (conversations.length > 0 && !selectedConvoId) setSelectedConvoId(conversations[0].id)
+    if (conversations.length > 0 && !selectedPatientId) setSelectedPatientId(conversations[0].patientId)
   }, [conversations])
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [internalMessages, externalMessages])
+  }, [internalMessages, convDetail?.messages])
 
   const handleSend = async () => {
     const text = message.trim()
@@ -55,8 +51,8 @@ export default function MensagensPage() {
     setMessage('')
     if (activeTab === 'internal' && selectedChannelId) {
       await sendInternal.mutateAsync({ channelId: selectedChannelId, content: text })
-    } else if (activeTab === 'patients' && selectedConvoId) {
-      await sendExternal.mutateAsync({ conversationId: selectedConvoId, content: text })
+    } else if (activeTab === 'patients' && selectedPatientId) {
+      await sendExternal.mutateAsync({ conversationId: selectedPatientId, content: text })
     }
   }
 
@@ -64,17 +60,13 @@ export default function MensagensPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
-  const filteredConvos = conversations.filter(c => {
-    if (channelFilter === 'all') return true
-    return c.channel.toLowerCase() === channelFilter
-  })
-
-  const selectedConvo = conversations.find(c => c.id === selectedConvoId)
+  const selectedConvo = conversations.find(c => c.patientId === selectedPatientId)
   const selectedChannel = channels.find(c => c.id === selectedChannelId)
+  const externalMessages = convDetail?.messages || []
 
   return (
     <div className="messages-layout" style={{ margin: 'calc(var(--space-8) * -1)', height: 'calc(100vh - var(--topbar-height))' }}>
-      {/* Left Panel */}
+      {/* ── Left Panel ── */}
       <div className="messages-list-panel">
         <div className="messages-list-header">
           <div className="tabs">
@@ -89,61 +81,48 @@ export default function MensagensPage() {
 
         {/* PATIENTS TAB */}
         {activeTab === 'patients' && (
-          <>
-            <div style={{ padding: 'var(--space-3)', display: 'flex', gap: 'var(--space-2)' }}>
-              {(['all', 'whatsapp', 'email', 'chat'] as const).map(ch => (
-                <button
-                  key={ch}
-                  className={`btn btn-icon btn-sm${channelFilter === ch ? ' btn-primary' : ''}`}
-                  style={{ border: '1px solid var(--color-border-default)' }}
-                  title={ch}
-                  onClick={() => setChannelFilter(ch)}
+          <div className="messages-list-body">
+            {loadingConvos && (
+              <div style={{ padding: 16, textAlign: 'center' }}>
+                <Loader2 size={20} className="animate-spin" color="var(--color-text-muted)" />
+              </div>
+            )}
+            {!loadingConvos && conversations.length === 0 && (
+              <div style={{ padding: 16, textAlign: 'center' }}>
+                <MessageCircle size={32} color="var(--color-text-muted)" style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Nenhuma mensagem de pacientes ainda.</p>
+              </div>
+            )}
+            {conversations.map((c) => {
+              const initials = c.patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+              const timeLabel = c.lastMessageAt
+                ? new Date(c.lastMessageAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                : ''
+              return (
+                <div
+                  key={c.patientId}
+                  className={`conversation-row${selectedPatientId === c.patientId ? ' active' : ''}`}
+                  onClick={() => {
+                    setSelectedPatientId(c.patientId)
+                    if (c.unreadCount > 0) markRead.mutate(c.patientId)
+                  }}
                 >
-                  {ch === 'all' ? <MessageSquare size={14} /> : ch === 'whatsapp' ? <WhatsAppIcon size={14} /> : ch === 'email' ? <Mail size={14} /> : <Phone size={14} />}
-                </button>
-              ))}
-            </div>
-
-            <div className="messages-list-body">
-              {loadingConvos && (
-                <div style={{ padding: 16, textAlign: 'center' }}>
-                  <Loader2 size={20} className="animate-spin" color="var(--color-text-muted)" />
-                </div>
-              )}
-              {!loadingConvos && filteredConvos.length === 0 && (
-                <p style={{ padding: 16, fontSize: 13, color: 'var(--color-text-muted)' }}>Nenhuma conversa.</p>
-              )}
-              {filteredConvos.map((c) => {
-                const name = c.contact?.name || c.contact?.phone || c.contact?.email || 'Contato'
-                const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2)
-                const lastMsg = c.messages?.[0]
-                const preview = lastMsg?.content || '...'
-                const timeLabel = c.lastMessageAt
-                  ? new Date(c.lastMessageAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                  : ''
-                return (
-                  <div
-                    key={c.id}
-                    className={`conversation-row${selectedConvoId === c.id ? ' active' : ''}`}
-                    onClick={() => { setSelectedConvoId(c.id); if (c.unreadCount > 0) markRead.mutate(c.id) }}
-                  >
-                    <div className="avatar avatar-sm avatar-placeholder">{initials}</div>
-                    <div className="conversation-info">
-                      <div className="name">
-                        {channelIcon(c.channel)}
-                        <span style={{ marginLeft: 6 }}>{name}</span>
-                      </div>
-                      <div className="preview">{preview}</div>
+                  <div className="avatar avatar-sm avatar-placeholder">{initials}</div>
+                  <div className="conversation-info">
+                    <div className="name">
+                      <User size={12} />
+                      <span style={{ marginLeft: 6 }}>{c.patientName}</span>
                     </div>
-                    <div className="conversation-meta">
-                      <span className="time">{timeLabel}</span>
-                      {c.unreadCount > 0 && <span className="badge-count">{c.unreadCount}</span>}
-                    </div>
+                    <div className="preview">{c.lastMessage || '...'}</div>
                   </div>
-                )
-              })}
-            </div>
-          </>
+                  <div className="conversation-meta">
+                    <span className="time">{timeLabel}</span>
+                    {c.unreadCount > 0 && <span className="badge-count">{c.unreadCount}</span>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
 
         {/* INTERNAL CHAT TAB */}
@@ -168,31 +147,33 @@ export default function MensagensPage() {
               </div>
             ))}
             {!loadingChannels && channels.length === 0 && (
-              <p style={{ padding: '8px 16px', fontSize: 13, color: 'var(--color-text-muted)' }}>Nenhum canal criado. Configure em Configurações → Chat Interno.</p>
+              <p style={{ padding: '8px 16px', fontSize: 13, color: 'var(--color-text-muted)' }}>
+                Nenhum canal criado. Configure em Configurações → Chat Interno.
+              </p>
             )}
           </div>
         )}
       </div>
 
-      {/* Chat Panel */}
+      {/* ── Chat Panel ── */}
       <div className="chat-panel">
         {/* Header */}
         <div className="chat-header">
           <div className="chat-header-info">
             <div className="avatar avatar-sm avatar-placeholder">
               {activeTab === 'patients'
-                ? (selectedConvo?.contact?.name || '?').split(' ').map(n => n[0]).join('').slice(0, 2)
+                ? (selectedConvo?.patientName || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
                 : '#'}
             </div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 14 }}>
                 {activeTab === 'patients'
-                  ? (selectedConvo?.contact?.name || selectedConvo?.contact?.phone || 'Conversa')
+                  ? (selectedConvo?.patientName || 'Selecione uma conversa')
                   : selectedChannel ? `#${selectedChannel.name}` : 'Selecione um canal'}
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                 {activeTab === 'patients'
-                  ? selectedConvo ? channelIcon(selectedConvo.channel) : null
+                  ? selectedConvo?.patientEmail || ''
                   : selectedChannel ? `${selectedChannel._count?.members || 0} membros · ${selectedChannel.description || ''}` : ''}
               </div>
             </div>
@@ -224,7 +205,7 @@ export default function MensagensPage() {
 
           {/* INTERNAL MESSAGES */}
           {activeTab === 'internal' && !loadingMsgs && internalMessages.map((msg) => {
-            const isMe = msg.senderId === myUserId
+            const isMe = msg.sender?.id === myUserId
             const senderName = msg.sender?.name || 'Usuário'
             const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             return (
@@ -242,7 +223,9 @@ export default function MensagensPage() {
             )
           })}
           {activeTab === 'internal' && !loadingMsgs && internalMessages.length === 0 && selectedChannelId && (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>Nenhuma mensagem neste canal ainda.</p>
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>
+              Nenhuma mensagem neste canal ainda.
+            </p>
           )}
 
           {/* PATIENT CONVERSATION MESSAGES */}
@@ -251,6 +234,11 @@ export default function MensagensPage() {
             const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             return (
               <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
+                {!isOut && (
+                  <div style={{ fontSize: 11, color: 'var(--color-accent-brand)', marginBottom: 2, fontWeight: 500 }}>
+                    {selectedConvo?.patientName || 'Paciente'}
+                  </div>
+                )}
                 <div className={`message-bubble ${isOut ? 'outgoing' : 'incoming'}`}>
                   {msg.content}
                   <div className="time">{timeLabel}</div>
@@ -258,30 +246,25 @@ export default function MensagensPage() {
               </div>
             )
           })}
-          {activeTab === 'patients' && !loadingExtMsgs && externalMessages.length === 0 && selectedConvoId && (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>Nenhuma mensagem nesta conversa ainda.</p>
+          {activeTab === 'patients' && !loadingExtMsgs && externalMessages.length === 0 && selectedPatientId && (
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>
+              Nenhuma mensagem nesta conversa ainda.
+            </p>
           )}
 
           {!selectedChannelId && activeTab === 'internal' && (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>Selecione um canal para ver as mensagens.</p>
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>
+              Selecione um canal para ver as mensagens.
+            </p>
           )}
-          {!selectedConvoId && activeTab === 'patients' && (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>Selecione uma conversa para ver as mensagens.</p>
+          {!selectedPatientId && activeTab === 'patients' && (
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>
+              Selecione uma conversa para ver as mensagens.
+            </p>
           )}
 
           <div ref={messagesEndRef} />
         </div>
-
-        {activeTab === 'patients' && (
-          <div className="chat-action-bar">
-            <button className="btn btn-ghost btn-sm">
-              <Star size={14} /> Templates
-            </button>
-            <button className="btn btn-ghost btn-sm">
-              Nota Interna
-            </button>
-          </div>
-        )}
 
         {/* Input bar */}
         <div className="chat-input-bar">
@@ -296,7 +279,7 @@ export default function MensagensPage() {
             value={message}
             onChange={e => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={(activeTab === 'internal' && !selectedChannelId) || (activeTab === 'patients' && !selectedConvoId)}
+            disabled={(activeTab === 'internal' && !selectedChannelId) || (activeTab === 'patients' && !selectedPatientId)}
           />
           <button
             className="btn btn-primary btn-icon"

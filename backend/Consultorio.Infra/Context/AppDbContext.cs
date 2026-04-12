@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatChannelMember> ChatChannelMembers { get; set; } = null!;
     public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
     public DbSet<Announcement> Announcements { get; set; } = null!;
+    public DbSet<PatientMessage> PatientMessages { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -307,5 +308,25 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<ChatMessage>()
             .HasKey(m => m.Id);
+
+        // ───── PATIENT MESSAGE ─────
+        modelBuilder.Entity<PatientMessage>()
+            .HasKey(pm => pm.Id);
+        modelBuilder.Entity<PatientMessage>()
+            .HasOne(pm => pm.Patient)
+            .WithMany()
+            .HasForeignKey(pm => pm.PatientId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<PatientMessage>()
+            .HasOne(pm => pm.Clinic)
+            .WithMany()
+            .HasForeignKey(pm => pm.ClinicId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<PatientMessage>()
+            .HasOne(pm => pm.SentByUser)
+            .WithMany()
+            .HasForeignKey(pm => pm.SentByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

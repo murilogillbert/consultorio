@@ -1,33 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-
-// NOTE: backend does not expose messaging/channels yet. Stubbed no-ops.
+import { api } from '../services/api'
 
 export interface InternalMessage {
   id: string
   channelId: string
-  senderId: string
   content: string
-  type: string
+  isEdited: boolean
   createdAt: string
-  editedAt?: string
-  deletedAt?: string
   sender?: { id: string; name: string; avatarUrl?: string }
-  _count?: { pinnedBy: number }
 }
 
 export function useChannelMessages(channelId: string | null) {
   return useQuery<InternalMessage[]>({
     queryKey: ['channel-messages', channelId],
-    queryFn: async () => [],
+    queryFn: async () => {
+      const { data } = await api.get<InternalMessage[]>(`/chatchannels/${channelId}/messages`)
+      return data
+    },
     enabled: !!channelId,
-    staleTime: Infinity,
+    refetchInterval: 10_000, // poll every 10 s
   })
 }
 
 export function useSendChannelMessage() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (_: { channelId: string; content: string; replyToId?: string }) => ({} as InternalMessage),
+    mutationFn: async ({ channelId, content }: { channelId: string; content: string; replyToId?: string }) => {
+      const { data } = await api.post<InternalMessage>(`/chatchannels/${channelId}/messages`, { content })
+      return data
+    },
     onSuccess: (_, vars) => queryClient.invalidateQueries({ queryKey: ['channel-messages', vars.channelId] })
   })
 }

@@ -1,7 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../services/api'
 
-// NOTE: backend does not expose external messaging/conversations yet. Stubbed.
+export interface PatientConversationSummary {
+  patientId: string
+  patientName: string
+  patientEmail?: string
+  lastMessageAt: string
+  unreadCount: number
+  lastMessage?: string
+}
 
+export interface PatientMessageItem {
+  id: string
+  direction: 'IN' | 'OUT'
+  content: string
+  isRead: boolean
+  createdAt: string
+  sentByUserId?: string
+}
+
+export interface PatientConversationDetail {
+  patient: {
+    id: string
+    name: string
+    email?: string
+    phone?: string
+  } | null
+  messages: PatientMessageItem[]
+}
+
+// Aliases used by MensagensPage (external = patient conversations)
 export interface ExternalMessage {
   id: string
   conversationId: string
@@ -31,30 +59,42 @@ export interface Conversation {
   messages?: ExternalMessage[]
 }
 
+/** Lists all patients who have sent at least one message. */
 export function useConversations(_clinicId?: string) {
-  return useQuery<Conversation[]>({
-    queryKey: ['conversations'],
-    queryFn: async () => [],
-    staleTime: Infinity,
+  return useQuery<PatientConversationSummary[]>({
+    queryKey: ['patient-conversations'],
+    queryFn: async () => {
+      const { data } = await api.get<PatientConversationSummary[]>('/patient-conversations')
+      return data
+    },
+    refetchInterval: 15_000, // poll every 15 s
   })
 }
 
-export function useConversationMessages(conversationId: string | null) {
-  return useQuery<ExternalMessage[]>({
-    queryKey: ['conversation-messages', conversationId],
-    queryFn: async () => [],
-    enabled: !!conversationId,
-    staleTime: Infinity,
+/** Fetches all messages for a given patient (by patientId). */
+export function usePatientConversationDetail(patientId: string | null) {
+  return useQuery<PatientConversationDetail>({
+    queryKey: ['patient-conversation-messages', patientId],
+    queryFn: async () => {
+      const { data } = await api.get<PatientConversationDetail>(`/patient-conversations/${patientId}/messages`)
+      return data
+    },
+    enabled: !!patientId,
+    refetchInterval: 10_000,
   })
 }
 
+/** Staff replies to a patient message. */
 export function useSendConversationMessage() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (_: { conversationId: string; content: string }) => ({} as ExternalMessage),
+    mutationFn: async ({ conversationId, content }: { conversationId: string; content: string }) => {
+      const { data } = await api.post(`/patient-conversations/${conversationId}/reply`, { content })
+      return data as PatientMessageItem
+    },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['conversation-messages', vars.conversationId] })
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversation-messages', vars.conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
     }
   })
 }
@@ -62,7 +102,12 @@ export function useSendConversationMessage() {
 export function useMarkConversationRead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (_: string) => { /* no-op */ },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    mutationFn: async (_patientId: string) => { /* reads are marked server-side on GET messages */ },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
   })
+}
+
+// Legacy alias kept for compatibility
+export function useConversationMessages(conversationId: string | null) {
+  return usePatientConversationDetail(conversationId)
 }

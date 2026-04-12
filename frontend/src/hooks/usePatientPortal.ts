@@ -78,27 +78,68 @@ export function usePatientAppointments() {
   })
 }
 
+export interface PatientMessage {
+  id: string
+  direction: string
+  content: string
+  isRead: boolean
+  createdAt: string
+}
+
 export interface PatientConversation {
-  conversation: { id: string; status: string } | null
-  messages: {
-    id: string
-    direction: string
-    content: string
-    createdAt: string
-  }[]
+  conversation: { id: string; status: string }
+  messages: PatientMessage[]
 }
 
 export function usePatientConversation() {
   return useQuery<PatientConversation>({
     queryKey: ['patientConversation'],
-    queryFn: async () => ({ conversation: null, messages: [] }),
+    queryFn: async () => {
+      const token = getPatientToken()
+      const { data } = await api.get('/public/patients/conversation', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const res = data as { messages: PatientMessage[] }
+      return {
+        conversation: { id: 'patient', status: 'OPEN' },
+        messages: res.messages || [],
+      }
+    },
     enabled: !!getPatientToken(),
-    staleTime: Infinity,
   })
 }
 
 export function useSendPatientMessage() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (_content: string) => ({})
+    mutationFn: async (content: string) => {
+      const token = getPatientToken()
+      const { data } = await api.post(
+        '/public/patients/message',
+        { content },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      return data as PatientMessage
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patientConversation'] })
+    }
+  })
+}
+
+export function useCancelPatientAppointment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const token = getPatientToken()
+      await api.post(
+        `/public/patients/appointments/${appointmentId}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patientAppointments'] })
+    }
   })
 }
