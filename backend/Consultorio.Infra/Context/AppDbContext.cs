@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
     public DbSet<Announcement> Announcements { get; set; } = null!;
     public DbSet<PatientMessage> PatientMessages { get; set; } = null!;
+    public DbSet<ServiceCategory> ServiceCategories { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -201,12 +202,30 @@ public class AppDbContext : DbContext
                 r => r.HasOne<InsurancePlan>().WithMany().HasForeignKey("InsurancePlanId").OnDelete(DeleteBehavior.Cascade),
                 l => l.HasOne<Service>().WithMany().HasForeignKey("ServiceId").OnDelete(DeleteBehavior.Cascade)
             );
-        // Foreign key to DefaultRoom (optional)
+        // Many-to-many: Service <-> Room
+        modelBuilder.Entity<Service>()
+            .HasMany(s => s.Rooms)
+            .WithMany()
+            .UsingEntity<Dictionary<string, object>>(
+                "ServiceRoom",
+                r => r.HasOne<Room>().WithMany().HasForeignKey("RoomId").OnDelete(DeleteBehavior.Cascade),
+                l => l.HasOne<Service>().WithMany().HasForeignKey("ServiceId").OnDelete(DeleteBehavior.Cascade)
+            );
+        // Foreign key to DefaultRoom (optional, backward compat)
         modelBuilder.Entity<Service>()
             .HasOne(s => s.DefaultRoom)
             .WithMany(r => r.Services)
             .HasForeignKey(s => s.DefaultRoomId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // ───── SERVICE CATEGORY ─────
+        modelBuilder.Entity<ServiceCategory>()
+            .HasKey(sc => sc.Id);
+        modelBuilder.Entity<ServiceCategory>()
+            .HasOne(sc => sc.Clinic)
+            .WithMany(c => c.ServiceCategories)
+            .HasForeignKey(sc => sc.ClinicId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // ───── ROOM ─────
         modelBuilder.Entity<Room>()

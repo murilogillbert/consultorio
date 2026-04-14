@@ -38,4 +38,5 @@ public class Clinic
     public ICollection<Equipment> Equipments { get; set; } = new List<Equipment>();
     public ICollection<Banner> Banners { get; set; } = new List<Banner>();
     public ICollection<ChatChannel> ChatChannels { get; set; } = new List<ChatChannel>();
+    public ICollection<ServiceCategory> ServiceCategories { get; set; } = new List<ServiceCategory>();
 }

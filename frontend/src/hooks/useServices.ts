@@ -19,6 +19,8 @@ interface ServiceResponseDtoRaw {
   createdAt: string
   professionals: Array<{ id: string; name: string; avatarUrl?: string }>
   insurancePlans: Array<{ id: string; name: string }>
+  equipments: Array<{ id: string; name: string }>
+  rooms: Array<{ id: string; name: string }>
 }
 
 // Shape expected by the UI pages
@@ -33,11 +35,14 @@ export interface Service {
   price: number          // cents
   onlineBooking: boolean
   active: boolean
+  defaultRoomId?: string
   imageUrl?: string
   createdAt: string
   updatedAt: string
   professionals?: Array<{ professional: { id: string; user?: { name: string; avatarUrl?: string } } }>
   insurances?: Array<{ insurancePlan: { id: string; name: string } }>
+  equipments?: Array<{ id: string; name: string }>
+  rooms?: Array<{ id: string; name: string }>
 }
 
 function mapService(raw: ServiceResponseDtoRaw): Service {
@@ -52,6 +57,7 @@ function mapService(raw: ServiceResponseDtoRaw): Service {
     price: Math.round(Number(raw.price) * 100),
     onlineBooking: raw.onlineBooking ?? true,
     active: raw.isActive,
+    defaultRoomId: raw.defaultRoomId,
     createdAt: raw.createdAt,
     updatedAt: raw.createdAt,
     professionals: (raw.professionals || []).map(p => ({
@@ -60,6 +66,8 @@ function mapService(raw: ServiceResponseDtoRaw): Service {
     insurances: (raw.insurancePlans || []).map(i => ({
       insurancePlan: { id: i.id, name: i.name }
     })),
+    equipments: raw.equipments || [],
+    rooms: raw.rooms || [],
   }
 }
 
@@ -97,6 +105,8 @@ interface CreateServicePayload {
   roomId?: string
   insuranceIds?: string[]
   professionalIds?: string[]
+  equipmentIds?: string[]
+  roomIds?: string[]
 }
 
 function toBackendCreate(p: CreateServicePayload) {
@@ -109,11 +119,13 @@ function toBackendCreate(p: CreateServicePayload) {
     durationMinutes: p.duration,
     price: (p.price || 0) / 100,
     category: p.category,
-    requiresRoom: !!p.roomId,
+    requiresRoom: !!(p.roomId || (p.roomIds && p.roomIds.length > 0)),
     defaultRoomId: p.roomId || null,
     color: '#007BFF',
     professionalIds: p.professionalIds?.map(id => id) || [],
     insuranceIds: p.insuranceIds?.map(id => id) || [],
+    equipmentIds: p.equipmentIds?.map(id => id) || [],
+    roomIds: p.roomIds?.map(id => id) || [],
   }
 }
 
@@ -148,6 +160,8 @@ export function useUpdateService() {
       if (updateData.active !== undefined)           payload.isActive         = updateData.active
       if (updateData.professionalIds !== undefined)  payload.professionalIds  = updateData.professionalIds
       if (updateData.insuranceIds !== undefined)     payload.insuranceIds     = updateData.insuranceIds
+      if (updateData.equipmentIds !== undefined)     payload.equipmentIds     = updateData.equipmentIds
+      if (updateData.roomIds !== undefined)          payload.roomIds          = updateData.roomIds
       const { data } = await api.put<ServiceResponseDtoRaw>(`/services/${id}`, payload)
       return mapService(data)
     },
@@ -182,4 +196,42 @@ export function useDeleteService() {
 /** @deprecated Use useToggleServiceActive instead */
 export function useArchiveService() {
   return useToggleServiceActive()
+}
+
+// ── Service Categories ──
+
+export interface ServiceCategory {
+  id: string
+  name: string
+}
+
+export function useServiceCategories() {
+  return useQuery({
+    queryKey: ['serviceCategories'],
+    queryFn: async () => {
+      const { data } = await api.get<ServiceCategory[]>('/services/categories')
+      return data
+    }
+  })
+}
+
+export function useCreateServiceCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data } = await api.post<ServiceCategory>('/services/categories', { name })
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['serviceCategories'] })
+  })
+}
+
+export function useDeleteServiceCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/services/categories/${id}`)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['serviceCategories'] })
+  })
 }

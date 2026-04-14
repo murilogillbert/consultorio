@@ -23,6 +23,7 @@ public class Service
     public Clinic Clinic { get; set; } = null!;
     public Room? DefaultRoom { get; set; }
     public ICollection<Professional> Professionals { get; set; } = new List<Professional>();
+    public ICollection<Room> Rooms { get; set; } = new List<Room>();
     public ICollection<Equipment> Equipments { get; set; } = new List<Equipment>();
     public ICollection<InsurancePlan> InsurancePlans { get; set; } = new List<InsurancePlan>();
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
