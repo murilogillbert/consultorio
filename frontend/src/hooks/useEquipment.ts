@@ -47,14 +47,13 @@ function mapEquipment(e: EquipmentRaw): Equipment {
   }
 }
 
-export function useEquipments(clinicId?: string) {
+export function useEquipments(_clinicId?: string) {
   return useQuery<Equipment[]>({
-    queryKey: ['equipments', clinicId],
+    queryKey: ['equipments'],
     queryFn: async () => {
       const { data } = await api.get<EquipmentRaw[]>('/equipments')
       return data.map(mapEquipment)
     },
-    enabled: !!clinicId,
   })
 }
 
