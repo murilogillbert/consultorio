@@ -99,20 +99,39 @@ export function useBillingData(_clinicId?: string, _startDate?: string, _endDate
   })
 }
 
-export function useProfessionalMetrics(_clinicId?: string, _startDate?: string, _endDate?: string) {
+export interface ProfessionalMetric {
+  id: string
+  name: string
+  specialty: string
+  appointments: number
+  completedCount: number
+  cancelledCount: number
+  noShowCount: number
+  cancellationRate: number
+  conversionRate: number
+  revenue: number
+  netPayout: number
+  commissionPct: number
+  rating: number
+  reviewCount: number
+  occupancy: number
+  revenuePerHour: number
+  newPatients: number
+  returningPatients: number
+  revenueTrend: number
+  appointmentsTrend: number
+  status: 'destaque' | 'estavel' | 'atencao' | 'critico'
+}
+
+export function useProfessionalMetrics(clinicId?: string, _startDate?: string, _endDate?: string, period?: string) {
   return useQuery({
-    queryKey: ['professionalMetrics'],
-    queryFn: async () => {
-      const { data } = await api.get<any[]>('/dashboard/top-professionals').catch(() => ({ data: [] as any[] }))
-      return (data || []).map((p: any) => ({
-        professionalId: p.professionalId ?? p.id ?? '',
-        name: p.name ?? 'Sem nome',
-        specialty: p.specialty ?? '—',
-        appointments: Number(p.count ?? p.appointments ?? 0),
-        occupancy: Number(p.occupancy ?? 0),
-        revenue: Number(p.revenue ?? 0),
-        rating: Number(p.rating ?? 0),
-      }))
+    queryKey: ['professionalMetrics', clinicId, period],
+    queryFn: async (): Promise<ProfessionalMetric[]> => {
+      const params = new URLSearchParams()
+      if (clinicId) params.set('clinicId', clinicId)
+      if (period) params.set('period', period)
+      const { data } = await api.get<ProfessionalMetric[]>(`/metrics/professionals?${params.toString()}`).catch(() => ({ data: [] as ProfessionalMetric[] }))
+      return data || []
     }
   })
 }

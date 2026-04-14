@@ -287,44 +287,112 @@ export class MetricsController {
 
       const { start, end } = periodToDates(startDate, endDate, period)
 
+      // Período anterior de igual duração para calcular tendência
+      const periodMs = end.getTime() - start.getTime()
+      const prevStart = new Date(start.getTime() - periodMs)
+      const prevEnd = new Date(start.getTime() - 1)
+
+      const clinicFilter = clinicId ? { user: { systemUsers: { some: { clinicId } } } } : undefined
+
       const professionals = await prisma.professional.findMany({
-        where: clinicId ? { user: { systemUsers: { some: { clinicId } } } } : undefined,
+        where: clinicFilter,
         include: {
           user: true,
           appointments: {
             where: { startTime: { gte: start, lte: end } },
             include: {
               payments: { where: { status: 'PAID' } },
-              service: true
+              service: true,
+              patient: true
             }
           },
-          reviews: true,
+          reviews: {
+            where: { createdAt: { gte: start, lte: end } }
+          },
           schedules: true
         }
       })
 
+      // Buscar agendamentos do período anterior para tendência
+      const prevAppointments = await prisma.appointment.findMany({
+        where: {
+          startTime: { gte: prevStart, lte: prevEnd },
+          professional: clinicFilter
+        },
+        include: { payments: { where: { status: 'PAID' } } }
+      })
+
+      const prevByProfessional = new Map<string, { count: number; revenue: number }>()
+      prevAppointments.forEach(app => {
+        const curr = prevByProfessional.get(app.professionalId) || { count: 0, revenue: 0 }
+        curr.count++
+        curr.revenue += app.payments.reduce((s, p) => s + p.amount, 0)
+        prevByProfessional.set(app.professionalId, curr)
+      })
+
+      // Para detectar pacientes novos: buscar primeiro agendamento de cada paciente com cada profissional
+      const firstAppointments = await prisma.appointment.groupBy({
+        by: ['patientId', 'professionalId'],
+        _min: { startTime: true },
+        where: {
+          professional: clinicFilter
+        }
+      })
+
+      const firstApptMap = new Map<string, Date>()
+      firstAppointments.forEach(fa => {
+        const key = `${fa.patientId}__${fa.professionalId}`
+        if (fa._min.startTime) firstApptMap.set(key, fa._min.startTime)
+      })
+
       const result = professionals.map(p => {
-        const totalAppointments = p.appointments.length
-        const totalRevenue = p.appointments.reduce((sum: number, app: any) =>
-          sum + (app.payments?.reduce((pSum: number, pay: any) => pSum + pay.amount, 0) || 0), 0
-        )
-        const avgRating = p.reviews.length > 0
-          ? p.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / p.reviews.length
+        const allAppts = p.appointments
+        const totalAppointments = allAppts.length
+
+        // Contagem por status
+        const completedCount = allAppts.filter(a => a.status === 'COMPLETED').length
+        const cancelledCount = allAppts.filter(a => a.status === 'CANCELLED').length
+        const noShowCount = allAppts.filter(a => a.status === 'NO_SHOW').length
+
+        // Taxas
+        const cancellationRate = totalAppointments > 0
+          ? Math.round(((cancelledCount + noShowCount) / totalAppointments) * 100)
+          : 0
+        const attended = totalAppointments - cancelledCount
+        const conversionRate = attended > 0
+          ? Math.round((completedCount / attended) * 100)
           : 0
 
+        // Receita
+        const totalRevenue = allAppts.reduce((sum: number, app: any) =>
+          sum + (app.payments?.reduce((pSum: number, pay: any) => pSum + pay.amount, 0) || 0), 0
+        )
+
+        // Repasse
+        const commissionPct = p.commissionPct ?? 50
+        const netPayout = totalRevenue * (commissionPct / 100)
+
+        // Avaliação no período
+        const periodReviews = p.reviews
+        const avgRating = periodReviews.length > 0
+          ? periodReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / periodReviews.length
+          : 0
+        const reviewCount = periodReviews.length
+
+        // Ocupação
         let totalMinutesAvailable = 0
         p.schedules.forEach(schedule => {
           if (schedule.active) {
-            const [startH, startM] = schedule.startTime.split(':').map(Number)
-            const [endH, endM] = schedule.endTime.split(':').map(Number)
-            const dailyMinutes = (endH * 60 + endM) - (startH * 60 + startM)
+            const [sH, sM] = schedule.startTime.split(':').map(Number)
+            const [eH, eM] = schedule.endTime.split(':').map(Number)
+            const dailyMinutes = (eH * 60 + eM) - (sH * 60 + sM)
             const daysInPeriod = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
             const occurrences = Math.ceil(daysInPeriod / 7)
             totalMinutesAvailable += dailyMinutes * occurrences
           }
         })
 
-        const totalMinutesBooked = p.appointments.reduce((sum, app) => {
+        const totalMinutesBooked = allAppts.reduce((sum, app) => {
           const duration = (app.endTime.getTime() - app.startTime.getTime()) / (1000 * 60)
           return sum + duration
         }, 0)
@@ -333,15 +401,69 @@ export class MetricsController {
           ? Math.min(100, Math.round((totalMinutesBooked / totalMinutesAvailable) * 100))
           : 0
 
+        // Receita por hora disponível
+        const availableHours = totalMinutesAvailable / 60
+        const revenuePerHour = availableHours > 0 ? Math.round(totalRevenue / availableHours) : 0
+
+        // Pacientes novos vs recorrentes
+        let newPatients = 0
+        let returningPatients = 0
+        const seenPatients = new Set<string>()
+        allAppts.forEach(app => {
+          if (seenPatients.has(app.patientId)) return
+          seenPatients.add(app.patientId)
+          const key = `${app.patientId}__${p.id}`
+          const firstDate = firstApptMap.get(key)
+          if (firstDate && firstDate >= start && firstDate <= end) {
+            newPatients++
+          } else {
+            returningPatients++
+          }
+        })
+
+        // Tendência vs período anterior
+        const prev = prevByProfessional.get(p.id)
+        const prevRevenue = prev?.revenue || 0
+        const prevCount = prev?.count || 0
+        const revenueTrend = prevRevenue > 0
+          ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100)
+          : (totalRevenue > 0 ? 100 : 0)
+        const appointmentsTrend = prevCount > 0
+          ? Math.round(((totalAppointments - prevCount) / prevCount) * 100)
+          : (totalAppointments > 0 ? 100 : 0)
+
+        // Status dinâmico
+        let status: 'destaque' | 'estavel' | 'atencao' | 'critico' = 'estavel'
+        if (cancellationRate > 30 || revenueTrend < -15) {
+          status = 'critico'
+        } else if (cancellationRate > 20 || occupancy < 40) {
+          status = 'atencao'
+        } else if (occupancy > 70 && cancellationRate < 10 && revenueTrend >= 0) {
+          status = 'destaque'
+        }
+
         return {
           id: p.id,
           name: p.user.name,
           specialty: p.specialty || 'Especialista',
           appointments: totalAppointments,
+          completedCount,
+          cancelledCount,
+          noShowCount,
+          cancellationRate,
+          conversionRate,
           revenue: totalRevenue,
+          netPayout,
+          commissionPct,
           rating: avgRating,
+          reviewCount,
           occupancy,
-          commissionPct: (p as any).commissionPct ?? 50
+          revenuePerHour,
+          newPatients,
+          returningPatients,
+          revenueTrend,
+          appointmentsTrend,
+          status
         }
       })
 
