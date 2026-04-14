@@ -26,9 +26,12 @@ import AdminMarketing from './pages/admin/MarketingPage'
 import AdminMovimento from './pages/admin/MovimentoPage'
 import AdminRecrutamento from './pages/admin/RecrutamentoPage'
 import LoginPage from './pages/auth/LoginPage'
+import ThemeProvider from './components/ThemeProvider'
 
 export default function App() {
   return (
+    <>
+    <ThemeProvider />
     <Routes>
       {/* Public Portal */}
       <Route element={<PublicLayout />}>
@@ -74,5 +77,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }

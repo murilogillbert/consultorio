@@ -46,6 +46,7 @@ public class UpdateClinicDto
     public string? Values { get; set; }
     public List<MilestoneDto>? Milestones { get; set; }
     public List<string>? GalleryUrls { get; set; }
+    public Dictionary<string, string>? ThemeColors { get; set; }
 }
 
 public class ClinicResponseDto
@@ -73,6 +74,7 @@ public class ClinicResponseDto
     public string? Values { get; set; }
     public List<MilestoneDto>? Milestones { get; set; }
     public List<string>? GalleryUrls { get; set; }
+    public Dictionary<string, string>? ThemeColors { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
 
@@ -90,6 +92,13 @@ public class ClinicResponseDto
         if (!string.IsNullOrEmpty(c.GalleryUrls))
         {
             try { galleryUrls = JsonSerializer.Deserialize<List<string>>(c.GalleryUrls); }
+            catch { }
+        }
+
+        Dictionary<string, string>? themeColors = null;
+        if (!string.IsNullOrEmpty(c.ThemeColors))
+        {
+            try { themeColors = JsonSerializer.Deserialize<Dictionary<string, string>>(c.ThemeColors, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
             catch { }
         }
 
@@ -118,6 +127,7 @@ public class ClinicResponseDto
             Values = c.Values,
             Milestones = milestones,
             GalleryUrls = galleryUrls,
+            ThemeColors = themeColors,
             IsActive = c.IsActive,
             CreatedAt = c.CreatedAt
         };

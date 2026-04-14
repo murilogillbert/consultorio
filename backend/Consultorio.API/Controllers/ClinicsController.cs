@@ -99,6 +99,9 @@ public class ClinicsController : ControllerBase
         if (dto.GalleryUrls != null)
             clinic.GalleryUrls = JsonSerializer.Serialize(dto.GalleryUrls);
 
+        if (dto.ThemeColors != null)
+            clinic.ThemeColors = JsonSerializer.Serialize(dto.ThemeColors, _jsonOpts);
+
         clinic.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();

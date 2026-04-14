@@ -25,6 +25,7 @@ public class Clinic
     public string? Values { get; set; }
     public string? Milestones { get; set; }   // JSON array
     public string? GalleryUrls { get; set; }  // JSON array
+    public string? ThemeColors { get; set; }  // JSON object { "--color-accent-gold": "#C9A84C", ... }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

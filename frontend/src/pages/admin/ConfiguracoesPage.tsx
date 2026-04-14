@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, X, Camera, Wrench, AlertTriangle } from 'lucide-react'
+import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, X, Camera, Wrench, AlertTriangle, Palette, RotateCcw } from 'lucide-react'
 import IntegrationsPanel from './IntegrationsPanel'
 import { useClinics, useUpdateClinic } from '../../hooks/useClinics'
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../../hooks/useRooms'
@@ -36,7 +36,23 @@ const tabs = [
   { id: 'about', label: 'Sobre', icon: Info },
   { id: 'jobs', label: 'Vagas', icon: Briefcase },
   { id: 'banners', label: 'Banners', icon: Camera },
+  { id: 'design', label: 'Design', icon: Palette },
 ]
+
+const DEFAULT_THEME: Record<string, { label: string; value: string; group: string }> = {
+  '--color-bg-primary':      { label: 'Fundo Principal',      value: '#F5F0E8', group: 'Fundos' },
+  '--color-bg-secondary':    { label: 'Fundo Secundario',     value: '#EDE8DF', group: 'Fundos' },
+  '--color-bg-dark':         { label: 'Sidebar / Menu',       value: '#1A1A1A', group: 'Fundos' },
+  '--color-text-primary':    { label: 'Texto Principal',      value: '#1A1A1A', group: 'Texto' },
+  '--color-text-secondary':  { label: 'Texto Secundario',     value: '#4A4A4A', group: 'Texto' },
+  '--color-text-muted':      { label: 'Texto Discreto',       value: '#9A9590', group: 'Texto' },
+  '--color-accent-gold':     { label: 'Dourado (Destaques)',   value: '#C9A84C', group: 'Acentos' },
+  '--color-accent-emerald':  { label: 'Verde (Botoes)',        value: '#2D6A4F', group: 'Acentos' },
+  '--color-accent-brand':    { label: 'Cor da Marca',          value: '#2D6A4F', group: 'Acentos' },
+  '--color-accent-danger':   { label: 'Vermelho (Erros)',      value: '#8B2020', group: 'Acentos' },
+  '--color-accent-warning':  { label: 'Laranja (Avisos)',      value: '#A0622A', group: 'Acentos' },
+  '--color-border-default':  { label: 'Borda Padrao',          value: '#D4CFC6', group: 'Bordas' },
+}
 
 export default function ConfiguracoesPage() {
   const [activeTab, setActiveTab] = useState('clinic')
@@ -138,6 +154,10 @@ export default function ConfiguracoesPage() {
   const [editingEquipmentId, setEditingEquipmentId] = useState<string | null>(null)
   const [equipmentForm, setEquipmentForm] = useState({ name: '', category: '', serialNumber: '', isMobile: true, defaultRoomId: '', status: 'AVAILABLE', notes: '' })
 
+  // Design (Theme) State
+  const [themeForm, setThemeForm] = useState<Record<string, string>>({})
+  const [designSaveMsg, setDesignSaveMsg] = useState('')
+
   // Users State
   const { data: systemUsers = [] } = useSystemUsers(clinic?.id)
   const createSystemUser = useCreateSystemUser()
@@ -167,6 +187,14 @@ export default function ConfiguracoesPage() {
         galleryUrls: (clinic as any).galleryUrls || [],
       })
       if (clinic.logoUrl) setLogoPreview(clinic.logoUrl)
+
+      // Initialize theme form with saved colors or defaults
+      const saved = clinic.themeColors || {}
+      const initial: Record<string, string> = {}
+      for (const [varName, def] of Object.entries(DEFAULT_THEME)) {
+        initial[varName] = saved[varName] || def.value
+      }
+      setThemeForm(initial)
     }
   }, [clinic])
 
@@ -1173,6 +1201,140 @@ export default function ConfiguracoesPage() {
                 {bannersData.length === 0 && !editingBannerId && (
                   <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--space-8)' }}>Nenhum banner cadastrado.</p>
                 )}
+              </div>
+            </div>
+          )}
+          {activeTab === 'design' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)' }}>Cores do Sistema</h3>
+                  <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 4 }}>
+                    Personalize as cores de todo o site e painel. As alteracoes sao aplicadas em tempo real.
+                  </p>
+                </div>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    const defaults: Record<string, string> = {}
+                    for (const [varName, def] of Object.entries(DEFAULT_THEME)) {
+                      defaults[varName] = def.value
+                      document.documentElement.style.setProperty(varName, def.value)
+                    }
+                    setThemeForm(defaults)
+                  }}
+                >
+                  <RotateCcw size={14} /> Restaurar Padrao
+                </button>
+              </div>
+
+              {(() => {
+                const groups = new Map<string, [string, { label: string; value: string }][]>()
+                for (const [varName, def] of Object.entries(DEFAULT_THEME)) {
+                  const g = groups.get(def.group) || []
+                  g.push([varName, def])
+                  groups.set(def.group, g)
+                }
+
+                return Array.from(groups.entries()).map(([groupName, items]) => (
+                  <div key={groupName} className="card" style={{ marginBottom: 'var(--space-4)' }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 'var(--space-4)', color: 'var(--color-text-secondary)' }}>{groupName}</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--space-4)' }}>
+                      {items.map(([varName, def]) => (
+                        <div key={varName} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              type="color"
+                              value={themeForm[varName] || def.value}
+                              onChange={e => {
+                                const newVal = e.target.value
+                                setThemeForm(prev => ({ ...prev, [varName]: newVal }))
+                                // Live preview
+                                document.documentElement.style.setProperty(varName, newVal)
+                                // Handle gold opacity derivatives
+                                if (varName === '--color-accent-gold') {
+                                  const r = parseInt(newVal.slice(1, 3), 16)
+                                  const g = parseInt(newVal.slice(3, 5), 16)
+                                  const b = parseInt(newVal.slice(5, 7), 16)
+                                  document.documentElement.style.setProperty('--color-accent-gold-40', `rgba(${r},${g},${b},0.4)`)
+                                  document.documentElement.style.setProperty('--color-accent-gold-60', `rgba(${r},${g},${b},0.6)`)
+                                  document.documentElement.style.setProperty('--color-border-accent', `rgba(${r},${g},${b},0.6)`)
+                                }
+                              }}
+                              style={{ width: 40, height: 40, border: '2px solid var(--color-border-default)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: 0 }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{def.label}</div>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+                              {themeForm[varName] || def.value}
+                            </div>
+                          </div>
+                          {themeForm[varName] !== def.value && (
+                            <button
+                              className="btn btn-icon btn-sm"
+                              title="Restaurar padrao"
+                              onClick={() => {
+                                setThemeForm(prev => ({ ...prev, [varName]: def.value }))
+                                document.documentElement.style.setProperty(varName, def.value)
+                              }}
+                            >
+                              <RotateCcw size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              })()}
+
+              {/* Preview */}
+              <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+                <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 'var(--space-4)' }}>Pre-visualizacao</h4>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button className="btn btn-primary btn-sm">Botao Primario</button>
+                  <button className="btn btn-secondary btn-sm">Botao Secundario</button>
+                  <span className="badge badge-emerald">Ativo</span>
+                  <span className="badge badge-gold">Destaque</span>
+                  <span className="badge badge-danger">Erro</span>
+                  <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Texto discreto</span>
+                  <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Texto secundario</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Texto principal</span>
+                </div>
+              </div>
+
+              {designSaveMsg && (
+                <div style={{ color: designSaveMsg.includes('Erro') ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)', fontSize: 13, marginBottom: 'var(--space-4)' }}>
+                  {designSaveMsg}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    if (!clinic) return
+                    setDesignSaveMsg('')
+                    try {
+                      // Only save colors that differ from defaults
+                      const toSave: Record<string, string> = {}
+                      for (const [varName, val] of Object.entries(themeForm)) {
+                        if (val !== DEFAULT_THEME[varName]?.value) {
+                          toSave[varName] = val
+                        }
+                      }
+                      await updateClinicMutation.mutateAsync({ id: clinic.id, themeColors: Object.keys(toSave).length > 0 ? toSave : {} })
+                      setDesignSaveMsg('Cores salvas com sucesso!')
+                      setTimeout(() => setDesignSaveMsg(''), 3000)
+                    } catch {
+                      setDesignSaveMsg('Erro ao salvar cores.')
+                    }
+                  }}
+                  disabled={updateClinicMutation.isPending}
+                >
+                  {updateClinicMutation.isPending ? 'Salvando...' : 'Salvar Cores'}
+                </button>
               </div>
             </div>
           )}
