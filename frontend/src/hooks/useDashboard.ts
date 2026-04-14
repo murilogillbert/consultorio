@@ -82,20 +82,32 @@ export function useDashboardMetrics(_clinicId?: string, _period?: string, _start
 }
 
 export interface BillingData {
+  totalRevenue: number
+  revenueTrend: number
+  totalPayout: number
+  receitaLiquida: number
+  totalAppointments: number
+  completedAppts: number
+  ticketMedio: number
+  totalDelinquency: number
   revenueByChannel: { name: string; value: number }[]
-  payouts: { id: string; name: string; appointments: number; gross: number; pct: string; net: number }[]
+  payouts: { id: string; name: string; specialty: string; appointments: number; gross: number; pct: string; net: number }[]
   delinquency: { patient: string; service: string; value: number; date: string; days: number }[]
+  monthlyRevenue: { month: string; revenue: number }[]
 }
 
-// Backend does not expose billing breakdown — return empty structure
-export function useBillingData(_clinicId?: string, _startDate?: string, _endDate?: string, _period?: string) {
+export function useBillingData(clinicId?: string, _startDate?: string, _endDate?: string, period?: string) {
   return useQuery({
-    queryKey: ['billingData'],
-    queryFn: async (): Promise<BillingData> => ({
-      revenueByChannel: [],
-      payouts: [],
-      delinquency: [],
-    })
+    queryKey: ['billingData', clinicId, period],
+    queryFn: async (): Promise<BillingData> => {
+      const params = new URLSearchParams()
+      if (clinicId) params.set('clinicId', clinicId)
+      if (period) params.set('period', period)
+      const { data } = await api.get<BillingData>(`/metrics/billing?${params.toString()}`).catch(() => ({
+        data: { totalRevenue: 0, revenueTrend: 0, totalPayout: 0, receitaLiquida: 0, totalAppointments: 0, completedAppts: 0, ticketMedio: 0, totalDelinquency: 0, revenueByChannel: [], payouts: [], delinquency: [], monthlyRevenue: [] } as BillingData
+      }))
+      return data
+    }
   })
 }
 
@@ -136,20 +148,83 @@ export function useProfessionalMetrics(clinicId?: string, _startDate?: string, _
   })
 }
 
-export function useServiceMetrics(_clinicId?: string, _startDate?: string, _endDate?: string) {
+export interface ServiceMetric {
+  id: string
+  name: string
+  category: string
+  duration: number
+  price: number
+  totalAppointments: number
+  completedCount: number
+  cancelledCount: number
+  noShowCount: number
+  cancellationRate: number
+  revenue: number
+  avgPrice: number
+  uniquePatients: number
+  returningPatients: number
+  returnRate: number
+  avgRealDuration: number
+  insurancePct: number
+  revenuePerHour: number
+  proCount: number
+  topProfessional: string
+  revenueTrend: number
+  countTrend: number
+  status: 'em_alta' | 'estavel' | 'atencao' | 'declinio'
+}
+
+export interface ServiceMetricsResponse {
+  services: ServiceMetric[]
+  peakHours: { hour: string; count: number }[]
+}
+
+export function useServiceMetrics(clinicId?: string, _startDate?: string, _endDate?: string, period?: string) {
   return useQuery({
-    queryKey: ['serviceMetrics'],
-    queryFn: async (): Promise<{ services: any[]; peakHours: any[] }> => {
-      const { data } = await api.get<any[]>('/dashboard/top-services').catch(() => ({ data: [] }))
-      return { services: data, peakHours: [] }
+    queryKey: ['serviceMetrics', clinicId, period],
+    queryFn: async (): Promise<ServiceMetricsResponse> => {
+      const params = new URLSearchParams()
+      if (clinicId) params.set('clinicId', clinicId)
+      if (period) params.set('period', period)
+      const { data } = await api.get<ServiceMetricsResponse>(`/metrics/services?${params.toString()}`).catch(() => ({ data: { services: [], peakHours: [] } as ServiceMetricsResponse }))
+      return data || { services: [], peakHours: [] }
     }
   })
 }
 
-export function useMarketingMetrics(_clinicId?: string, _startDate?: string, _endDate?: string) {
+export interface MarketingData {
+  totalAppointments: number
+  completedAppointments: number
+  cancelledAppointments: number
+  revenue: number
+  appointmentsTrend: number
+  newPatients: number
+  funnel: {
+    agendados: number
+    confirmados: number
+    concluidos: number
+    cancelados: number
+    confirmadosPct: number
+    concluidosPct: number
+    canceladosPct: number
+  }
+  byService: { name: string; value: number; pct: number; revenue: number }[]
+  byDayOfWeek: { day: string; count: number }[]
+  topServicesByRevenue: { name: string; value: number; pct: number; revenue: number }[]
+}
+
+export function useMarketingMetrics(clinicId?: string, _startDate?: string, _endDate?: string, period?: string) {
   return useQuery({
-    queryKey: ['marketingMetrics'],
-    queryFn: async (): Promise<{ origins: any[]; campaigns: any[] }> => ({ origins: [], campaigns: [] })
+    queryKey: ['marketingMetrics', clinicId, period],
+    queryFn: async (): Promise<MarketingData> => {
+      const params = new URLSearchParams()
+      if (clinicId) params.set('clinicId', clinicId)
+      if (period) params.set('period', period)
+      const { data } = await api.get<MarketingData>(`/metrics/marketing?${params.toString()}`).catch(() => ({
+        data: { totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, revenue: 0, appointmentsTrend: 0, newPatients: 0, funnel: { agendados: 0, confirmados: 0, concluidos: 0, cancelados: 0, confirmadosPct: 0, concluidosPct: 0, canceladosPct: 0 }, byService: [], byDayOfWeek: [], topServicesByRevenue: [] } as MarketingData
+      }))
+      return data
+    }
   })
 }
 

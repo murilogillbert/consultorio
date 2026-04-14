@@ -1,50 +1,43 @@
-import { useState, useMemo } from 'react'
-import { TrendingUp, TrendingDown, QrCode, AlertTriangle, Download } from 'lucide-react'
-import { useDashboardMetrics, useBillingData } from '../../hooks/useDashboard'
+import { useState } from 'react'
+import { TrendingUp, TrendingDown, Minus, Download, DollarSign, CreditCard, AlertTriangle, Users, CheckCircle, BarChart3 } from 'lucide-react'
+import { useBillingData } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
 
-const PERIOD_OPTS = ['Hoje', '7 dias', '30 dias', '3 meses', '12 meses'] as const
-type PeriodOpt = typeof PERIOD_OPTS[number]
+const periods = ['Hoje', '7 dias', '30 dias', '3 meses', '12 meses']
 
-const PERIOD_DAYS: Record<PeriodOpt, number> = {
-  'Hoje': 1,
-  '7 dias': 7,
-  '30 dias': 30,
-  '3 meses': 90,
-  '12 meses': 365,
+function TrendBadge({ value }: { value: number }) {
+  if (value === 0) return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, color: 'var(--color-text-muted)' }}><Minus size={12} /> 0%</span>
+  const positive = value > 0
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 600, color: positive ? 'var(--color-accent-emerald)' : 'var(--color-accent-danger)' }}>
+      {positive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+      {positive ? '+' : ''}{value}%
+    </span>
+  )
 }
 
 export default function FaturamentoPage() {
-  const [period, setPeriod] = useState<PeriodOpt>('30 dias')
+  const [period, setPeriod] = useState('30 dias')
   const { user } = useAuth()
   const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const { data, isLoading } = useBillingData(clinicId, undefined, undefined, period)
 
-  const endDate = new Date().toISOString().split('T')[0]
-  const startDateObj = new Date()
-  startDateObj.setDate(startDateObj.getDate() - (PERIOD_DAYS[period] || 30))
-  const startDate = startDateObj.toISOString().split('T')[0]
+  const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
-  const { data: dashData } = useDashboardMetrics(clinicId, undefined, startDate, endDate)
-  const { data: billingData, isLoading } = useBillingData(clinicId, startDate, endDate)
+  if (isLoading) return <div style={{ padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>Carregando dados financeiros...</div>
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
-
-  // Calcular repasse total real a partir dos payouts retornados pelo servidor
-  const totalRepasse = useMemo(() => {
-    return (billingData?.payouts || []).reduce((sum, p) => sum + p.net, 0)
-  }, [billingData])
-
-  const receitaLiquida = (dashData?.metrics.faturamentoMes || 0) - totalRepasse
-
-  const mudanca = dashData?.metrics.faturamentoMudanca || 0
-  const mudancaPositiva = mudanca >= 0
-
-  if (isLoading) return (
-    <div style={{ padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
-      Carregando dados financeiros...
-    </div>
-  )
+  const totalRevenue = data?.totalRevenue || 0
+  const totalPayout = data?.totalPayout || 0
+  const receitaLiquida = data?.receitaLiquida || 0
+  const revenueTrend = data?.revenueTrend || 0
+  const totalAppointments = data?.totalAppointments || 0
+  const completedAppts = data?.completedAppts || 0
+  const ticketMedio = data?.ticketMedio || 0
+  const totalDelinquency = data?.totalDelinquency || 0
+  const revenueByChannel = data?.revenueByChannel || []
+  const payouts = data?.payouts || []
+  const delinquency = data?.delinquency || []
+  const monthlyRevenue = data?.monthlyRevenue || []
 
   return (
     <div className="animate-fade-in">
@@ -52,14 +45,8 @@ export default function FaturamentoPage() {
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Faturamento</h2>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
           <div className="date-presets">
-            {PERIOD_OPTS.map(p => (
-              <button
-                key={p}
-                className={`date-preset${period === p ? ' active' : ''}`}
-                onClick={() => setPeriod(p)}
-              >
-                {p}
-              </button>
+            {periods.map(p => (
+              <button key={p} className={`date-preset${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
             ))}
           </div>
           <div className="export-btns">
@@ -69,65 +56,75 @@ export default function FaturamentoPage() {
         </div>
       </div>
 
+      {/* Cards - Linha 1 */}
       <div className="metrics-row stagger-children">
         <div className="metric-card">
-          <span className="metric-label">Receita Bruta</span>
-          <span className="metric-value">{formatCurrency(dashData?.metrics.faturamentoMes || 0)}</span>
-          <span className={`metric-change ${mudancaPositiva ? 'positive' : 'negative'}`}>
-            {mudancaPositiva ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {' '}{Math.abs(mudanca).toFixed(1)}% vs período anterior
-          </span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><DollarSign size={14} /> Receita Bruta</span>
+          <span className="metric-value">{fmt(totalRevenue)}</span>
+          <TrendBadge value={revenueTrend} />
         </div>
-
         <div className="metric-card">
-          <span className="metric-label">Repasses (Real)</span>
-          <span className="metric-value" style={{ color: 'var(--color-accent-danger)' }}>
-            -{formatCurrency(totalRepasse)}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-            {billingData?.payouts.length
-              ? `${billingData.payouts.length} profissional(is)`
-              : 'Sem dados'}
-          </span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> Repasses</span>
+          <span className="metric-value" style={{ color: 'var(--color-accent-danger)' }}>-{fmt(totalPayout)}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{payouts.length} profissional(is)</span>
         </div>
-
         <div className="metric-card">
-          <span className="metric-label">Receita Líquida</span>
-          <span className="metric-value" style={{ color: 'var(--color-accent-emerald)' }}>
-            {formatCurrency(receitaLiquida)}
-          </span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Receita Liquida</span>
+          <span className="metric-value" style={{ color: 'var(--color-accent-emerald)' }}>{fmt(receitaLiquida)}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>margem: {totalRevenue > 0 ? Math.round((receitaLiquida / totalRevenue) * 100) : 0}%</span>
         </div>
-
         <div className="metric-card">
-          <span className="metric-label">Total Agendamentos</span>
-          <span className="metric-value">{dashData?.metrics.totalAgendamentos ?? '—'}</span>
-          <span className="badge badge-gold" style={{ alignSelf: 'flex-start' }}>{period}</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><BarChart3 size={14} /> Atendimentos</span>
+          <span className="metric-value">{totalAppointments}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{completedAppts} concluidos</span>
         </div>
       </div>
 
-      {/* Revenue by Channel */}
-      <div className="charts-row">
+      {/* Cards - Linha 2 */}
+      <div className="metrics-row stagger-children" style={{ marginTop: 'var(--space-4)' }}>
+        <div className="metric-card">
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CreditCard size={14} /> Ticket Medio</span>
+          <span className="metric-value">{fmt(ticketMedio)}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>por atendimento concluido</span>
+        </div>
+        <div className="metric-card">
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Inadimplencia</span>
+          <span className="metric-value" style={{ color: totalDelinquency > 0 ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)' }}>
+            {fmt(totalDelinquency)}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{delinquency.length} pagamento(s) pendente(s)</span>
+        </div>
+        <div className="metric-card" style={{ gridColumn: 'span 2' }}>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CreditCard size={14} /> Receita por Canal</span>
+          <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 8, flexWrap: 'wrap' }}>
+            {revenueByChannel.length === 0 && <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados</span>}
+            {revenueByChannel.map((ch, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                <span style={{ fontWeight: 600 }}>{ch.name}:</span>
+                <span style={{ color: 'var(--color-accent-gold)' }}>{fmt(ch.value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Graficos */}
+      <div className="charts-row" style={{ marginTop: 'var(--space-6)' }}>
         <div className="chart-card">
-          <h3>Receita por Canal de Pagamento</h3>
-          <div className="chart-placeholder" style={{ flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 12, padding: 'var(--space-2)' }}>
-            {!billingData?.revenueByChannel.length && (
-              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no período.</p>
-            )}
-            {billingData?.revenueByChannel.map((ch, i) => {
-              const maxVal = Math.max(...billingData.revenueByChannel.map(c => c.value)) || 1
+          <h3><CreditCard size={16} style={{ display: 'inline', marginRight: 8 }} />Receita por Canal de Pagamento</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 'var(--space-4) 0' }}>
+            {revenueByChannel.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no periodo.</p>}
+            {revenueByChannel.map((ch, i) => {
+              const maxVal = Math.max(...revenueByChannel.map(c => c.value)) || 1
               const pct = (ch.value / maxVal) * 100
+              const totalPct = totalRevenue > 0 ? Math.round((ch.value / totalRevenue) * 100) : 0
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <QrCode size={18} color="var(--color-accent-gold)" style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                      <span>{ch.name}</span>
-                      <span style={{ fontWeight: 500 }}>{formatCurrency(ch.value)}</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div className="progress-bar-fill" style={{ width: `${pct}%`, background: 'var(--color-accent-emerald)' }} />
-                    </div>
+                <div key={i}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                    <span>{ch.name} ({totalPct}%)</span>
+                    <span style={{ fontWeight: 500 }}>{fmt(ch.value)}</span>
                   </div>
+                  <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${pct}%`, background: 'var(--color-accent-emerald)' }} /></div>
                 </div>
               )
             })}
@@ -135,16 +132,16 @@ export default function FaturamentoPage() {
         </div>
 
         <div className="chart-card">
-          <h3>Faturamento Mensal (Histórico 12 meses)</h3>
+          <h3>Faturamento Mensal (12 meses)</h3>
           <div className="chart-placeholder">
-            {dashData?.charts.faturamentoAnual.map((h, i) => {
-              const maxRev = Math.max(...dashData.charts.faturamentoAnual.map(d => d.revenue)) || 1
+            {monthlyRevenue.map((h: any, i: number) => {
+              const maxRev = Math.max(...monthlyRevenue.map((d: any) => d.revenue)) || 1
               const hPct = (h.revenue / maxRev) * 100
               return (
                 <div key={i} className="bar-wrapper" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', flex: 1, margin: '0 2px' }}>
                   <div
-                    title={`${h.month}: ${formatCurrency(h.revenue)}`}
-                    style={{ height: `${hPct}%`, minHeight: 2, background: 'var(--color-accent-brand)', borderRadius: '4px 4px 0 0', opacity: i === 11 ? 1 : 0.6 }}
+                    title={`${h.month}: ${fmt(h.revenue)}`}
+                    style={{ height: `${Math.max(hPct, 2)}%`, minHeight: 2, background: 'var(--color-accent-brand)', borderRadius: '4px 4px 0 0', opacity: i === monthlyRevenue.length - 1 ? 1 : 0.6 }}
                   />
                   <span style={{ fontSize: 9, marginTop: 4, color: 'var(--color-text-muted)' }}>{h.month}</span>
                 </div>
@@ -154,7 +151,8 @@ export default function FaturamentoPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+      {/* Tabela Repasses */}
+      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
           Repasses por Profissional
         </h3>
@@ -164,50 +162,48 @@ export default function FaturamentoPage() {
               <th>Profissional</th>
               <th>Atendimentos</th>
               <th>Receita Bruta</th>
-              <th>Comissão</th>
+              <th>Comissao</th>
               <th>Repasse</th>
             </tr>
           </thead>
           <tbody>
-            {!billingData?.payouts.length && (
-              <tr>
-                <td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-text-muted)' }}>
-                  Nenhum repasse registrado no período.
-                </td>
-              </tr>
+            {payouts.length === 0 && (
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-text-muted)' }}>Nenhum repasse registrado no periodo.</td></tr>
             )}
-            {billingData?.payouts.map((p, i) => (
+            {payouts.map((p, i) => (
               <tr key={i}>
-                <td style={{ fontWeight: 500 }}>{p.name}</td>
+                <td>
+                  <div style={{ fontWeight: 500 }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{p.specialty}</div>
+                </td>
                 <td>{p.appointments}</td>
-                <td>{formatCurrency(p.gross)}</td>
+                <td>{fmt(p.gross)}</td>
                 <td><span className="badge badge-gold">{p.pct}</span></td>
-                <td style={{ fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{formatCurrency(p.net)}</td>
+                <td style={{ fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{fmt(p.net)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="card">
+      {/* Tabela Inadimplencia */}
+      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
           <AlertTriangle size={18} color="var(--color-accent-danger)" />
-          Inadimplência (Atrasos)
+          Inadimplencia (Pagamentos Pendentes)
         </h3>
-        {!billingData?.delinquency.length && (
-          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', padding: 'var(--space-4)' }}>
-            Nenhum pagamento em atraso detectado.
-          </p>
+        {delinquency.length === 0 && (
+          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', padding: 'var(--space-4)' }}>Nenhum pagamento pendente detectado.</p>
         )}
-        {billingData?.delinquency.map((d, i) => (
+        {delinquency.map((d, i) => (
           <div key={i} className="alert-row urgent" style={{ marginBottom: 8 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 500, fontSize: 14 }}>{d.patient}</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                {d.service} • Vencimento: {new Date(d.date).toLocaleDateString('pt-BR')} • {d.days} dias em atraso
+                {d.service} · {d.days} dias pendente
               </div>
             </div>
-            <span style={{ fontWeight: 700, color: 'var(--color-accent-danger)' }}>{formatCurrency(d.value)}</span>
+            <span style={{ fontWeight: 700, color: 'var(--color-accent-danger)' }}>{fmt(d.value)}</span>
             <button className="btn btn-ghost btn-sm">Cobrar</button>
           </div>
         ))}

@@ -589,56 +589,157 @@ export class MetricsController {
 
       const { start, end } = periodToDates(startDate, endDate, period)
 
+      // Período anterior para tendência
+      const periodMs = end.getTime() - start.getTime()
+      const prevStart = new Date(start.getTime() - periodMs)
+      const prevEnd = new Date(start.getTime() - 1)
+
+      const clinicAppFilter = clinicId ? { room: { clinicId } } : undefined
+
       const services = await prisma.service.findMany({
         where: clinicId ? { appointments: { some: { room: { clinicId } } } } : undefined,
         include: {
           appointments: {
-            where: {
-              startTime: { gte: start, lte: end },
-              room: clinicId ? { clinicId } : undefined
-            },
-            include: { payments: { where: { status: 'PAID' } } }
-          }
+            where: { startTime: { gte: start, lte: end }, ...clinicAppFilter },
+            include: {
+              payments: { where: { status: 'PAID' } },
+              professional: { include: { user: true } }
+            }
+          },
+          professionals: true
         }
       })
 
+      // Agendamentos do período anterior para tendência
+      const prevAppointments = await prisma.appointment.findMany({
+        where: { startTime: { gte: prevStart, lte: prevEnd }, ...clinicAppFilter },
+        include: { payments: { where: { status: 'PAID' } } }
+      })
+
+      const prevByService = new Map<string, { count: number; revenue: number }>()
+      prevAppointments.forEach(app => {
+        const curr = prevByService.get(app.serviceId) || { count: 0, revenue: 0 }
+        curr.count++
+        curr.revenue += app.payments.reduce((s, p) => s + p.amount, 0)
+        prevByService.set(app.serviceId, curr)
+      })
+
       const result = services.map(s => {
-        const totalAppointments = s.appointments.length
-        const totalRevenue = s.appointments.reduce((sum: number, app: any) =>
+        const allAppts = s.appointments
+        const totalAppointments = allAppts.length
+        const completedCount = allAppts.filter(a => a.status === 'COMPLETED').length
+        const cancelledCount = allAppts.filter(a => a.status === 'CANCELLED').length
+        const noShowCount = allAppts.filter(a => a.status === 'NO_SHOW').length
+
+        const cancellationRate = totalAppointments > 0
+          ? Math.round(((cancelledCount + noShowCount) / totalAppointments) * 100)
+          : 0
+
+        const totalRevenue = allAppts.reduce((sum: number, app: any) =>
           sum + (app.payments?.reduce((pSum: number, pay: any) => pSum + pay.amount, 0) || 0), 0
         )
+        const avgPrice = completedCount > 0 ? totalRevenue / completedCount : s.price
+
+        // Pacientes únicos e taxa de retorno
+        const patientCounts = new Map<string, number>()
+        allAppts.forEach(a => patientCounts.set(a.patientId, (patientCounts.get(a.patientId) || 0) + 1))
+        const uniquePatients = patientCounts.size
+        const returningPatients = Array.from(patientCounts.values()).filter(c => c >= 2).length
+        const returnRate = uniquePatients > 0 ? Math.round((returningPatients / uniquePatients) * 100) : 0
+
+        // Duração real média vs planejada
+        const completedAppts = allAppts.filter(a => a.status === 'COMPLETED')
+        const avgRealDuration = completedAppts.length > 0
+          ? Math.round(completedAppts.reduce((sum, a) =>
+              sum + (a.endTime.getTime() - a.startTime.getTime()) / (1000 * 60), 0
+            ) / completedAppts.length)
+          : 0
+
+        // Convênio vs particular
+        const insuranceCount = allAppts.filter(a => a.insurancePlanId).length
+        const insurancePct = totalAppointments > 0 ? Math.round((insuranceCount / totalAppointments) * 100) : 0
+
+        // R$/hora
+        const durationHours = (s.duration * completedCount) / 60
+        const revenuePerHour = durationHours > 0 ? Math.round(totalRevenue / durationHours) : 0
+
+        // Profissionais que oferecem este serviço
+        const proCount = s.professionals.length
+
+        // Top profissional por volume neste serviço
+        const proCounts = new Map<string, { name: string; count: number }>()
+        allAppts.forEach(a => {
+          const curr = proCounts.get(a.professionalId) || { name: a.professional.user.name, count: 0 }
+          curr.count++
+          proCounts.set(a.professionalId, curr)
+        })
+        const topPro = Array.from(proCounts.values()).sort((a, b) => b.count - a.count)[0]
+
+        // Tendência vs período anterior
+        const prev = prevByService.get(s.id)
+        const prevRevenue = prev?.revenue || 0
+        const prevCount = prev?.count || 0
+        const revenueTrend = prevRevenue > 0
+          ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100)
+          : (totalRevenue > 0 ? 100 : 0)
+        const countTrend = prevCount > 0
+          ? Math.round(((totalAppointments - prevCount) / prevCount) * 100)
+          : (totalAppointments > 0 ? 100 : 0)
+
+        // Status dinâmico
+        let status: 'em_alta' | 'estavel' | 'atencao' | 'declinio' = 'estavel'
+        if (cancellationRate > 30 || revenueTrend < -20) {
+          status = 'declinio'
+        } else if (cancellationRate > 20 || revenueTrend < -10) {
+          status = 'atencao'
+        } else if (revenueTrend > 0 && cancellationRate < 10) {
+          status = 'em_alta'
+        }
 
         return {
           id: s.id,
           name: s.name,
-          count: totalAppointments,
+          category: s.category || 'Geral',
+          duration: s.duration,
+          price: s.price,
+          totalAppointments,
+          completedCount,
+          cancelledCount,
+          noShowCount,
+          cancellationRate,
           revenue: totalRevenue,
-          avgPrice: totalAppointments > 0 ? totalRevenue / totalAppointments : (s as any).price
+          avgPrice,
+          uniquePatients,
+          returningPatients,
+          returnRate,
+          avgRealDuration,
+          insurancePct,
+          revenuePerHour,
+          proCount,
+          topProfessional: topPro?.name || '—',
+          revenueTrend,
+          countTrend,
+          status
         }
       })
 
+      // Horários de pico (só COMPLETED)
       const peakHours: Record<number, number> = {}
       for (let i = 8; i <= 20; i++) peakHours[i] = 0
 
-      const allAppointments = await prisma.appointment.findMany({
-        where: {
-          startTime: { gte: start, lte: end },
-          room: clinicId ? { clinicId } : undefined,
-          status: 'COMPLETED'
-        }
+      const allCompletedAppts = await prisma.appointment.findMany({
+        where: { startTime: { gte: start, lte: end }, ...clinicAppFilter, status: 'COMPLETED' }
       })
 
-      allAppointments.forEach(app => {
+      allCompletedAppts.forEach(app => {
         const hour = app.startTime.getHours()
-        if (peakHours[hour] !== undefined) {
-          peakHours[hour]++
-        }
+        if (peakHours[hour] !== undefined) peakHours[hour]++
       })
 
       res.status(200).json({
         services: result,
         peakHours: Object.entries(peakHours).map(([hour, count]) => ({
-          hour: `${hour.padStart(2, '0')}:00`,
+          hour: `${String(hour).padStart(2, '0')}:00`,
           count
         }))
       })

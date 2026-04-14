@@ -1,46 +1,51 @@
 import { useState } from 'react'
-import { Download, Plus, Globe, MessageCircle, Camera, Search as SearchIcon, Users, TrendingUp, Edit, Loader2 } from 'lucide-react'
+import { Download, Users, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, UserPlus, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useMarketingMetrics } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
 
-const periodsMap: Record<string, number> = {
-  '7 dias': 7,
-  '30 dias': 30,
-  '3 meses': 90,
-  '12 meses': 365
+const periods = ['7 dias', '30 dias', '3 meses', '12 meses']
+
+const dayLabels: Record<string, string> = {
+  'Sunday': 'Dom', 'Monday': 'Seg', 'Tuesday': 'Ter', 'Wednesday': 'Qua',
+  'Thursday': 'Qui', 'Friday': 'Sex', 'Saturday': 'Sab',
+  'Dom': 'Dom', 'Seg': 'Seg', 'Ter': 'Ter', 'Qua': 'Qua',
+  'Qui': 'Qui', 'Sex': 'Sex', 'Sab': 'Sab'
 }
 
-const iconMap: Record<string, any> = {
-  'Orgânico (Site)': Globe,
-  'WhatsApp': MessageCircle,
-  'Instagram': Camera,
-  'Google Ads': SearchIcon,
-  'Indicação': Users,
+function TrendBadge({ value }: { value: number }) {
+  if (value === 0) return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, color: 'var(--color-text-muted)' }}><Minus size={12} /> 0%</span>
+  const positive = value > 0
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 600, color: positive ? 'var(--color-accent-emerald)' : 'var(--color-accent-danger)' }}>
+      {positive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+      {positive ? '+' : ''}{value}%
+    </span>
+  )
 }
 
 export default function MarketingPage() {
   const [period, setPeriod] = useState('30 dias')
   const { user } = useAuth()
   const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const { data, isLoading } = useMarketingMetrics(clinicId, undefined, undefined, period)
 
-  const endDate = new Date().toISOString().split('T')[0]
-  const startDateObj = new Date()
-  startDateObj.setDate(startDateObj.getDate() - (periodsMap[period] || 30))
-  const startDate = startDateObj.toISOString().split('T')[0]
-
-  const { data, isLoading } = useMarketingMetrics(clinicId, startDate, endDate)
-
-  const origins = data?.origins || []
-  const campaigns = data?.campaigns || []
+  const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
   if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" /></div>
 
-  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
-  
-  const totalVisitors = 3420 
-  const totalAppointments = campaigns.reduce((sum: number, c: any) => sum + (c.appointments || 0), 0)
-  const totalCost = campaigns.reduce((sum: number, c: any) => sum + (parseFloat(c.cost?.replace('R$ ', '').replace('.', '').replace(',', '.')) || 0), 0)
-  const avgCpa = totalAppointments > 0 ? totalCost / totalAppointments : 0
+  const totalAppointments = data?.totalAppointments || 0
+  const completedAppointments = data?.completedAppointments || 0
+  const cancelledAppointments = data?.cancelledAppointments || 0
+  const revenue = data?.revenue || 0
+  const appointmentsTrend = data?.appointmentsTrend || 0
+  const newPatients = data?.newPatients || 0
+  const funnel = data?.funnel || { agendados: 0, confirmados: 0, concluidos: 0, cancelados: 0, confirmadosPct: 0, concluidosPct: 0, canceladosPct: 0 }
+  const byService = data?.byService || []
+  const byDayOfWeek = data?.byDayOfWeek || []
+  const topServicesByRevenue = data?.topServicesByRevenue || []
+
+  const completionRate = totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0
+  const cancellationRate = totalAppointments > 0 ? Math.round((cancelledAppointments / totalAppointments) * 100) : 0
 
   return (
     <div className="animate-fade-in">
@@ -48,58 +53,93 @@ export default function MarketingPage() {
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Marketing</h2>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
           <div className="date-presets">
-            {Object.keys(periodsMap).map(p => (
-              <button 
-                key={p} 
-                className={`date-preset${period === p ? ' active' : ''}`} 
-                onClick={() => setPeriod(p)}
-              >
-                {p}
-              </button>
+            {periods.map(p => (
+              <button key={p} className={`date-preset${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
             ))}
           </div>
-          <button className="btn btn-secondary btn-sm"><Download size={14} /> Exportar Lista</button>
+          <button className="btn btn-secondary btn-sm"><Download size={14} /> CSV</button>
         </div>
       </div>
 
+      {/* Cards - Linha 1 */}
       <div className="metrics-row stagger-children">
-        <div className="metric-card"><span className="metric-label">Visitantes no Site</span><span className="metric-value">{totalVisitors.toLocaleString()}</span></div>
         <div className="metric-card">
-          <span className="metric-label">Contatos Iniciados</span>
-          <span className="metric-value">{(totalVisitors * 0.1).toFixed(0)}</span>
-          <span className="badge badge-emerald" style={{ alignSelf: 'flex-start' }}>10% conv.</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Agendamentos</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Calendar size={14} /> Agendamentos</span>
           <span className="metric-value">{totalAppointments}</span>
-          <span className="badge badge-gold" style={{ alignSelf: 'flex-start' }}>
-            {totalVisitors > 0 ? ((totalAppointments / (totalVisitors * 0.1)) * 100).toFixed(1) : 0}% conv.
-          </span>
+          <TrendBadge value={appointmentsTrend} />
         </div>
         <div className="metric-card">
-          <span className="metric-label">Custo por Agendamento</span>
-          <span className="metric-value">{formatCurrency(avgCpa)}</span>
-          <span className="metric-change positive"><TrendingUp size={12} /> -15%</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Concluidos</span>
+          <span className="metric-value" style={{ color: 'var(--color-accent-emerald)' }}>{completedAppointments}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{completionRate}% dos agendamentos</span>
+        </div>
+        <div className="metric-card">
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><XCircle size={14} /> Cancelados</span>
+          <span className="metric-value" style={{ color: cancelledAppointments > 0 ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)' }}>{cancelledAppointments}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{cancellationRate}% taxa</span>
+        </div>
+        <div className="metric-card">
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><UserPlus size={14} /> Novos Pacientes</span>
+          <span className="metric-value">{newPatients}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>no periodo</span>
         </div>
       </div>
 
-      <div className="charts-row">
+      {/* Cards - Linha 2 */}
+      <div className="metrics-row stagger-children" style={{ marginTop: 'var(--space-4)' }}>
+        <div className="metric-card">
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><BarChart3 size={14} /> Receita</span>
+          <span className="metric-value">{fmt(revenue)}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>pagamentos concluidos</span>
+        </div>
+        <div className="metric-card">
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> Ticket Medio</span>
+          <span className="metric-value">{fmt(completedAppointments > 0 ? revenue / completedAppointments : 0)}</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>por atendimento</span>
+        </div>
+        <div className="metric-card" style={{ gridColumn: 'span 2' }}>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={14} /> Funil de Conversao</span>
+          <div style={{ display: 'flex', gap: 'var(--space-6)', marginTop: 8 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{funnel.agendados}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Agendados</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-muted)' }}>&rarr;</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-accent-brand)' }}>{funnel.confirmados}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Confirmados ({funnel.confirmadosPct}%)</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-muted)' }}>&rarr;</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{funnel.concluidos}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Concluidos ({funnel.concluidosPct}%)</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-muted)' }}>|</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-accent-danger)' }}>{funnel.cancelados}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Cancelados ({funnel.canceladosPct}%)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Graficos */}
+      <div className="charts-row" style={{ marginTop: 'var(--space-6)' }}>
         <div className="chart-card">
-          <h3>Origem dos Agendamentos</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'var(--space-6) 0' }}>
-            {origins.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados de origem.</p>}
-            {origins.map((o: any, i: number) => {
-              const Icon = iconMap[o.name] || Globe
+          <h3>Agendamentos por Dia da Semana</h3>
+          <div className="chart-placeholder" style={{ alignItems: 'flex-end' }}>
+            {byDayOfWeek.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no periodo.</p>}
+            {byDayOfWeek.map((d, i) => {
+              const maxCount = Math.max(...byDayOfWeek.map(x => x.count)) || 1
+              const hPct = (d.count / maxCount) * 100
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <Icon size={18} color="var(--color-accent-emerald)" style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                      <span>{o.name}</span>
-                      <span style={{ fontWeight: 500 }}>{o.value} ({o.pct}%)</span>
-                    </div>
-                    <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${o.pct}%` }} /></div>
-                  </div>
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', flex: 1, margin: '0 2px', height: '100%' }}>
+                  <div
+                    title={`${d.day}: ${d.count} agendamentos`}
+                    style={{ height: `${Math.max(hPct, 4)}%`, minHeight: 4, background: 'var(--color-accent-brand)', borderRadius: '4px 4px 0 0', opacity: hPct === 100 ? 1 : 0.6 }}
+                  />
+                  <span style={{ fontSize: 10, marginTop: 4, color: 'var(--color-text-muted)', textAlign: 'center' }}>{dayLabels[d.day] || d.day}</span>
+                  <span style={{ fontSize: 9, color: 'var(--color-text-muted)', textAlign: 'center' }}>{d.count}</span>
                 </div>
               )
             })}
@@ -107,47 +147,50 @@ export default function MarketingPage() {
         </div>
 
         <div className="chart-card">
-          <h3>Funil de Conversão</h3>
-          <div className="funnel-container">
-            <div className="funnel-step" style={{ width: '100%' }}>
-              <span className="funnel-label">Visitantes</span>
-              <span className="funnel-value">{totalVisitors.toLocaleString()}</span>
-            </div>
-            <div className="funnel-step" style={{ width: '65%' }}>
-              <span className="funnel-label">Contatos</span>
-              <span className="funnel-value">{(totalVisitors * 0.1).toFixed(0)}</span>
-            </div>
-            <div className="funnel-step" style={{ width: '38%' }}>
-              <span className="funnel-label">Agendamentos</span>
-              <span className="funnel-value">{totalAppointments}</span>
-            </div>
-            <div className="funnel-step" style={{ width: '22%' }}>
-              <span className="funnel-label">Concluídos</span>
-              <span className="funnel-value">{(totalAppointments * 0.9).toFixed(0)}</span>
-            </div>
+          <h3>Agendamentos por Servico</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 'var(--space-4) 0' }}>
+            {byService.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no periodo.</p>}
+            {byService.map((s, i) => {
+              const maxVal = Math.max(...byService.map(x => x.value)) || 1
+              const pct = (s.value / maxVal) * 100
+              return (
+                <div key={i}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                    <span>{s.name} ({s.pct}%)</span>
+                    <span style={{ fontWeight: 500 }}>{s.value} agend.</span>
+                  </div>
+                  <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${pct}%` }} /></div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
 
+      {/* Top Servicos por Receita */}
       <div className="card" style={{ marginTop: 'var(--space-6)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700 }}>Campanhas</h3>
-          <button className="btn btn-primary btn-sm"><Plus size={14} /> Nova Campanha</button>
-        </div>
+        <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
+          Top Servicos por Receita
+        </h3>
         <table className="data-table">
-          <thead><tr><th>Campanha</th><th>Canal</th><th>Período</th><th>Investimento</th><th>Agendamentos</th><th>CPA</th><th>ROI</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th>Servico</th>
+              <th>Agendamentos</th>
+              <th>% do Total</th>
+              <th>Receita</th>
+            </tr>
+          </thead>
           <tbody>
-            {campaigns.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-muted)' }}>Nenhuma campanha encontrada.</td></tr>}
-            {campaigns.map((c: any, i: number) => (
+            {topServicesByRevenue.length === 0 && (
+              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-text-muted)' }}>Nenhum dado encontrado no periodo.</td></tr>
+            )}
+            {topServicesByRevenue.map((s, i) => (
               <tr key={i}>
-                <td style={{ fontWeight: 500 }}>{c.name}</td>
-                <td><span className="badge badge-gold">{c.channel}</span></td>
-                <td style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{c.period}</td>
-                <td>{c.cost}</td>
-                <td style={{ fontWeight: 500 }}>{c.appointments}</td>
-                <td>{c.cpa}</td>
-                <td style={{ fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{c.roi}</td>
-                <td><button className="btn btn-icon btn-sm"><Edit size={14} /></button></td>
+                <td style={{ fontWeight: 500 }}>{s.name}</td>
+                <td>{s.value}</td>
+                <td><span className="badge badge-gold">{s.pct}%</span></td>
+                <td style={{ fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{fmt(s.revenue)}</td>
               </tr>
             ))}
           </tbody>
