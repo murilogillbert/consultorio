@@ -86,7 +86,7 @@ export default function ConfiguracoesPage() {
   const [channelForm, setChannelForm] = useState({ name: '', description: '', adminOnly: false })
 
   // About State
-  const [aboutForm, setAboutForm] = useState({ mission: '', vision: '', values: '', milestones: [] as { year: string; title: string; description: string }[], galleryUrls: [] as string[] })
+  const [aboutForm, setAboutForm] = useState({ name: '', description: '', mission: '', vision: '', values: '', milestones: [] as { year: string; title: string; description: string }[], galleryUrls: [] as string[] })
   const [aboutSaveMsg, setAboutSaveMsg] = useState('')
   const [newMilestone, setNewMilestone] = useState({ year: '', title: '', description: '' })
 
@@ -158,6 +158,8 @@ export default function ConfiguracoesPage() {
         facebook: clinic.facebook || '',
       })
       setAboutForm({
+        name: clinic.name || '',
+        description: clinic.description || '',
         mission: (clinic as any).mission || '',
         vision: (clinic as any).vision || '',
         values: (clinic as any).values || '',
@@ -266,7 +268,7 @@ export default function ConfiguracoesPage() {
     if (!clinic) return
     setAboutSaveMsg('')
     try {
-      await updateClinicMutation.mutateAsync({ id: clinic.id, mission: aboutForm.mission, vision: aboutForm.vision, values: aboutForm.values, milestones: aboutForm.milestones, galleryUrls: aboutForm.galleryUrls })
+      await updateClinicMutation.mutateAsync({ id: clinic.id, name: aboutForm.name, description: aboutForm.description, mission: aboutForm.mission, vision: aboutForm.vision, values: aboutForm.values, milestones: aboutForm.milestones, galleryUrls: aboutForm.galleryUrls })
       setAboutSaveMsg('Salvo com sucesso!')
     } catch {
       setAboutSaveMsg('Erro ao salvar.')
@@ -887,6 +889,22 @@ export default function ConfiguracoesPage() {
           {activeTab === 'about' && (
             <div>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)', marginBottom: 'var(--space-6)' }}>Página Sobre</h3>
+
+              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--color-accent-primary)' }}>
+                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>
+                  Estes textos aparecem no topo da página <strong>/sobre</strong> como título e subtítulo.
+                </p>
+              </div>
+
+              <div style={{ marginBottom: 'var(--space-6)' }}>
+                <label className="input-label">Texto principal <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(exibido como "Sobre a [texto]")</span></label>
+                <input className="input-field" value={aboutForm.name} onChange={e => setAboutForm({ ...aboutForm, name: e.target.value })} placeholder="Ex: Clínica Saúde & Bem-Estar" />
+              </div>
+
+              <div style={{ marginBottom: 'var(--space-6)' }}>
+                <label className="input-label">Texto secundário</label>
+                <textarea className="input-field" style={{ minHeight: 80 }} value={aboutForm.description} onChange={e => setAboutForm({ ...aboutForm, description: e.target.value })} placeholder="Clínica multidisciplinar focada em saúde integral e qualidade de vida." />
+              </div>
 
               <div style={{ marginBottom: 'var(--space-6)' }}>
                 <label className="input-label">Missão</label>

@@ -10,7 +10,7 @@ export class SchedulesRepository extends BaseRepository<Schedule, Prisma.Schedul
   async findByProfessional(professionalId: string): Promise<Schedule[]> {
     return prisma.schedule.findMany({
       where: { professionalId, active: true },
-      orderBy: { dayOfWeek: 'asc' }
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }]
     })
   }
 
