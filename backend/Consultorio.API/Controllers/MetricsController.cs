@@ -553,4 +553,262 @@ public class MetricsController : ControllerBase
             topServicesByRevenue
         });
     }
+
+    // =====================================================================
+    // GET /api/metrics/movement
+    // =====================================================================
+    [HttpGet("movement")]
+    public async Task<ActionResult> GetMovementData([FromQuery] string? date)
+    {
+        var clinicId = GetClinicId();
+        var targetDate = string.IsNullOrEmpty(date)
+            ? DateTime.UtcNow.Date
+            : DateTime.Parse(date).Date;
+        var dayEnd = targetDate.AddDays(1).AddSeconds(-1);
+
+        // Previous equivalent day for comparison (same weekday last week)
+        var prevDate = targetDate.AddDays(-7);
+        var prevEnd = prevDate.AddDays(1).AddSeconds(-1);
+
+        // ── All appointments on target date ──
+        var appts = await _db.Appointments
+            .Include(a => a.Payment)
+            .Include(a => a.Service)
+            .Include(a => a.Patient).ThenInclude(p => p.User)
+            .Include(a => a.Professional).ThenInclude(p => p.User)
+            .Where(a => a.ClinicId == clinicId && a.StartTime >= targetDate && a.StartTime <= dayEnd)
+            .OrderBy(a => a.StartTime)
+            .ToListAsync();
+
+        var prevAppts = await _db.Appointments
+            .Include(a => a.Payment)
+            .Where(a => a.ClinicId == clinicId && a.StartTime >= prevDate && a.StartTime <= prevEnd)
+            .ToListAsync();
+
+        // ── Summary metrics ──
+        var total = appts.Count;
+        var confirmed = appts.Count(a => a.Status == "CONFIRMED" || a.Status == "IN_PROGRESS" || a.Status == "COMPLETED");
+        var completed = appts.Count(a => a.Status == "COMPLETED");
+        var inProgress = appts.Count(a => a.Status == "IN_PROGRESS");
+        var cancelled = appts.Count(a => a.Status == "CANCELLED");
+        var scheduled = appts.Count(a => a.Status == "SCHEDULED");
+        var showRate = total > 0 ? (int)Math.Round((double)confirmed / total * 100) : 0;
+
+        var prevTotal = prevAppts.Count;
+        var prevCompleted = prevAppts.Count(a => a.Status == "COMPLETED");
+
+        // ── Revenue ──
+        var revenueToday = appts
+            .Where(a => a.Payment != null && a.Payment.Status == "PAID")
+            .Sum(a => a.Payment!.Amount);
+        var pendingToday = appts
+            .Where(a => a.Payment != null && a.Payment.Status == "PENDING")
+            .Sum(a => a.Payment!.Amount);
+        var prevRevenue = prevAppts
+            .Where(a => a.Payment != null && a.Payment.Status == "PAID")
+            .Sum(a => a.Payment!.Amount);
+
+        // ── New patients registered on this date ──
+        var newPatients = await _db.Patients
+            .CountAsync(p => p.ClinicId == clinicId
+                && p.CreatedAt >= targetDate && p.CreatedAt <= dayEnd);
+
+        // ── Messages today ──
+        var messagesCount = await _db.PatientMessages
+            .Include(m => m.Patient)
+            .CountAsync(m => m.Patient.ClinicId == clinicId
+                && m.CreatedAt >= targetDate && m.CreatedAt <= dayEnd);
+
+        // ── Revenue by payment method ──
+        var revenueByMethod = appts
+            .Where(a => a.Payment != null && a.Payment.Status == "PAID")
+            .GroupBy(a => a.Payment!.PaymentMethod ?? "Outro")
+            .Select(g => new { name = g.Key, value = g.Sum(p => p.Payment!.Amount) })
+            .OrderByDescending(x => x.value)
+            .ToList();
+
+        // ── Hourly distribution (7h–21h) ──
+        var hourlyDistribution = Enumerable.Range(7, 15)
+            .Select(h => new
+            {
+                hour = $"{h:D2}:00",
+                total = appts.Count(a => a.StartTime.Hour == h),
+                completed = appts.Count(a => a.StartTime.Hour == h && a.Status == "COMPLETED"),
+                cancelled = appts.Count(a => a.StartTime.Hour == h && a.Status == "CANCELLED")
+            })
+            .ToList();
+
+        // ── Status breakdown (for donut/pie) ──
+        var statusBreakdown = appts
+            .GroupBy(a => a.Status)
+            .Select(g => new
+            {
+                status = g.Key,
+                label = g.Key switch
+                {
+                    "SCHEDULED" => "Agendado",
+                    "CONFIRMED" => "Confirmado",
+                    "IN_PROGRESS" => "Em Andamento",
+                    "COMPLETED" => "Concluído",
+                    "CANCELLED" => "Cancelado",
+                    _ => g.Key
+                },
+                count = g.Count(),
+                pct = total > 0 ? (int)Math.Round((double)g.Count() / total * 100) : 0
+            })
+            .OrderByDescending(x => x.count)
+            .ToList();
+
+        // ── Per-professional summary ──
+        var byProfessional = appts
+            .GroupBy(a => a.ProfessionalId)
+            .Select(g =>
+            {
+                var pro = g.First().Professional;
+                var proTotal = g.Count();
+                var proCompleted = g.Count(a => a.Status == "COMPLETED");
+                var proCancelled = g.Count(a => a.Status == "CANCELLED");
+                var proRevenue = g.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m);
+                var proScheduled = g.Count(a => a.Status == "SCHEDULED");
+                var proConfirmed = g.Count(a => a.Status == "CONFIRMED");
+
+                return new
+                {
+                    id = pro.Id,
+                    name = pro.User.Name,
+                    specialty = pro.Specialty ?? "Especialista",
+                    total = proTotal,
+                    completed = proCompleted,
+                    cancelled = proCancelled,
+                    scheduled = proScheduled,
+                    confirmed = proConfirmed,
+                    revenue = proRevenue,
+                    showRate = proTotal > 0
+                        ? (int)Math.Round((double)(proTotal - proCancelled) / proTotal * 100)
+                        : 0
+                };
+            })
+            .OrderByDescending(x => x.total)
+            .ToList();
+
+        // ── Activity timeline (events derived from appointments) ──
+        var events = new List<object>();
+        foreach (var a in appts)
+        {
+            var time = a.StartTime.ToString("HH:mm");
+            var proName = a.Professional.User.Name;
+            var patName = a.Patient.User.Name;
+            var svcName = a.Service.Name;
+
+            // Main event based on current status
+            var (type, desc, icon) = a.Status switch
+            {
+                "COMPLETED" => ("arrival", $"{patName} — {svcName} (concluído)", "CHECK_IN"),
+                "IN_PROGRESS" => ("arrival", $"{patName} — {svcName} (em andamento)", "CHECK_IN"),
+                "CONFIRMED" => ("arrival", $"{patName} — {svcName} (confirmado)", "NEW_APPOINTMENT"),
+                "CANCELLED" => ("cancel", $"{patName} — {svcName} (cancelado)", "APPOINTMENT_CANCELLED"),
+                _ => ("arrival", $"{patName} — {svcName} (agendado)", "NEW_APPOINTMENT")
+            };
+
+            events.Add(new { time, type, description = desc, professional = proName, icon });
+
+            // Payment event
+            if (a.Payment != null && a.Payment.Status == "PAID")
+            {
+                var payTime = a.Payment.PaymentDate?.ToString("HH:mm") ?? time;
+                var method = a.Payment.PaymentMethod ?? "—";
+                events.Add(new
+                {
+                    time = payTime,
+                    type = "payment",
+                    description = $"Pagamento {method}: R$ {a.Payment.Amount:F2} — {patName}",
+                    professional = proName,
+                    icon = "PAYMENT_CONFIRMED"
+                });
+            }
+        }
+
+        // Add patient messages as events
+        var messages = await _db.PatientMessages
+            .Include(m => m.Patient).ThenInclude(p => p.User)
+            .Where(m => m.Patient.ClinicId == clinicId
+                && m.CreatedAt >= targetDate && m.CreatedAt <= dayEnd)
+            .OrderBy(m => m.CreatedAt)
+            .Take(30)
+            .ToListAsync();
+
+        foreach (var m in messages)
+        {
+            events.Add(new
+            {
+                time = m.CreatedAt.ToString("HH:mm"),
+                type = "message",
+                description = $"Mensagem {(m.Direction == "IN" ? "recebida de" : "enviada para")} {m.Patient.User.Name}",
+                professional = "—",
+                icon = "MESSAGE_RECEIVED"
+            });
+        }
+
+        // Sort events by time
+        events = events
+            .OrderByDescending(e => ((dynamic)e).time.ToString())
+            .ToList();
+
+        // ── Upcoming appointments (not yet completed/cancelled) ──
+        var now = DateTime.UtcNow;
+        var upcoming = appts
+            .Where(a => a.StartTime > now && (a.Status == "SCHEDULED" || a.Status == "CONFIRMED"))
+            .OrderBy(a => a.StartTime)
+            .Take(10)
+            .Select(a => new
+            {
+                time = a.StartTime.ToString("HH:mm"),
+                endTime = a.EndTime.ToString("HH:mm"),
+                patient = a.Patient.User.Name,
+                service = a.Service.Name,
+                professional = a.Professional.User.Name,
+                status = a.Status,
+                duration = a.Service.DurationMinutes
+            })
+            .ToList();
+
+        // ── Trends (vs same weekday last week) ──
+        var apptsTrend = prevTotal > 0
+            ? (int)Math.Round(((double)total - prevTotal) / prevTotal * 100)
+            : (total > 0 ? 100 : 0);
+        var revenueTrend = prevRevenue > 0
+            ? (int)Math.Round((double)(revenueToday - prevRevenue) / (double)prevRevenue * 100)
+            : (revenueToday > 0 ? 100 : 0);
+        var completedTrend = prevCompleted > 0
+            ? (int)Math.Round(((double)completed - prevCompleted) / prevCompleted * 100)
+            : (completed > 0 ? 100 : 0);
+
+        return Ok(new
+        {
+            // Summary
+            totalAppointments = total,
+            scheduled,
+            confirmed,
+            inProgress,
+            completed,
+            cancelled,
+            showRate,
+            revenueToday,
+            pendingToday,
+            newPatients,
+            messagesCount,
+            // Trends
+            apptsTrend,
+            revenueTrend,
+            completedTrend,
+            // Breakdowns
+            statusBreakdown,
+            revenueByMethod,
+            hourlyDistribution,
+            byProfessional,
+            // Lists
+            events,
+            upcoming
+        });
+    }
 }

@@ -228,9 +228,67 @@ export function useMarketingMetrics(clinicId?: string, _startDate?: string, _end
   })
 }
 
-export function useMovementData(_clinicId?: string, _date?: string) {
+export interface MovementEvent {
+  time: string
+  type: string
+  description: string
+  professional: string
+  icon: string
+}
+
+export interface MovementProfessional {
+  id: string
+  name: string
+  specialty: string
+  total: number
+  completed: number
+  cancelled: number
+  scheduled: number
+  confirmed: number
+  revenue: number
+  showRate: number
+}
+
+export interface MovementData {
+  totalAppointments: number
+  scheduled: number
+  confirmed: number
+  inProgress: number
+  completed: number
+  cancelled: number
+  showRate: number
+  revenueToday: number
+  pendingToday: number
+  newPatients: number
+  messagesCount: number
+  apptsTrend: number
+  revenueTrend: number
+  completedTrend: number
+  statusBreakdown: { status: string; label: string; count: number; pct: number }[]
+  revenueByMethod: { name: string; value: number }[]
+  hourlyDistribution: { hour: string; total: number; completed: number; cancelled: number }[]
+  byProfessional: MovementProfessional[]
+  events: MovementEvent[]
+  upcoming: { time: string; endTime: string; patient: string; service: string; professional: string; status: string; duration: number }[]
+}
+
+export function useMovementData(clinicId?: string, date?: string) {
   return useQuery({
-    queryKey: ['movementData'],
-    queryFn: async (): Promise<any[]> => []
+    queryKey: ['movementData', clinicId, date],
+    queryFn: async (): Promise<MovementData> => {
+      const params = new URLSearchParams()
+      if (clinicId) params.set('clinicId', clinicId)
+      if (date) params.set('date', date)
+      const { data } = await api.get<MovementData>(`/metrics/movement?${params.toString()}`).catch(() => ({
+        data: {
+          totalAppointments: 0, scheduled: 0, confirmed: 0, inProgress: 0, completed: 0, cancelled: 0,
+          showRate: 0, revenueToday: 0, pendingToday: 0, newPatients: 0, messagesCount: 0,
+          apptsTrend: 0, revenueTrend: 0, completedTrend: 0,
+          statusBreakdown: [], revenueByMethod: [], hourlyDistribution: [], byProfessional: [],
+          events: [], upcoming: []
+        } as MovementData
+      }))
+      return data
+    }
   })
 }
