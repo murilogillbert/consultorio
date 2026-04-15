@@ -99,6 +99,7 @@ public class SchedulesController : ControllerBase
             .Where(s => s.ProfessionalId == professionalId &&
                         s.DayOfWeek == dayOfWeek &&
                         s.IsActive)
+            .OrderBy(s => s.StartTime)
             .ToListAsync();
 
         if (schedule.Count == 0)

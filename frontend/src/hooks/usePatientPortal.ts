@@ -53,6 +53,7 @@ export interface PatientAppointment {
   notes?: string
   service: { name: string; duration: number }
   professional: { user: { name: string; avatarUrl?: string } }
+  review?: { rating: number; comment?: string } | null
 }
 
 export function usePatientAppointments() {
@@ -114,6 +115,24 @@ export function useSendPatientMessage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patientConversation'] })
+    }
+  })
+}
+
+export function useSubmitReview() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ appointmentId, rating, comment }: { appointmentId: string; rating: number; comment?: string }) => {
+      const token = getPatientToken()
+      const { data } = await api.post(
+        `/public/patients/appointments/${appointmentId}/review`,
+        { rating, comment },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      return data as { message: string; rating: number; comment?: string }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patientAppointments'] })
     }
   })
 }

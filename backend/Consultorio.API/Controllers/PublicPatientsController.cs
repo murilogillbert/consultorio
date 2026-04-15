@@ -135,7 +135,11 @@ public class PublicPatientsController : ControllerBase
                 status       = a.Status,
                 notes        = a.Notes,
                 service      = new { name = a.Service.Name, duration = a.Service.DurationMinutes },
-                professional = new { user = new { name = a.Professional.User.Name, avatarUrl = a.Professional.User.AvatarUrl } }
+                professional = new { user = new { name = a.Professional.User.Name, avatarUrl = a.Professional.User.AvatarUrl } },
+                review       = _db.ProfessionalReviews
+                    .Where(r => r.AppointmentId == a.Id)
+                    .Select(r => new { r.Rating, r.Comment })
+                    .FirstOrDefault()
             })
             .ToListAsync();
 
@@ -169,6 +173,52 @@ public class PublicPatientsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    // ─── POST /api/public/patients/appointments/{id}/review ─────────────────────
+    [HttpPost("appointments/{id}/review")]
+    [Authorize(Roles = "PATIENT")]
+    public async Task<ActionResult> SubmitReview(Guid id, [FromBody] SubmitReviewDto dto)
+    {
+        var patientIdStr = User.FindFirst("patientId")?.Value;
+        if (!Guid.TryParse(patientIdStr, out var patientId))
+            return Unauthorized(new { message = "Token invalido." });
+
+        if (dto.Rating < 1 || dto.Rating > 5)
+            return BadRequest(new { message = "A avaliacao deve ser entre 1 e 5 estrelas." });
+
+        var appt = await _db.Appointments
+            .Include(a => a.Professional)
+            .FirstOrDefaultAsync(a => a.Id == id && a.PatientId == patientId);
+
+        if (appt == null)
+            return NotFound(new { message = "Consulta nao encontrada." });
+
+        if (appt.Status != "COMPLETED")
+            return BadRequest(new { message = "Apenas consultas finalizadas podem ser avaliadas." });
+
+        // Check if already reviewed
+        var existingReview = await _db.ProfessionalReviews
+            .FirstOrDefaultAsync(r => r.AppointmentId == id);
+
+        if (existingReview != null)
+            return Conflict(new { message = "Voce ja avaliou esta consulta." });
+
+        var review = new ProfessionalReview
+        {
+            Id = Guid.NewGuid(),
+            ProfessionalId = appt.ProfessionalId,
+            PatientId = patientId,
+            AppointmentId = appt.Id,
+            Rating = dto.Rating,
+            Comment = dto.Comment?.Trim(),
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        _db.ProfessionalReviews.Add(review);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Avaliacao enviada com sucesso!", rating = review.Rating, comment = review.Comment });
     }
 
     // ─── GET /api/public/patients/conversation ────────────────────────────────
@@ -244,6 +294,12 @@ public class PatientLoginDto
 {
     public string Email { get; set; } = null!;
     public string Password { get; set; } = null!;
+}
+
+public class SubmitReviewDto
+{
+    public int Rating { get; set; }
+    public string? Comment { get; set; }
 }
 
 public class SendPatientMessageDto

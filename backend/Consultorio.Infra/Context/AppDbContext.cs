@@ -290,6 +290,11 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(pr => pr.PatientId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ProfessionalReview>()
+            .HasOne(pr => pr.Appointment)
+            .WithMany()
+            .HasForeignKey(pr => pr.AppointmentId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // ───── JOBOPENNING ─────
         modelBuilder.Entity<JobOpening>()

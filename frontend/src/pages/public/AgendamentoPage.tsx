@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Check, ArrowLeft, ArrowRight, Calendar, Clock, User, Stethoscope, Eye, EyeOff } from 'lucide-react'
+import { Check, ArrowLeft, ArrowRight, Calendar, Clock, User, Stethoscope, Eye, EyeOff, LogIn } from 'lucide-react'
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useAvailableSlots } from '../../hooks/useSchedules'
 import { usePublicBooking } from '../../hooks/usePublicBooking'
+import { getPatientToken, getPatientUser, usePatientLogin } from '../../hooks/usePatientPortal'
 
 const steps = ['Serviço', 'Profissional', 'Data e Hora', 'Seus Dados', 'Confirmação']
 
@@ -16,6 +17,30 @@ export default function AgendamentoPage() {
   const [showConf, setShowConf]   = useState(false)
   const [bookingSuccess, setBookingSuccess] = useState(false)
   const [successMsg, setSuccessMsg]         = useState('')
+
+  // Patient session detection
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [showLoginForm, setShowLoginForm] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const patientLogin = usePatientLogin()
+
+  // Check if patient is already logged in and pre-fill data
+  useEffect(() => {
+    const token = getPatientToken()
+    const user = getPatientUser()
+    if (token && user) {
+      setIsLoggedIn(true)
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        email: prev.email || user.email || '',
+        password: 'already-set',
+        confirmPassword: 'already-set',
+      }))
+    }
+  }, [])
 
   const dateInputRef = useRef<HTMLInputElement>(null)
 
@@ -46,16 +71,37 @@ export default function AgendamentoPage() {
   )
   const bookingMutation = usePublicBooking()
 
+  const handleLogin = async () => {
+    setLoginError('')
+    try {
+      const res = await patientLogin.mutateAsync({ email: loginEmail, password: loginPassword })
+      setIsLoggedIn(true)
+      setShowLoginForm(false)
+      setFormData(prev => ({
+        ...prev,
+        name: res.user.name || prev.name,
+        email: res.user.email || prev.email,
+        password: 'already-set',
+        confirmPassword: 'already-set',
+      }))
+    } catch (err: any) {
+      setLoginError(err?.response?.data?.message || 'E-mail ou senha incorretos.')
+    }
+  }
+
   const canAdvance = () => {
     if (currentStep === 0) return formData.serviceId !== ''
     if (currentStep === 1) return formData.professionalId !== ''
     if (currentStep === 2) return formData.date !== '' && formData.time !== ''
-    if (currentStep === 3) return (
-      formData.name !== '' &&
-      formData.email !== '' &&
-      formData.password.length >= 6 &&
-      formData.password === formData.confirmPassword
-    )
+    if (currentStep === 3) {
+      if (isLoggedIn) return formData.name !== '' && formData.email !== ''
+      return (
+        formData.name !== '' &&
+        formData.email !== '' &&
+        formData.password.length >= 6 &&
+        formData.password === formData.confirmPassword
+      )
+    }
     return true
   }
 
@@ -179,7 +225,7 @@ export default function AgendamentoPage() {
                   <p style={{ color: 'var(--color-text-muted)' }}>Selecione uma data para ver os horários disponíveis</p>
                 ) : availableSlots.length === 0 ? (
                   <p style={{ color: 'var(--color-text-muted)' }}>Nenhum horário disponível nesta data</p>
-                ) : availableSlots.map(slot => (
+                ) : [...availableSlots].sort((a, b) => a.startTime.localeCompare(b.startTime)).map(slot => (
                   <button key={slot.startTime} className={`pill-tab${formData.time === slot.startTime ? ' active' : ''}`}
                     onClick={() => setFormData({ ...formData, time: slot.startTime, startTime: `${formData.date}T${slot.startTime}:00`, endTime: `${formData.date}T${slot.endTime}:00` })}>
                     {slot.startTime}
@@ -192,73 +238,156 @@ export default function AgendamentoPage() {
           {/* Step 3: Patient Data */}
           {currentStep === 3 && (
             <div>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)', marginBottom: 'var(--space-6)' }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)', marginBottom: 'var(--space-4)' }}>
                 Seus Dados
               </h2>
-              <div className="form-row">
-                <div className="input-group">
-                  <label className="input-label">Nome Completo <span className="required">*</span></label>
-                  <input className="input-field" placeholder="Seu nome" value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">CPF <span className="required">*</span></label>
-                  <input className="input-field" placeholder="000.000.000-00" value={formData.cpf}
-                    onChange={e => setFormData({ ...formData, cpf: e.target.value })} />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="input-group">
-                  <label className="input-label">E-mail <span className="required">*</span></label>
-                  <input className="input-field" type="email" placeholder="seu@email.com" value={formData.email}
-                    onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Telefone</label>
-                  <input className="input-field" placeholder="(11) 99999-9999" value={formData.phone}
-                    onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="input-group">
-                  <label className="input-label">Senha de acesso <span className="required">*</span></label>
-                  <div style={{ position: 'relative' }}>
-                    <input className="input-field" type={showPass ? 'text' : 'password'}
-                      placeholder="Mínimo 6 caracteres" value={formData.password}
-                      onChange={e => setFormData({ ...formData, password: e.target.value })}
-                      style={{ paddingRight: 40 }} />
-                    <button type="button" onClick={() => setShowPass(v => !v)}
-                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
-                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  <span style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
-                    Usada para acessar "Minhas Consultas" e acompanhar seu histórico.
-                  </span>
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Confirmar senha <span className="required">*</span></label>
-                  <div style={{ position: 'relative' }}>
-                    <input className="input-field" type={showConf ? 'text' : 'password'}
-                      placeholder="Repita a senha" value={formData.confirmPassword}
-                      onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      style={{ paddingRight: 40 }} />
-                    <button type="button" onClick={() => setShowConf(v => !v)}
-                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
-                      {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                    <span style={{ fontSize: 12, color: 'var(--color-danger)', marginTop: 4, display: 'block' }}>
-                      As senhas não coincidem.
+
+              {isLoggedIn ? (
+                <>
+                  <div style={{
+                    padding: 'var(--space-4)', marginBottom: 'var(--space-6)',
+                    background: 'rgba(45,106,79,0.06)', borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--color-accent-emerald)',
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+                  }}>
+                    <Check size={18} color="var(--color-accent-emerald)" />
+                    <span style={{ fontSize: 'var(--text-body)', color: 'var(--color-accent-emerald)', fontWeight: 500 }}>
+                      Logado como <strong>{formData.name}</strong> ({formData.email})
                     </span>
+                  </div>
+                  <div className="form-row">
+                    <div className="input-group">
+                      <label className="input-label">Nome Completo <span className="required">*</span></label>
+                      <input className="input-field" value={formData.name} readOnly
+                        style={{ background: 'var(--color-bg-secondary)', cursor: 'default' }} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">E-mail <span className="required">*</span></label>
+                      <input className="input-field" value={formData.email} readOnly
+                        style={{ background: 'var(--color-bg-secondary)', cursor: 'default' }} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Login prompt */}
+                  {!showLoginForm ? (
+                    <div style={{
+                      padding: 'var(--space-4)', marginBottom: 'var(--space-6)',
+                      background: 'rgba(201,168,76,0.06)', borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--color-accent-gold)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      flexWrap: 'wrap', gap: 'var(--space-3)',
+                    }}>
+                      <span style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-secondary)' }}>
+                        Ja possui conta? Faca login para preencher automaticamente.
+                      </span>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setShowLoginForm(true)}>
+                        <LogIn size={14} /> Fazer Login
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{
+                      padding: 'var(--space-5)', marginBottom: 'var(--space-6)',
+                      background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border-default)',
+                    }}>
+                      <h4 style={{ fontSize: 'var(--text-ui)', fontWeight: 500, marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <LogIn size={16} /> Entrar na sua conta
+                      </h4>
+                      <div className="form-row">
+                        <div className="input-group">
+                          <label className="input-label">E-mail</label>
+                          <input className="input-field" type="email" placeholder="seu@email.com"
+                            value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+                        </div>
+                        <div className="input-group">
+                          <label className="input-label">Senha</label>
+                          <input className="input-field" type="password" placeholder="Sua senha"
+                            value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+                        </div>
+                      </div>
+                      {loginError && (
+                        <p style={{ color: 'var(--color-accent-danger)', fontSize: 13, marginBottom: 'var(--space-3)' }}>{loginError}</p>
+                      )}
+                      <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowLoginForm(false); setLoginError('') }}>Cancelar</button>
+                        <button className="btn btn-primary btn-sm" onClick={handleLogin} disabled={patientLogin.isPending || !loginEmail || !loginPassword}>
+                          {patientLogin.isPending ? 'Entrando...' : 'Entrar'}
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </div>
-              </div>
+
+                  <div className="form-row">
+                    <div className="input-group">
+                      <label className="input-label">Nome Completo <span className="required">*</span></label>
+                      <input className="input-field" placeholder="Seu nome" value={formData.name}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">CPF</label>
+                      <input className="input-field" placeholder="000.000.000-00" value={formData.cpf}
+                        onChange={e => setFormData({ ...formData, cpf: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="input-group">
+                      <label className="input-label">E-mail <span className="required">*</span></label>
+                      <input className="input-field" type="email" placeholder="seu@email.com" value={formData.email}
+                        onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Telefone</label>
+                      <input className="input-field" placeholder="(11) 99999-9999" value={formData.phone}
+                        onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="input-group">
+                      <label className="input-label">Senha de acesso <span className="required">*</span></label>
+                      <div style={{ position: 'relative' }}>
+                        <input className="input-field" type={showPass ? 'text' : 'password'}
+                          placeholder="Minimo 6 caracteres" value={formData.password}
+                          onChange={e => setFormData({ ...formData, password: e.target.value })}
+                          style={{ paddingRight: 40 }} />
+                        <button type="button" onClick={() => setShowPass(v => !v)}
+                          style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
+                          {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
+                        Usada para acessar "Minhas Consultas" e acompanhar seu historico.
+                      </span>
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Confirmar senha <span className="required">*</span></label>
+                      <div style={{ position: 'relative' }}>
+                        <input className="input-field" type={showConf ? 'text' : 'password'}
+                          placeholder="Repita a senha" value={formData.confirmPassword}
+                          onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                          style={{ paddingRight: 40 }} />
+                        <button type="button" onClick={() => setShowConf(v => !v)}
+                          style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0 }}>
+                          {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                        <span style={{ fontSize: 12, color: 'var(--color-accent-danger)', marginTop: 4, display: 'block' }}>
+                          As senhas nao coincidem.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="form-row full">
                 <div className="input-group">
-                  <label className="input-label">Observações</label>
-                  <textarea className="input-field" placeholder="Informações adicionais..." value={formData.notes}
+                  <label className="input-label">Observacoes</label>
+                  <textarea className="input-field" placeholder="Informacoes adicionais..." value={formData.notes}
                     onChange={e => setFormData({ ...formData, notes: e.target.value })} />
                 </div>
               </div>
@@ -305,7 +434,7 @@ export default function AgendamentoPage() {
                       bookingMutation.mutate({
                         name: formData.name,
                         email: formData.email,
-                        password: formData.password,
+                        password: isLoggedIn ? undefined : formData.password,
                         cpf: formData.cpf,
                         phone: formData.phone,
                         serviceId: formData.serviceId,

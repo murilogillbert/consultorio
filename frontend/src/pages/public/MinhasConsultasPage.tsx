@@ -6,7 +6,7 @@ import {
 import {
   usePatientLogin, useRegisterPatient,
   usePatientAppointments, usePatientConversation, useSendPatientMessage,
-  useCancelPatientAppointment,
+  useCancelPatientAppointment, useSubmitReview,
   getPatientUser, clearPatient, type PatientAppointment
 } from '../../hooks/usePatientPortal'
 
@@ -299,6 +299,14 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
             </div>
           )}
 
+          {!loadingApps && appointments.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <a href="/agendar" className="btn btn-primary btn-sm">
+                <CalendarDays size={14} /> Agendar nova consulta
+              </a>
+            </div>
+          )}
+
           {upcoming.length > 0 && (
             <>
               <h3 className="patient-section-title">Próximas consultas</h3>
@@ -379,12 +387,45 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
 
 // ─── Card de consulta ──────────────────────────────────────────────────────
 
+function StarRating({ value, onChange, readonly = false }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
+  const [hover, setHover] = useState(0)
+  return (
+    <div style={{ display: 'flex', gap: 2 }}>
+      {[1, 2, 3, 4, 5].map(star => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => !readonly && onChange?.(star)}
+          onMouseEnter={() => !readonly && setHover(star)}
+          onMouseLeave={() => !readonly && setHover(0)}
+          style={{
+            background: 'none', border: 'none', padding: 2,
+            cursor: readonly ? 'default' : 'pointer',
+            color: star <= (hover || value) ? 'var(--color-accent-gold)' : 'var(--color-border-default)',
+            fontSize: 22, lineHeight: 1, transition: 'color 150ms ease',
+          }}
+          disabled={readonly}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }) {
   const [confirming, setConfirming] = useState(false)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewMsg, setReviewMsg] = useState('')
+  const [showReviewForm, setShowReviewForm] = useState(false)
   const cancel = useCancelPatientAppointment()
+  const submitReview = useSubmitReview()
   const status = STATUS_LABEL[a.status] || { label: a.status, cls: 'badge-gold' }
   const proName = a.professional?.user?.name || 'Profissional'
   const canCancel = a.status !== 'CANCELLED' && a.status !== 'COMPLETED' && new Date(a.startTime) > new Date()
+  const isCompleted = a.status === 'COMPLETED'
+  const hasReview = !!a.review
 
   const handleCancel = async () => {
     try {
@@ -393,6 +434,18 @@ function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Erro ao cancelar consulta.')
       setConfirming(false)
+    }
+  }
+
+  const handleSubmitReview = async () => {
+    if (reviewRating < 1) return
+    setReviewMsg('')
+    try {
+      await submitReview.mutateAsync({ appointmentId: a.id, rating: reviewRating, comment: reviewComment || undefined })
+      setReviewMsg('Avaliacao enviada!')
+      setShowReviewForm(false)
+    } catch (err: any) {
+      setReviewMsg(err?.response?.data?.message || 'Erro ao enviar avaliacao.')
     }
   }
 
@@ -413,11 +466,81 @@ function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }
       </div>
       {a.notes && <div className="patient-appointment-notes">{a.notes}</div>}
 
+      {/* Review section for completed appointments */}
+      {isCompleted && hasReview && (
+        <div style={{
+          marginTop: 10, padding: '10px 14px', borderRadius: 8,
+          background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 500 }}>Sua avaliacao:</span>
+            <StarRating value={a.review!.rating} readonly />
+          </div>
+          {a.review!.comment && (
+            <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: '4px 0 0', fontStyle: 'italic' }}>
+              "{a.review!.comment}"
+            </p>
+          )}
+        </div>
+      )}
+
+      {isCompleted && !hasReview && !showReviewForm && (
+        <div style={{ marginTop: 10 }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: 12 }}
+            onClick={() => setShowReviewForm(true)}
+          >
+            ★ Avaliar atendimento
+          </button>
+        </div>
+      )}
+
+      {isCompleted && !hasReview && showReviewForm && (
+        <div style={{
+          marginTop: 10, padding: '12px 14px', borderRadius: 8,
+          background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.2)',
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--color-text-primary)' }}>
+            Como foi seu atendimento?
+          </p>
+          <StarRating value={reviewRating} onChange={setReviewRating} />
+          <textarea
+            className="input-field"
+            placeholder="Comentario (opcional)"
+            value={reviewComment}
+            onChange={e => setReviewComment(e.target.value)}
+            style={{ marginTop: 8, minHeight: 60, fontSize: 13 }}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setShowReviewForm(false); setReviewRating(0); setReviewComment('') }}>
+              Cancelar
+            </button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleSubmitReview}
+              disabled={reviewRating < 1 || submitReview.isPending}
+            >
+              {submitReview.isPending ? 'Enviando...' : 'Enviar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reviewMsg && (
+        <p style={{
+          marginTop: 6, fontSize: 12, fontWeight: 500,
+          color: reviewMsg.includes('Erro') || reviewMsg.includes('erro') ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)',
+        }}>
+          {reviewMsg}
+        </p>
+      )}
+
       {canCancel && !confirming && (
         <div style={{ marginTop: 10 }}>
           <button
             className="btn btn-ghost btn-sm"
-            style={{ color: 'var(--color-danger)', fontSize: 12 }}
+            style={{ color: 'var(--color-accent-danger)', fontSize: 12 }}
             onClick={() => setConfirming(true)}
           >
             <X size={12} /> Cancelar consulta
@@ -428,25 +551,25 @@ function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }
       {confirming && (
         <div style={{
           marginTop: 10, padding: '10px 12px', borderRadius: 8,
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)'
+          background: 'rgba(139,32,32,0.06)', border: '1px solid rgba(139,32,32,0.2)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'var(--color-danger)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'var(--color-accent-danger)' }}>
             <AlertTriangle size={14} /> Confirmar cancelamento?
           </div>
           <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 10 }}>
-            Esta ação não pode ser desfeita. Deseja cancelar a consulta?
+            Esta acao nao pode ser desfeita. Deseja cancelar a consulta?
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               className="btn btn-sm"
-              style={{ background: 'var(--color-danger)', color: '#fff', flex: 1 }}
+              style={{ background: 'var(--color-accent-danger)', color: '#fff', flex: 1 }}
               onClick={handleCancel}
               disabled={cancel.isPending}
             >
               {cancel.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Sim, cancelar'}
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => setConfirming(false)}>
-              Não
+              Nao
             </button>
           </div>
         </div>
