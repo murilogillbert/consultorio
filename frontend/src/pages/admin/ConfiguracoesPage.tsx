@@ -916,64 +916,128 @@ export default function ConfiguracoesPage() {
 
           {activeTab === 'about' && (
             <div>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)', marginBottom: 'var(--space-6)' }}>Página Sobre</h3>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)', marginBottom: 'var(--space-2)' }}>Pagina Sobre</h3>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-6)' }}>
+                Configure os textos e imagens exibidos na pagina <strong>/sobre</strong> do site publico.
+              </p>
 
-              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--color-accent-primary)' }}>
-                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>
-                  Estes textos aparecem no topo da página <strong>/sobre</strong> como título e subtítulo.
-                </p>
-              </div>
-
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label className="input-label">Texto principal <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(exibido como "Sobre a [texto]")</span></label>
-                <input className="input-field" value={aboutForm.name} onChange={e => setAboutForm({ ...aboutForm, name: e.target.value })} placeholder="Ex: Clínica Saúde & Bem-Estar" />
-              </div>
-
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label className="input-label">Texto secundário</label>
-                <textarea className="input-field" style={{ minHeight: 80 }} value={aboutForm.description} onChange={e => setAboutForm({ ...aboutForm, description: e.target.value })} placeholder="Clínica multidisciplinar focada em saúde integral e qualidade de vida." />
-              </div>
-
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label className="input-label">Missão</label>
-                <textarea className="input-field" style={{ minHeight: 80 }} value={aboutForm.mission} onChange={e => setAboutForm({ ...aboutForm, mission: e.target.value })} placeholder="Proporcionar saúde e bem-estar com atendimento humanizado..." />
-              </div>
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label className="input-label">Visão</label>
-                <textarea className="input-field" style={{ minHeight: 80 }} value={aboutForm.vision} onChange={e => setAboutForm({ ...aboutForm, vision: e.target.value })} placeholder="Ser referência nacional em excelência médica..." />
-              </div>
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label className="input-label">Valores</label>
-                <textarea className="input-field" style={{ minHeight: 80 }} value={aboutForm.values} onChange={e => setAboutForm({ ...aboutForm, values: e.target.value })} placeholder="Ética, empatia, excelência, inovação contínua..." />
-              </div>
-
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label className="input-label" style={{ marginBottom: 'var(--space-3)' }}>Marcos na Trajetória</label>
-                {aboutForm.milestones.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 12px', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                    <strong style={{ minWidth: 50 }}>{m.year}</strong>
-                    <span style={{ flex: 1 }}>{m.title} — {m.description}</span>
-                    <button className="btn btn-icon btn-sm" onClick={() => handleRemoveMilestone(i)}><X size={14} color="var(--color-accent-danger)" /></button>
-                  </div>
-                ))}
-                <div className="form-2col" style={{ marginTop: 'var(--space-3)' }}>
-                  <div className="input-group">
-                    <input className="input-field" placeholder="Ano (ex: 2004)" value={newMilestone.year} onChange={e => setNewMilestone({ ...newMilestone, year: e.target.value })} />
-                  </div>
-                  <div className="input-group">
-                    <input className="input-field" placeholder="Título (ex: Fundação)" value={newMilestone.title} onChange={e => setNewMilestone({ ...newMilestone, title: e.target.value })} />
+              {/* ---- Apresentacao ---- */}
+              <div className="card" style={{ marginBottom: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+                <h4 style={{ fontSize: 'var(--text-ui)', fontWeight: 'var(--weight-medium)', marginBottom: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Building2 size={16} color="var(--color-accent-emerald)" />
+                  Apresentacao
+                </h4>
+                <div className="form-2col">
+                  <div className="input-group full-span">
+                    <label className="input-label">Titulo <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(exibido como "Sobre a [titulo]")</span></label>
+                    <input className="input-field" value={aboutForm.name} onChange={e => setAboutForm({ ...aboutForm, name: e.target.value })} placeholder="Ex: Clinica Saude & Bem-Estar" />
                   </div>
                   <div className="input-group full-span">
-                    <input className="input-field" placeholder="Descrição do marco" value={newMilestone.description} onChange={e => setNewMilestone({ ...newMilestone, description: e.target.value })} />
+                    <label className="input-label">Descricao</label>
+                    <textarea className="input-field" style={{ minHeight: 90 }} value={aboutForm.description} onChange={e => setAboutForm({ ...aboutForm, description: e.target.value })} placeholder="Clinica multidisciplinar focada em saude integral e qualidade de vida." />
                   </div>
                 </div>
-                <button className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={handleAddMilestone}>
-                  <Plus size={14} /> Adicionar Marco
-                </button>
               </div>
 
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label className="input-label" style={{ marginBottom: 'var(--space-3)' }}>Galeria de Imagens</label>
+              {/* ---- Missao, Visao e Valores ---- */}
+              <div className="card" style={{ marginBottom: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+                <h4 style={{ fontSize: 'var(--text-ui)', fontWeight: 'var(--weight-medium)', marginBottom: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Shield size={16} color="var(--color-accent-gold)" />
+                  Missao, Visao e Valores
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-5)' }}>
+                  <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="input-label">Missao</label>
+                    <textarea className="input-field" style={{ minHeight: 90 }} value={aboutForm.mission} onChange={e => setAboutForm({ ...aboutForm, mission: e.target.value })} placeholder="Proporcionar saude e bem-estar com atendimento humanizado..." />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Visao</label>
+                    <textarea className="input-field" style={{ minHeight: 90 }} value={aboutForm.vision} onChange={e => setAboutForm({ ...aboutForm, vision: e.target.value })} placeholder="Ser referencia nacional em excelencia medica..." />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Valores</label>
+                    <textarea className="input-field" style={{ minHeight: 90 }} value={aboutForm.values} onChange={e => setAboutForm({ ...aboutForm, values: e.target.value })} placeholder="Etica, empatia, excelencia, inovacao continua..." />
+                  </div>
+                </div>
+              </div>
+
+              {/* ---- Marcos na Trajetoria ---- */}
+              <div className="card" style={{ marginBottom: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+                <h4 style={{ fontSize: 'var(--text-ui)', fontWeight: 'var(--weight-medium)', marginBottom: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Hash size={16} color="var(--color-accent-emerald)" />
+                  Marcos na Trajetoria
+                </h4>
+
+                {aboutForm.milestones.length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    {aboutForm.milestones.map((m, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
+                        padding: 'var(--space-3) var(--space-4)',
+                        borderBottom: i < aboutForm.milestones.length - 1 ? '1px solid var(--color-border-default)' : 'none',
+                      }}>
+                        <span style={{
+                          fontFamily: 'var(--font-display)', fontSize: 'var(--text-ui)',
+                          fontWeight: 'var(--weight-bold)', color: 'var(--color-accent-gold)',
+                          minWidth: 52, textAlign: 'center',
+                        }}>{m.year}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-body)', color: 'var(--color-text-primary)' }}>{m.title}</div>
+                          {m.description && (
+                            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 2 }}>{m.description}</div>
+                          )}
+                        </div>
+                        <button className="btn btn-icon btn-sm" onClick={() => handleRemoveMilestone(i)} title="Remover marco">
+                          <Trash2 size={14} color="var(--color-accent-danger)" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{
+                  padding: 'var(--space-4)', background: 'var(--color-bg-secondary)',
+                  borderRadius: 'var(--radius-sm)', border: '1px dashed var(--color-border-default)',
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                    <div className="input-group">
+                      <label className="input-label">Ano</label>
+                      <input className="input-field" placeholder="2004" value={newMilestone.year} onChange={e => setNewMilestone({ ...newMilestone, year: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Titulo</label>
+                      <input className="input-field" placeholder="Ex: Fundacao da clinica" value={newMilestone.title} onChange={e => setNewMilestone({ ...newMilestone, title: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="input-group" style={{ marginBottom: 'var(--space-3)' }}>
+                    <label className="input-label">Descricao <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(opcional)</span></label>
+                    <input className="input-field" placeholder="Breve descricao do marco" value={newMilestone.description} onChange={e => setNewMilestone({ ...newMilestone, description: e.target.value })} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={handleAddMilestone} disabled={!newMilestone.year || !newMilestone.title}>
+                      <Plus size={14} /> Adicionar Marco
+                    </button>
+                  </div>
+                </div>
+
+                {aboutForm.milestones.length === 0 && (
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-3)', textAlign: 'center' }}>
+                    Nenhum marco cadastrado. Adicione marcos importantes na trajetoria da clinica.
+                  </p>
+                )}
+              </div>
+
+              {/* ---- Galeria de Imagens ---- */}
+              <div className="card" style={{ marginBottom: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
+                  <h4 style={{ fontSize: 'var(--text-ui)', fontWeight: 'var(--weight-medium)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}>
+                    <Camera size={16} color="var(--color-accent-gold)" />
+                    Galeria de Imagens
+                  </h4>
+                  <button className="btn btn-secondary btn-sm" onClick={() => galleryInputRef.current?.click()} disabled={uploading}>
+                    <Plus size={14} /> {uploading ? 'Enviando...' : 'Adicionar'}
+                  </button>
+                </div>
                 <input
                   ref={galleryInputRef}
                   type="file"
@@ -982,33 +1046,62 @@ export default function ConfiguracoesPage() {
                   style={{ display: 'none' }}
                   onChange={handleGalleryUpload}
                 />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8, marginBottom: 'var(--space-4)' }}>
-                  {aboutForm.galleryUrls.map((url, i) => (
-                    <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--color-border-default)' }}>
-                      <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button
-                        className="btn btn-icon btn-sm"
-                        style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', borderRadius: 'var(--radius-full)' }}
-                        onClick={() => setAboutForm({ ...aboutForm, galleryUrls: aboutForm.galleryUrls.filter((_, j) => j !== i) })}
-                      >
-                        <X size={14} color="white" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => galleryInputRef.current?.click()} disabled={uploading}>
-                  <Camera size={14} /> {uploading ? 'Enviando...' : 'Adicionar Imagens'}
-                </button>
+                {aboutForm.galleryUrls.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 'var(--space-3)' }}>
+                    {aboutForm.galleryUrls.map((url, i) => (
+                      <div key={i} style={{
+                        position: 'relative', aspectRatio: '4/3', borderRadius: 'var(--radius-sm)',
+                        overflow: 'hidden', border: '1px solid var(--color-border-default)',
+                        boxShadow: 'var(--shadow-card)', transition: 'transform var(--transition-fast)',
+                      }}>
+                        <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)',
+                          opacity: 0, transition: 'opacity var(--transition-fast)',
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                          onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
+                        >
+                          <button
+                            className="btn btn-icon btn-sm"
+                            style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(139,32,32,0.85)', borderRadius: 'var(--radius-full)' }}
+                            onClick={() => setAboutForm({ ...aboutForm, galleryUrls: aboutForm.galleryUrls.filter((_, j) => j !== i) })}
+                          >
+                            <Trash2 size={13} color="white" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    className="file-upload-area"
+                    style={{ padding: 'var(--space-8)', cursor: 'pointer' }}
+                    onClick={() => galleryInputRef.current?.click()}
+                  >
+                    <Camera size={28} />
+                    <p style={{ margin: '8px 0 4px' }}>Arraste imagens ou clique para selecionar</p>
+                    <span>JPG, PNG ou WebP</span>
+                  </div>
+                )}
               </div>
 
+              {/* ---- Botao Salvar ---- */}
               {aboutSaveMsg && (
-                <div style={{ marginTop: 'var(--space-4)', color: aboutSaveMsg.includes('Erro') ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)', fontSize: 14 }}>
+                <div style={{
+                  marginBottom: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: aboutSaveMsg.includes('Erro') ? 'rgba(139,32,32,0.08)' : 'rgba(45,106,79,0.08)',
+                  color: aboutSaveMsg.includes('Erro') ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)',
+                  fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)',
+                }}>
                   {aboutSaveMsg}
                 </div>
               )}
-              <div style={{ marginTop: 'var(--space-6)', display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button className="btn btn-primary" onClick={handleSaveAbout} disabled={updateClinicMutation.isPending}>
-                  {updateClinicMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
+                  {updateClinicMutation.isPending ? 'Salvando...' : 'Salvar Alteracoes'}
                 </button>
               </div>
             </div>
