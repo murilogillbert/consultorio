@@ -16,7 +16,7 @@ public class TokenService
     }
 
     // Gera um token JWT com as informações do usuário embutidas (claims)
-    public string GenerateToken(Guid userId, string email, string role, Guid? clinicId)
+    public string GenerateToken(Guid userId, string email, string role, Guid? clinicId, Guid? professionalId = null)
     {
         // A chave secreta vem do appsettings.json
         var key = new SymmetricSecurityKey(
@@ -35,6 +35,10 @@ public class TokenService
         // Adiciona o ClinicId como claim se existir
         if (clinicId.HasValue)
             claims.Add(new Claim("clinicId", clinicId.Value.ToString()));
+
+        // Adiciona o ProfessionalId como claim se for um profissional
+        if (professionalId.HasValue)
+            claims.Add(new Claim("professionalId", professionalId.Value.ToString()));
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],

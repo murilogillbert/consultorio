@@ -32,5 +32,7 @@ public class UserInfoDto
     public string Email { get; set; } = null!;
     public string Role { get; set; } = null!;
     public Guid? ClinicId { get; set; }
+    public Guid? ProfessionalId { get; set; }
+    public Guid? PatientId { get; set; }
     public string? AvatarUrl { get; set; }
 }

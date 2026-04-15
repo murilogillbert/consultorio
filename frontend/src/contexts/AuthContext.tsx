@@ -7,6 +7,9 @@ export interface User {
   email: string
   role: 'ADMIN' | 'RECEPTIONIST' | 'PROFESSIONAL' | 'PATIENT'
   avatarUrl?: string
+  clinicId?: string
+  professionalId?: string
+  patientId?: string
 }
 
 interface AuthContextData {

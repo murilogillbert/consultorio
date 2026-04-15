@@ -36,25 +36,87 @@ public class AuthController : ControllerBase
         if (!user.IsActive)
             return Unauthorized(new { message = "Usuário desativado." });
 
-        // Busca o perfil do sistema (SystemUser) para saber a role e clínica
+        // Busca o perfil do sistema (SystemUser) para saber a role e clínica (admin/recepcionista)
         var systemUser = await _db.SystemUsers.FirstOrDefaultAsync(su => su.UserId == user.Id);
 
-        var role = systemUser?.Role ?? "PATIENT";
-        var clinicId = systemUser?.ClinicId;
+        if (systemUser != null)
+        {
+            // Usuário de staff (ADMIN ou RECEPTIONIST)
+            var staffToken = _tokenService.GenerateToken(user.Id, user.Email, systemUser.Role, systemUser.ClinicId);
+            return Ok(new AuthResponseDto
+            {
+                Token = staffToken,
+                User = new UserInfoDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = systemUser.Role,
+                    ClinicId = systemUser.ClinicId,
+                    AvatarUrl = user.AvatarUrl
+                }
+            });
+        }
 
-        // Gera o token JWT
-        var token = _tokenService.GenerateToken(user.Id, user.Email, role, clinicId);
+        // Verifica se é um profissional
+        var professional = await _db.Professionals.FirstOrDefaultAsync(p => p.UserId == user.Id);
 
+        if (professional != null)
+        {
+            // Profissional — recebe role PROFESSIONAL, clinicId e professionalId no token
+            var proToken = _tokenService.GenerateToken(
+                user.Id, user.Email, "PROFESSIONAL",
+                professional.ClinicId, professional.Id
+            );
+            return Ok(new AuthResponseDto
+            {
+                Token = proToken,
+                User = new UserInfoDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = "PROFESSIONAL",
+                    ClinicId = professional.ClinicId,
+                    ProfessionalId = professional.Id,
+                    AvatarUrl = user.AvatarUrl
+                }
+            });
+        }
+
+        // Verifica se é paciente (Patient portal unificado)
+        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.UserId == user.Id);
+
+        if (patient != null)
+        {
+            // Paciente via portal unificado — usa GeneratePatientToken para incluir patientId
+            var patientToken = _tokenService.GeneratePatientToken(user.Id, user.Email, patient.Id);
+            return Ok(new AuthResponseDto
+            {
+                Token = patientToken,
+                User = new UserInfoDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = "PATIENT",
+                    PatientId = patient.Id,
+                    AvatarUrl = user.AvatarUrl
+                }
+            });
+        }
+
+        // Fallback — usuário sem perfil associado
+        var fallbackToken = _tokenService.GenerateToken(user.Id, user.Email, "PATIENT", null);
         return Ok(new AuthResponseDto
         {
-            Token = token,
+            Token = fallbackToken,
             User = new UserInfoDto
             {
                 Id = user.Id,
                 Name = user.Name,
                 Email = user.Email,
-                Role = role,
-                ClinicId = clinicId,
+                Role = "PATIENT",
                 AvatarUrl = user.AvatarUrl
             }
         });

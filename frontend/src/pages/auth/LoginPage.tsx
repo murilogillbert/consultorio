@@ -39,6 +39,8 @@ export default function LoginPage() {
         navigate('/admin')
       } else if (user.role === 'RECEPTIONIST') {
         navigate('/recepcao')
+      } else if (user.role === 'PROFESSIONAL') {
+        navigate('/profissional')
       } else {
         navigate('/')
       }

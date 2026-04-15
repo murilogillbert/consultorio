@@ -32,6 +32,7 @@ public class ProfessionalsController : ControllerBase
         Specialty = p.Specialty,
         Bio = p.Bio,
         IsAvailable = p.IsAvailable,
+        Commission = p.Commission,
         CreatedAt = p.CreatedAt,
         Services = p.Services.Select(s => s.Name).ToList(),
         ServiceIds = p.Services.Select(s => s.Id).ToList(),
@@ -114,6 +115,7 @@ public class ProfessionalsController : ControllerBase
             Specialty = dto.Specialty,
             Bio = dto.Bio,
             IsAvailable = true,
+            Commission = dto.Commission,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -151,6 +153,7 @@ public class ProfessionalsController : ControllerBase
         if (dto.Specialty != null) pro.Specialty = dto.Specialty;
         if (dto.Bio != null) pro.Bio = dto.Bio;
         if (dto.IsAvailable.HasValue) pro.IsAvailable = dto.IsAvailable.Value;
+        if (dto.Commission.HasValue) pro.Commission = dto.Commission.Value;
         pro.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();

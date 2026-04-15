@@ -27,7 +27,8 @@ export default function ProfissionaisPage() {
     languages: '',
     userId: '',
     roomId: '',
-    insuranceIds: [] as string[]
+    insuranceIds: [] as string[],
+    commission: 50
   })
   const [formError, setFormError] = useState('')
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
@@ -80,6 +81,7 @@ export default function ProfissionaisPage() {
           specialty: formData.specialty,
           bio: formData.bio,
           languages: formData.languages,
+          commission: formData.commission,
           schedules: parsedSchedules,
         })
       } else {
@@ -97,6 +99,7 @@ export default function ProfissionaisPage() {
           specialty: formData.specialty,
           bio: formData.bio,
           languages: formData.languages,
+          commission: formData.commission,
           schedules: parsedSchedules,
         })
       }
@@ -114,7 +117,8 @@ export default function ProfissionaisPage() {
         languages: '',
         userId: '',
         roomId: '',
-        insuranceIds: []
+        insuranceIds: [],
+        commission: 50
       })
       setScheduleSlots({})
     } catch (err: any) {
@@ -144,7 +148,8 @@ export default function ProfissionaisPage() {
       languages: pro.languages || '',
       userId: pro.userId,
       roomId: '', // Set from actual data if available
-      insuranceIds: [] // Set from actual data if available
+      insuranceIds: [], // Set from actual data if available
+      commission: pro.commission ?? 50
     })
 
     setAvatarPreview(pro.user?.avatarUrl || null)
@@ -410,10 +415,19 @@ export default function ProfissionaisPage() {
                 </button>
               </div>
 
-              {/* Banking */}
+              {/* Comissão */}
               <div className="input-group">
                 <label className="input-label">Comissão (%)</label>
-                <input className="input-field" type="number" placeholder="50" />
+                <input
+                  className="input-field"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  placeholder="50"
+                  value={formData.commission}
+                  onChange={e => setFormData({ ...formData, commission: Number(e.target.value) })}
+                />
               </div>
               <div className="input-group">
                 <ComboBox 

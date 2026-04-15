@@ -289,6 +289,103 @@
   margin-left: var(--space-4);
 }
 
+/* ---- Auth area no header ---- */
+.navbar-auth {
+  display: flex;
+  align-items: center;
+  margin-left: var(--space-4);
+}
+
+.navbar-login-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.navbar-user-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.navbar-user-avatar-placeholder {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-accent-emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.navbar-user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.navbar-user-name {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+.navbar-user-status {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--color-accent-emerald);
+  font-weight: var(--weight-medium);
+}
+
+.navbar-signout {
+  padding: 4px 8px !important;
+  color: var(--color-text-muted) !important;
+}
+
+.navbar-signout:hover {
+  color: var(--color-accent-danger) !important;
+}
+
+/* ---- Mobile user info ---- */
+.mobile-user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.mobile-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-accent-emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mobile-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .navbar-hamburger {
   display: none;
   width: 40px;
@@ -472,6 +569,9 @@
     display: none;
   }
   .navbar-cta {
+    display: none;
+  }
+  .navbar-auth {
     display: none;
   }
   .navbar-hamburger {

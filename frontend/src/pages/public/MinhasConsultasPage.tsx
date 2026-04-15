@@ -9,6 +9,7 @@ import {
   useCancelPatientAppointment, useSubmitReview,
   getPatientUser, clearPatient, type PatientAppointment
 } from '../../hooks/usePatientPortal'
+import { useAuth } from '../../contexts/AuthContext'
 
 type Screen = 'login' | 'register' | 'dashboard'
 
@@ -581,7 +582,33 @@ function AppointmentCard({ appointment: a }: { appointment: PatientAppointment }
 // ─── Page principal ────────────────────────────────────────────────────────
 
 export default function MinhasConsultasPage() {
+  const { user: authUser, token: authToken, isAuthenticated, signOut } = useAuth()
+
+  // Se o usuário está autenticado como PATIENT via AuthContext (login pelo header),
+  // fazemos a ponte: copiamos o token para o patient_token para os hooks existentes funcionarem.
+  useEffect(() => {
+    if (isAuthenticated && authUser?.role === 'PATIENT' && authToken) {
+      localStorage.setItem('patient_token', authToken)
+      localStorage.setItem('patient_user', JSON.stringify({
+        id: authUser.id,
+        name: authUser.name,
+        email: authUser.email,
+      }))
+    }
+  }, [isAuthenticated, authUser, authToken])
+
   const [screen, setScreen] = useState<Screen>(() => {
+    // Prioridade 1: usuário já logado via AuthContext como PATIENT
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('@Consultorio:user')
+      if (stored) {
+        try {
+          const u = JSON.parse(stored)
+          if (u.role === 'PATIENT') return 'dashboard'
+        } catch {}
+      }
+    }
+    // Prioridade 2: login próprio do portal de paciente
     const token = localStorage.getItem('patient_token')
     const user  = localStorage.getItem('patient_user')
     return token && user ? 'dashboard' : 'login'
@@ -589,6 +616,8 @@ export default function MinhasConsultasPage() {
 
   const handleLogout = () => {
     clearPatient()
+    // Se veio do AuthContext, também faz logout global
+    if (authUser?.role === 'PATIENT') signOut()
     setScreen('login')
   }
 

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 // Backend ProfessionalResponseDto:
-// { id, userId, name, email, phone, avatarUrl, licenseNumber, specialty, bio, isAvailable, createdAt, services: string[], serviceIds: string[] }
+// { id, userId, name, email, phone, avatarUrl, licenseNumber, specialty, bio, isAvailable, commission, createdAt, services: string[], serviceIds: string[] }
 interface ProfessionalResponseDtoRaw {
   id: string
   userId: string
@@ -14,6 +14,7 @@ interface ProfessionalResponseDtoRaw {
   specialty?: string
   bio?: string
   isAvailable: boolean
+  commission: number
   createdAt: string
   services: string[]
   serviceIds: string[]
@@ -30,6 +31,7 @@ export interface Professional {
   bio?: string
   languages?: string
   active: boolean
+  commission: number
   user?: {
     id: string
     name: string
@@ -54,6 +56,7 @@ function mapProfessional(raw: ProfessionalResponseDtoRaw): Professional {
     bio: raw.bio,
     languages: '',
     active: raw.isAvailable,
+    commission: raw.commission ?? 50,
     user: {
       id: raw.userId,
       name: raw.name,
@@ -119,6 +122,7 @@ export function useCreateProfessional() {
         licenseNumber: input.crm,
         specialty: input.specialty,
         bio: input.bio,
+        commission: (input as any).commission ?? 50,
       }
       const { data } = await api.post<ProfessionalResponseDtoRaw>('/professionals', payload)
       // Persist schedules (if provided) via POST /api/schedules
@@ -149,6 +153,7 @@ export function useUpdateProfessional() {
       if (updateData.specialty !== undefined) payload.specialty = updateData.specialty
       if (updateData.bio !== undefined) payload.bio = updateData.bio
       if (updateData.active !== undefined) payload.isAvailable = updateData.active
+      if (updateData.commission !== undefined) payload.commission = updateData.commission
       const { data } = await api.put<ProfessionalResponseDtoRaw>(`/professionals/${id}`, payload)
       // Persist schedules separately. Always overwrite when caller passed a
       // schedules array — SetSchedule deletes all existing and rewrites, so

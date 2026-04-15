@@ -27,6 +27,7 @@ import AdminMovimento from './pages/admin/MovimentoPage'
 import AdminRecrutamento from './pages/admin/RecrutamentoPage'
 import LoginPage from './pages/auth/LoginPage'
 import ThemeProvider from './components/ThemeProvider'
+import ProfissionalDashboard from './pages/profissional/DashboardPage'
 
 export default function App() {
   return (
@@ -72,6 +73,13 @@ export default function App() {
           <Route path="/admin/marketing" element={<AdminMarketing />} />
           <Route path="/admin/movimento" element={<AdminMovimento />} />
           <Route path="/admin/recrutamento" element={<AdminRecrutamento />} />
+        </Route>
+      </Route>
+
+      {/* Portal do Profissional — renderizado dentro do PublicLayout para ter navbar */}
+      <Route element={<ProtectedRoute allowedRoles={['PROFESSIONAL']} />}>
+        <Route element={<PublicLayout />}>
+          <Route path="/profissional" element={<ProfissionalDashboard />} />
         </Route>
       </Route>
 
