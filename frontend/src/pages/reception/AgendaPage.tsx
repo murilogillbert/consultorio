@@ -28,6 +28,7 @@ export default function AgendaPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [formError, setFormError] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
+  const [drawerMsg, setDrawerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // New appointment form
   const [newForm, setNewForm] = useState({
@@ -100,16 +101,28 @@ export default function AgendaPage() {
 
   const handleCheckin = async () => {
     if (!selectedAppointment) return
-    const updated = await updateStatus.mutateAsync({ id: selectedAppointment.id, status: 'CONFIRMED' })
-    setSelectedAppointment(updated)
+    setDrawerMsg(null)
+    try {
+      const nextStatus = selectedAppointment.status === 'CONFIRMED' ? 'IN_PROGRESS' : 'CONFIRMED'
+      const updated = await updateStatus.mutateAsync({ id: selectedAppointment.id, status: nextStatus })
+      setSelectedAppointment(updated)
+      setDrawerMsg({ type: 'success', text: nextStatus === 'CONFIRMED' ? 'Chegada confirmada!' : 'Atendimento iniciado!' })
+    } catch (err: any) {
+      setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao atualizar status. Tente novamente.' })
+    }
   }
 
   const handleCancel = async () => {
     if (!selectedAppointment) return
-    await cancelAppointment.mutateAsync({ id: selectedAppointment.id, reason: cancelReason || 'Cancelado pela recepção' })
-    setShowCancelConfirm(false)
-    setCancelReason('')
-    setSelectedAppointment(null)
+    setDrawerMsg(null)
+    try {
+      await cancelAppointment.mutateAsync({ id: selectedAppointment.id, reason: cancelReason || 'Cancelado pela recepção' })
+      setShowCancelConfirm(false)
+      setCancelReason('')
+      setSelectedAppointment(null)
+    } catch (err: any) {
+      setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao cancelar. Tente novamente.' })
+    }
   }
 
   if (loadingProfs || loadingAppts) {
@@ -230,7 +243,7 @@ export default function AgendaPage() {
                     left: `calc(60px + ${profIndex} * ((100% - 60px) / ${displayedProfs.length}) + 2px)`,
                     width: `calc((100% - 60px) / ${displayedProfs.length} - 4px)`,
                   }}
-                  onClick={() => setSelectedAppointment(appt)}
+                  onClick={() => { setSelectedAppointment(appt); setDrawerMsg(null) }}
                 >
                   <div className="patient-name">{appt.patient?.user?.name || appt.patient?.name || 'Paciente'}</div>
                   <div className="service-name">{appt.service?.name || 'Serviço'}</div>
@@ -268,7 +281,7 @@ export default function AgendaPage() {
                 </div>
                 <div>
                   <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
-                  <span className={`badge badge-${selectedAppointment.status === 'CONFIRMED' ? 'emerald' : selectedAppointment.status === 'SCHEDULED' ? 'gold' : selectedAppointment.status === 'CANCELLED' ? 'danger' : 'muted'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
+                  <span className={`badge badge-${selectedAppointment.status === 'CONFIRMED' ? 'emerald' : selectedAppointment.status === 'IN_PROGRESS' ? 'emerald' : selectedAppointment.status === 'COMPLETED' ? 'muted' : selectedAppointment.status === 'SCHEDULED' ? 'gold' : selectedAppointment.status === 'CANCELLED' ? 'danger' : 'muted'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
                     {STATUS_LABEL[selectedAppointment.status] || selectedAppointment.status}
                   </span>
                 </div>
@@ -287,23 +300,50 @@ export default function AgendaPage() {
 
               <hr className="divider" />
 
-              {selectedAppointment.status !== 'CANCELLED' && selectedAppointment.status !== 'COMPLETED' && (
-                <button
-                  className="btn btn-primary btn-full"
-                  onClick={handleCheckin}
-                  disabled={updateStatus.isPending}
-                >
-                  <UserCheck size={16} /> {selectedAppointment.status === 'SCHEDULED' ? 'Confirmar Chegada' : 'Check-in'}
+              {drawerMsg && (
+                <div style={{
+                  padding: '8px 12px', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500,
+                  background: drawerMsg.type === 'error' ? 'rgba(139,32,32,0.08)' : 'rgba(45,106,79,0.08)',
+                  color: drawerMsg.type === 'error' ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)',
+                  border: `1px solid ${drawerMsg.type === 'error' ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)'}`,
+                }}>
+                  {drawerMsg.text}
+                </div>
+              )}
+
+              {selectedAppointment.status === 'SCHEDULED' && (
+                <button className="btn btn-primary btn-full" onClick={handleCheckin} disabled={updateStatus.isPending}>
+                  <UserCheck size={16} /> {updateStatus.isPending ? 'Atualizando...' : 'Confirmar Chegada'}
                 </button>
               )}
+              {selectedAppointment.status === 'CONFIRMED' && (
+                <button className="btn btn-primary btn-full" onClick={handleCheckin} disabled={updateStatus.isPending}>
+                  <UserCheck size={16} /> {updateStatus.isPending ? 'Atualizando...' : 'Iniciar Atendimento'}
+                </button>
+              )}
+              {selectedAppointment.status === 'IN_PROGRESS' && (
+                <button className="btn btn-primary btn-full" onClick={async () => {
+                  setDrawerMsg(null)
+                  try {
+                    const updated = await updateStatus.mutateAsync({ id: selectedAppointment.id, status: 'COMPLETED' })
+                    setSelectedAppointment(updated)
+                    setDrawerMsg({ type: 'success', text: 'Atendimento finalizado!' })
+                  } catch (err: any) {
+                    setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao finalizar. Tente novamente.' })
+                  }
+                }} disabled={updateStatus.isPending}>
+                  <UserCheck size={16} /> {updateStatus.isPending ? 'Atualizando...' : 'Finalizar Atendimento'}
+                </button>
+              )}
+
               <button className="btn btn-secondary btn-full">
-                <MessageSquare size={16} /> Avisar Funcionário
+                <MessageSquare size={16} /> Avisar Funcionario
               </button>
 
-              {selectedAppointment.status !== 'CANCELLED' && (
+              {selectedAppointment.status !== 'CANCELLED' && selectedAppointment.status !== 'COMPLETED' && (
                 <>
                   {showCancelConfirm ? (
-                    <div style={{ background: 'rgba(var(--color-danger-rgb), 0.05)', padding: 12, borderRadius: 12, border: '1px solid var(--color-accent-danger)' }}>
+                    <div style={{ background: 'rgba(139,32,32,0.05)', padding: 12, borderRadius: 12, border: '1px solid var(--color-accent-danger)' }}>
                       <input
                         className="input-field"
                         placeholder="Motivo (opcional)"
@@ -314,7 +354,7 @@ export default function AgendaPage() {
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => setShowCancelConfirm(false)} style={{ flex: 1 }}>Voltar</button>
                         <button className="btn btn-sm btn-danger" style={{ flex: 1.5 }} onClick={handleCancel} disabled={cancelAppointment.isPending}>
-                          Confirmar
+                          {cancelAppointment.isPending ? 'Cancelando...' : 'Confirmar'}
                         </button>
                       </div>
                     </div>
