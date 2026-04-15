@@ -98,6 +98,7 @@ export function usePatientConversation() {
       }
     },
     enabled: !!getPatientToken(),
+    refetchInterval: 5_000, // poll every 5s while on screen
   })
 }
 
