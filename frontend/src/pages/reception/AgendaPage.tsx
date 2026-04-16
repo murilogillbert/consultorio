@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, X, UserCheck, MessageSquare, Search, Loader2, Plus, XCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, UserCheck, MessageSquare, Search, Loader2, Plus, XCircle, DollarSign } from 'lucide-react'
 import { useAppointments, useCreateAppointment, useCancelAppointment, useUpdateAppointmentStatus } from '../../hooks/useAppointments'
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useServices } from '../../hooks/useServices'
 import { usePatients } from '../../hooks/usePatients'
 import ComboBox from '../../components/ComboBox'
+import PaymentModal from '../../components/PaymentModal'
 import type { Appointment } from '../../hooks/useAppointments'
 
 const timeSlots = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
@@ -29,6 +30,7 @@ export default function AgendaPage() {
   const [formError, setFormError] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [drawerMsg, setDrawerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   // New appointment form
   const [newForm, setNewForm] = useState({
@@ -336,6 +338,16 @@ export default function AgendaPage() {
                 </button>
               )}
 
+              {selectedAppointment.status !== 'CANCELLED' && (
+                <button
+                  className="btn btn-full"
+                  style={{ background: '#16A34A', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  onClick={() => setShowPaymentModal(true)}
+                >
+                  <DollarSign size={16} /> Registrar Cobrança
+                </button>
+              )}
+
               <button className="btn btn-secondary btn-full">
                 <MessageSquare size={16} /> Avisar Funcionario
               </button>
@@ -369,6 +381,21 @@ export default function AgendaPage() {
           </div>
         )}
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && selectedAppointment && (
+        <PaymentModal
+          appointmentId={selectedAppointment.id}
+          serviceName={selectedAppointment.service?.name || 'Consulta'}
+          servicePrice={Math.round((selectedAppointment.service?.price ?? 0) * 100)}
+          appointmentStatus={selectedAppointment.status}
+          onClose={() => setShowPaymentModal(false)}
+          onPaid={() => {
+            setShowPaymentModal(false)
+            setDrawerMsg({ type: 'success', text: 'Pagamento registrado com sucesso!' })
+          }}
+        />
+      )}
 
       {/* New Appointment Modal */}
       {showNewModal && (

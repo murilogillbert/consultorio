@@ -50,6 +50,7 @@ public class AppointmentServiceDto
     public string Name { get; set; } = null!;
     public int Duration { get; set; }
     public string Color { get; set; } = null!;
+    public decimal Price { get; set; }
 }
 
 public class AppointmentPersonDto

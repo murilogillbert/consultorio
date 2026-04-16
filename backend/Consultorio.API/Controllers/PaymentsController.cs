@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Consultorio.API.DTOs;
+using Consultorio.API.Services;
 using Consultorio.Domain.Models;
 using Consultorio.Infra.Context;
 
@@ -13,7 +14,12 @@ namespace Consultorio.API.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public PaymentsController(AppDbContext db) => _db = db;
+    private readonly MercadoPagoService _mp;
+    public PaymentsController(AppDbContext db, MercadoPagoService mp)
+    {
+        _db = db;
+        _mp = mp;
+    }
 
     private Guid GetClinicId()
     {
@@ -194,5 +200,146 @@ public class PaymentsController : ControllerBase
         _db.Payments.Remove(p);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    // ─── POST /api/payments/charge ─────────────────────────────────────
+    // Endpoint único da recepção para registrar cobrança em qualquer método.
+    // Cria ou substitui o Payment do agendamento.
+    [HttpPost("charge")]
+    public async Task<ActionResult<ChargeResponseDto>> Charge([FromBody] ChargeRequestDto dto)
+    {
+        var appt = await _db.Appointments
+            .Include(a => a.Service)
+            .Include(a => a.Payment)
+            .FirstOrDefaultAsync(a => a.Id == dto.AppointmentId);
+
+        if (appt == null)
+            return NotFound(new { message = "Agendamento não encontrado." });
+
+        var amount = dto.Amount ?? appt.Service?.Price ?? 0;
+        var description = appt.Service?.Name ?? "Consulta";
+        var paidBefore = appt.Status != "COMPLETED";
+
+        // Se já existe um pagamento pendente, reutiliza; senão cria novo
+        var payment = appt.Payment;
+        if (payment == null)
+        {
+            payment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                AppointmentId = appt.Id,
+                CreatedAt = DateTime.UtcNow,
+            };
+            _db.Payments.Add(payment);
+        }
+
+        payment.Amount = amount;
+        payment.PaymentMethod = dto.Method;
+        payment.Notes = dto.Notes;
+        payment.PaidBeforeCompletion = paidBefore;
+        payment.UpdatedAt = DateTime.UtcNow;
+
+        var resp = new ChargeResponseDto
+        {
+            PaymentId = payment.Id,
+            Method = dto.Method,
+            Amount = amount,
+            PaidBeforeCompletion = paidBefore,
+        };
+
+        switch (dto.Method)
+        {
+            // ── Métodos manuais: marcar como PAGO imediatamente ──────────
+            case "CASH":
+            case "INSURANCE":
+            case "OTHER":
+                payment.Status = "PAID";
+                payment.PaymentDate = DateTime.UtcNow;
+                resp.Status = "PAID";
+                break;
+
+            // ── PIX: gerar QR via Mercado Pago ───────────────────────────
+            case "PIX":
+                try
+                {
+                    var pix = await _mp.CreatePixAsync(
+                        amount, description,
+                        dto.PayerEmail ?? "", dto.PayerFirstName, dto.PayerLastName, dto.PayerCpf);
+                    payment.Status = "PENDING";
+                    payment.ExternalPaymentId = pix.ExternalId;
+                    payment.ExternalQrCode = pix.QrCode;
+                    payment.ExternalQrCodeBase64 = pix.QrCodeBase64;
+                    resp.Status = "PENDING";
+                    resp.ExternalPaymentId = pix.ExternalId;
+                    resp.QrCode = pix.QrCode;
+                    resp.QrCodeBase64 = pix.QrCodeBase64;
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { message = $"Erro ao gerar PIX: {ex.Message}" });
+                }
+                break;
+
+            // ── Cartão crédito / débito: gerar link de checkout ───────────
+            case "CREDIT_CARD":
+            case "DEBIT_CARD":
+                try
+                {
+                    var pref = await _mp.CreatePreferenceAsync(amount, description, dto.PayerEmail ?? "");
+                    payment.Status = "PENDING";
+                    payment.ExternalPaymentId = pref.ExternalId;
+                    payment.ExternalCheckoutUrl = pref.CheckoutUrl;
+                    resp.Status = "PENDING";
+                    resp.ExternalPaymentId = pref.ExternalId;
+                    resp.CheckoutUrl = pref.CheckoutUrl;
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { message = $"Erro ao gerar link de pagamento: {ex.Message}" });
+                }
+                break;
+
+            default:
+                payment.Status = "PAID";
+                payment.PaymentDate = DateTime.UtcNow;
+                resp.Status = "PAID";
+                break;
+        }
+
+        await _db.SaveChangesAsync();
+        resp.PaymentId = payment.Id;
+        return Ok(resp);
+    }
+
+    // ─── GET /api/payments/charge/{paymentId}/status ───────────────────
+    // Consulta status no Mercado Pago e atualiza o banco se aprovado.
+    [HttpGet("charge/{paymentId}/status")]
+    public async Task<ActionResult> CheckChargeStatus(Guid paymentId)
+    {
+        var p = await _db.Payments.FindAsync(paymentId);
+        if (p == null) return NotFound(new { message = "Pagamento não encontrado." });
+
+        if (p.Status == "PAID")
+            return Ok(new { status = "PAID", paymentId });
+
+        if (string.IsNullOrEmpty(p.ExternalPaymentId))
+            return Ok(new { status = p.Status, paymentId });
+
+        try
+        {
+            var mpStatus = await _mp.GetPaymentStatusAsync(p.ExternalPaymentId);
+            if (mpStatus.Status == "approved")
+            {
+                p.Status = "PAID";
+                p.PaymentDate = DateTime.UtcNow;
+                p.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+            }
+            return Ok(new { status = p.Status == "PAID" ? "PAID" : mpStatus.Status, paymentId });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { status = p.Status, paymentId, warning = ex.Message });
+        }
     }
 }

@@ -237,7 +237,8 @@ public class AppointmentsController : ControllerBase
             Id = a.Service.Id,
             Name = a.Service.Name,
             Duration = a.Service.DurationMinutes,
-            Color = a.Service.Color
+            Color = a.Service.Color,
+            Price = a.Service.Price
         },
         Patient = new AppointmentPersonDto
         {

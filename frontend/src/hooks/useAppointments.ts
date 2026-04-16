@@ -14,7 +14,7 @@ interface AppointmentRaw {
   status: string
   notes?: string
   createdAt: string
-  service: { id: string; name: string; duration: number; color?: string }
+  service: { id: string; name: string; duration: number; color?: string; price?: number }
   patient: { id: string; name: string; avatarUrl?: string }
   professional: { id: string; name: string; avatarUrl?: string }
   room?: { id: string; name: string } | null
@@ -30,7 +30,7 @@ export interface Appointment {
   status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
   notes?: string
   patient?: { name: string; user?: { name: string } }
-  service?: { name: string }
+  service?: { name: string; price?: number }
   professional?: { user?: { name: string } }
 }
 
@@ -45,7 +45,7 @@ function mapAppointment(a: AppointmentRaw): Appointment {
     status: a.status,
     notes: a.notes,
     patient: { name: a.patient.name, user: { name: a.patient.name } },
-    service: { name: a.service.name },
+    service: { name: a.service.name, price: a.service.price },
     professional: { user: { name: a.professional.name } },
   }
 }
