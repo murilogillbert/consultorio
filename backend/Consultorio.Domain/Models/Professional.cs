@@ -8,6 +8,7 @@ public class Professional
     public string LicenseNumber { get; set; } = null!;
     public string? Specialty { get; set; }
     public string? Bio { get; set; }
+    public decimal CommissionPct { get; set; } = 50;
     public bool IsAvailable { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

@@ -16,9 +16,17 @@ public class CreateServiceDto
     public string Color { get; set; } = "#007BFF";
     // Vinculações (many-to-many)
     public List<Guid>? ProfessionalIds { get; set; }
-    public List<Guid>? InsuranceIds { get; set; }
+    public List<InsuranceBindingDto>? Insurances { get; set; }
     public List<Guid>? EquipmentIds { get; set; }
     public List<Guid>? RoomIds { get; set; }
+}
+
+/// <summary>Input binding for insurance per service: id + optional price + visibility.</summary>
+public class InsuranceBindingDto
+{
+    public Guid InsuranceId { get; set; }
+    public decimal? Price { get; set; }
+    public bool ShowPrice { get; set; } = true;
 }
 
 // DTO de atualização — o que o cliente envia no PUT
@@ -38,7 +46,7 @@ public class UpdateServiceDto
     public bool? IsActive { get; set; }
     // Vinculações (many-to-many) — null = não alterar
     public List<Guid>? ProfessionalIds { get; set; }
-    public List<Guid>? InsuranceIds { get; set; }
+    public List<InsuranceBindingDto>? Insurances { get; set; }
     public List<Guid>? EquipmentIds { get; set; }
     public List<Guid>? RoomIds { get; set; }
 }
@@ -56,6 +64,8 @@ public class ServiceInsuranceSummaryDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
+    public decimal? Price { get; set; }
+    public bool ShowPrice { get; set; } = true;
 }
 
 // Resumo de equipamento vinculado ao serviço

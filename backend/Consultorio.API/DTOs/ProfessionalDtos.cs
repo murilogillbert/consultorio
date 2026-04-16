@@ -9,6 +9,7 @@ public class CreateProfessionalDto
     public string? Specialty { get; set; }
     public string? Bio { get; set; }
     public string? Phone { get; set; }
+    public decimal? CommissionPct { get; set; }
 }
 
 public class UpdateProfessionalDto
@@ -20,6 +21,7 @@ public class UpdateProfessionalDto
     public string? Phone { get; set; }
     public bool? IsAvailable { get; set; }
     public string? AvatarUrl { get; set; }
+    public decimal? CommissionPct { get; set; }
 }
 
 public class ProfessionalResponseDto
@@ -34,6 +36,7 @@ public class ProfessionalResponseDto
     public string? Specialty { get; set; }
     public string? Bio { get; set; }
     public bool IsAvailable { get; set; }
+    public decimal CommissionPct { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<string> Services { get; set; } = new();
     public List<Guid> ServiceIds { get; set; } = new();

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Outlet, Link, NavLink } from 'react-router-dom'
-import { Menu, X, MessageCircle, Phone, ExternalLink } from 'lucide-react'
+import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom'
+import { Menu, X, MessageCircle, Phone, ExternalLink, User } from 'lucide-react'
 import { useClinics } from '../hooks/useClinics'
+import { isProfessionalLoggedIn, getProfessionalUser, clearProfessional } from '../hooks/useProfessionalPortal'
 
 function ClinicLogo({ logoUrl }: { logoUrl?: string | null }) {
   if (logoUrl) {
@@ -23,6 +24,9 @@ export default function PublicLayout() {
   const { data: clinics } = useClinics()
   const clinic = clinics?.[0]
   const clinicName = clinic?.name || 'Clínica Vitalis'
+  const navigate = useNavigate()
+  const isProLogged = isProfessionalLoggedIn()
+  const proUser = getProfessionalUser()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80)
@@ -62,6 +66,20 @@ export default function PublicLayout() {
             ))}
           </div>
 
+          {isProLogged ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Link to="/portal-profissional" className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <User size={15} /> {proUser?.name?.split(' ')[0] || 'Portal'}
+              </Link>
+              <button className="btn btn-ghost btn-sm" onClick={() => { clearProfessional(); navigate('/') }} style={{ fontSize: 12, opacity: 0.7 }}>
+                Sair
+              </button>
+            </div>
+          ) : (
+            <Link to="/portal-profissional" className="btn btn-ghost btn-sm navbar-cta" style={{ marginRight: 8 }}>
+              <User size={14} style={{ marginRight: 4 }} /> Área do Profissional
+            </Link>
+          )}
           <Link to="/agendar" className="btn btn-primary navbar-cta">
             Agendar Consulta
           </Link>
@@ -96,6 +114,14 @@ export default function PublicLayout() {
               {link.label}
             </NavLink>
           ))}
+          <Link
+            to="/portal-profissional"
+            className="btn btn-ghost btn-lg"
+            onClick={() => setMobileOpen(false)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            <User size={18} /> {isProLogged ? `Portal: ${proUser?.name?.split(' ')[0]}` : 'Área do Profissional'}
+          </Link>
           <Link
             to="/agendar"
             className="btn btn-primary btn-lg"

@@ -17,6 +17,7 @@ interface ProfessionalResponseDtoRaw {
   createdAt: string
   services: string[]
   serviceIds: string[]
+  commissionPct: number
   schedules: Array<{ id: string; dayOfWeek: number; startTime: string; endTime: string }>
 }
 
@@ -36,6 +37,7 @@ export interface Professional {
     email: string
     avatarUrl?: string
   }
+  commissionPct: number
   // IDs dos serviços vinculados — para filtrar profissionais por serviço no agendamento
   serviceIds?: string[]
   services?: Array<{ service: { id: string; name: string } }>
@@ -54,6 +56,7 @@ function mapProfessional(raw: ProfessionalResponseDtoRaw): Professional {
     bio: raw.bio,
     languages: '',
     active: raw.isAvailable,
+    commissionPct: raw.commissionPct ?? 50,
     user: {
       id: raw.userId,
       name: raw.name,
@@ -108,10 +111,11 @@ export function useCreateProfessional() {
       specialty?: string
       bio?: string
       languages?: string
+      commissionPct?: number
       schedules?: Array<{ dayOfWeek: number; startTime: string; endTime: string }>
     }) => {
       // Backend requires name/email/password — create a user and professional in one call
-      const payload = {
+      const payload: any = {
         name: input.name || 'Novo Profissional',
         email: input.email || `prof_${Date.now()}@example.com`,
         password: input.password || 'ChangeMe@123',
@@ -120,6 +124,7 @@ export function useCreateProfessional() {
         specialty: input.specialty,
         bio: input.bio,
       }
+      if (input.commissionPct !== undefined) payload.commissionPct = input.commissionPct
       const { data } = await api.post<ProfessionalResponseDtoRaw>('/professionals', payload)
       // Persist schedules (if provided) via POST /api/schedules
       if (input.schedules && input.schedules.length > 0) {
@@ -149,6 +154,7 @@ export function useUpdateProfessional() {
       if (updateData.specialty !== undefined) payload.specialty = updateData.specialty
       if (updateData.bio !== undefined) payload.bio = updateData.bio
       if (updateData.active !== undefined) payload.isAvailable = updateData.active
+      if (updateData.commissionPct !== undefined) payload.commissionPct = updateData.commissionPct
       const { data } = await api.put<ProfessionalResponseDtoRaw>(`/professionals/${id}`, payload)
       // Persist schedules separately. Always overwrite when caller passed a
       // schedules array — SetSchedule deletes all existing and rewrites, so

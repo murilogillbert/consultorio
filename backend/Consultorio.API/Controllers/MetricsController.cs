@@ -171,8 +171,8 @@ public class MetricsController : ControllerBase
                 cancellationRate,
                 conversionRate,
                 revenue,
-                netPayout = revenue * 0.5m,
-                commissionPct = 50,
+                netPayout = revenue * (p.CommissionPct / 100m),
+                commissionPct = p.CommissionPct,
                 rating = Math.Round(avgRating, 1),
                 reviewCount = periodReviews.Count,
                 occupancy,
@@ -378,7 +378,7 @@ public class MetricsController : ControllerBase
             {
                 var pro = g.First().Appointment.Professional;
                 var gross = g.Sum(p => p.Amount);
-                var pct = 50; // default commission
+                var pct = pro.CommissionPct;
                 return new
                 {
                     id = pro.Id,

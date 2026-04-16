@@ -9,6 +9,7 @@ import SobrePage from './pages/public/SobrePage'
 import TrabalheConoscoPage from './pages/public/TrabalheConoscoPage'
 import AgendamentoPage from './pages/public/AgendamentoPage'
 import MinhasConsultasPage from './pages/public/MinhasConsultasPage'
+import ProfessionalDashboardPage from './pages/public/ProfessionalDashboardPage'
 import RecDashboard from './pages/reception/DashboardPage'
 import RecAgenda from './pages/reception/AgendaPage'
 import RecMensagens from './pages/reception/MensagensPage'
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/trabalhe-conosco" element={<TrabalheConoscoPage />} />
         <Route path="/agendar" element={<AgendamentoPage />} />
         <Route path="/minhas-consultas" element={<MinhasConsultasPage />} />
+        <Route path="/portal-profissional" element={<ProfessionalDashboardPage />} />
       </Route>
 
       {/* Auth */}

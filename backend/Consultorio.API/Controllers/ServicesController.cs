@@ -46,10 +46,12 @@ public class ServicesController : ControllerBase
             Name = p.User?.Name ?? "",
             AvatarUrl = p.User?.AvatarUrl
         }).ToList(),
-        InsurancePlans = s.InsurancePlans.Select(i => new ServiceInsuranceSummaryDto
+        InsurancePlans = s.ServiceInsurancePlans.Select(sip => new ServiceInsuranceSummaryDto
         {
-            Id   = i.Id,
-            Name = i.Name
+            Id   = sip.InsurancePlanId,
+            Name = sip.InsurancePlan?.Name ?? "",
+            Price = sip.Price,
+            ShowPrice = sip.ShowPrice,
         }).ToList(),
         Equipments = s.Equipments.Select(e => new ServiceEquipmentSummaryDto
         {
@@ -66,7 +68,7 @@ public class ServicesController : ControllerBase
     private IQueryable<Service> FullQuery() =>
         _db.Services
             .Include(s => s.Professionals).ThenInclude(p => p.User)
-            .Include(s => s.InsurancePlans)
+            .Include(s => s.ServiceInsurancePlans).ThenInclude(sip => sip.InsurancePlan)
             .Include(s => s.Equipments)
             .Include(s => s.Rooms);
 
@@ -142,14 +144,19 @@ public class ServicesController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        // Vincula convênios
-        if (dto.InsuranceIds?.Count > 0)
+        // Vincula convênios com preço e visibilidade
+        if (dto.Insurances?.Count > 0)
         {
-            var plans = await _db.InsurancePlans
-                .Where(p => dto.InsuranceIds.Contains(p.Id))
-                .ToListAsync();
-            foreach (var plan in plans)
-                service.InsurancePlans.Add(plan);
+            foreach (var ins in dto.Insurances)
+            {
+                _db.ServiceInsurancePlans.Add(new ServiceInsurancePlan
+                {
+                    ServiceId = service.Id,
+                    InsurancePlanId = ins.InsuranceId,
+                    Price = ins.Price,
+                    ShowPrice = ins.ShowPrice,
+                });
+            }
             await _db.SaveChangesAsync();
         }
 
@@ -177,7 +184,7 @@ public class ServicesController : ControllerBase
 
         // Recarrega com navegação para montar DTO completo
         await _db.Entry(service).Collection(s => s.Professionals).Query().Include(p => p.User).LoadAsync();
-        await _db.Entry(service).Collection(s => s.InsurancePlans).LoadAsync();
+        await _db.Entry(service).Collection(s => s.ServiceInsurancePlans).Query().Include(sip => sip.InsurancePlan).LoadAsync();
         await _db.Entry(service).Collection(s => s.Equipments).LoadAsync();
         await _db.Entry(service).Collection(s => s.Rooms).LoadAsync();
 
@@ -228,24 +235,23 @@ public class ServicesController : ControllerBase
                     service.Professionals.Add(p);
         }
 
-        // Sincroniza convênios
-        if (dto.InsuranceIds != null)
+        // Sincroniza convênios (replace all)
+        if (dto.Insurances != null)
         {
-            var newPlans = dto.InsuranceIds.Count > 0
-                ? await _db.InsurancePlans
-                    .Where(p => dto.InsuranceIds.Contains(p.Id))
-                    .ToListAsync()
-                : new List<InsurancePlan>();
+            // Load existing join entries
+            await _db.Entry(service).Collection(s => s.ServiceInsurancePlans).LoadAsync();
+            _db.ServiceInsurancePlans.RemoveRange(service.ServiceInsurancePlans);
 
-            var toRemove = service.InsurancePlans
-                .Where(p => !dto.InsuranceIds.Contains(p.Id))
-                .ToList();
-            foreach (var p in toRemove)
-                service.InsurancePlans.Remove(p);
-
-            foreach (var p in newPlans)
-                if (!service.InsurancePlans.Any(ip => ip.Id == p.Id))
-                    service.InsurancePlans.Add(p);
+            foreach (var ins in dto.Insurances)
+            {
+                _db.ServiceInsurancePlans.Add(new ServiceInsurancePlan
+                {
+                    ServiceId = service.Id,
+                    InsurancePlanId = ins.InsuranceId,
+                    Price = ins.Price,
+                    ShowPrice = ins.ShowPrice,
+                });
+            }
         }
 
         // Sincroniza equipamentos
