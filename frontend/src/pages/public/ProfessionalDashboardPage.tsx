@@ -132,6 +132,8 @@ export default function ProfessionalDashboardPage() {
   const { data: agenda = [], isLoading: loadingAgenda } = useProfessionalAgenda(weekStartStr)
   const { data: reviews, isLoading: loadingReviews } = useProfessionalReviews()
   const { data: stats, isLoading: loadingStats } = useProfessionalStats(statsPeriod)
+  // Summary always loaded with 'month' for the top cards
+  const { data: monthStats } = useProfessionalStats('month')
 
   if (!isProfessionalLoggedIn()) return <LoginForm />
 
@@ -171,25 +173,117 @@ export default function ProfessionalDashboardPage() {
       </div>
 
       {/* Summary cards */}
-      {stats && (
+      {monthStats && (
         <div className="container" style={{ paddingTop: 24 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-            {[
-              { label: 'Consultas (mês)', value: stats.completedCount, icon: <CheckCircle size={18} color="#16A34A" /> },
-              { label: 'Avaliação média', value: reviews ? `${reviews.averageRating.toFixed(1)} ★` : '—', icon: <Star size={18} color="#F59E0B" /> },
-              { label: 'Receita bruta', value: formatMoney(stats.totalRevenue), icon: <BarChart2 size={18} color="#2563EB" /> },
-              { label: 'A receber', value: formatMoney(stats.netPayout), icon: <DollarSign size={18} color="#16A34A" />, highlight: true },
-            ].map(card => (
-              <div key={card.label} style={{ background: card.highlight ? 'var(--color-accent-primary)' : 'var(--color-bg-card)', border: `1px solid ${card.highlight ? 'transparent' : 'var(--color-border)'}`, borderRadius: 12, padding: '16px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: card.highlight ? 'rgba(255,255,255,0.8)' : 'var(--color-text-secondary)' }}>{card.label}</span>
-                  {!card.highlight && card.icon}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 20, color: card.highlight ? 'white' : 'var(--color-text-primary)' }}>{card.value}</div>
-                {card.highlight && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>Comissão {stats.commissionPct}%</div>}
+          {/* Row 1: key numbers */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 12 }}>
+            {/* Consultas realizadas */}
+            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Consultas (mês)</span>
+                <CheckCircle size={16} color="#16A34A" />
               </div>
-            ))}
+              <div style={{ fontWeight: 700, fontSize: 22, color: 'var(--color-text-primary)' }}>{monthStats.completedCount}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>de {monthStats.totalAppointments} agendadas</div>
+            </div>
+
+            {/* Avaliação média */}
+            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Avaliação média</span>
+                <Star size={16} color="#F59E0B" />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 22, color: 'var(--color-text-primary)' }}>
+                {reviews ? reviews.averageRating.toFixed(1) : '—'}
+                <span style={{ fontSize: 14, color: '#F59E0B', marginLeft: 4 }}>★</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>{reviews?.totalReviews ?? 0} avaliações</div>
+            </div>
+
+            {/* Receita bruta */}
+            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Receita gerada</span>
+                <BarChart2 size={16} color="#2563EB" />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 22, color: 'var(--color-text-primary)' }}>{formatMoney(monthStats.totalRevenue)}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>este mês</div>
+            </div>
+
+            {/* A receber (highlight) */}
+            <div style={{ background: 'var(--color-accent-primary)', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>A receber</span>
+                <DollarSign size={16} color="rgba(255,255,255,0.9)" />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 22, color: 'white' }}>{formatMoney(monthStats.netPayout)}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>comissão {monthStats.commissionPct}%</div>
+            </div>
           </div>
+
+          {/* Row 2: top service + top insurance */}
+          {(monthStats.serviceBreakdown.length > 0 || monthStats.insuranceBreakdown.length > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {/* Serviço mais realizado */}
+              <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>🏆 Serviço mais realizado</div>
+                {monthStats.serviceBreakdown.length > 0 ? (
+                  <>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)', marginBottom: 10 }}>
+                      {monthStats.serviceBreakdown[0].name}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {monthStats.serviceBreakdown.slice(0, 3).map((s, i) => {
+                        const max = monthStats.serviceBreakdown[0].count
+                        return (
+                          <div key={i}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                              <span style={{ fontSize: 12, color: i === 0 ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontWeight: i === 0 ? 600 : 400 }}>
+                                {s.name}
+                              </span>
+                              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{s.count}×  {formatMoney(s.revenue)}</span>
+                            </div>
+                            <div style={{ height: 4, background: 'var(--color-bg-secondary)', borderRadius: 2 }}>
+                              <div style={{ height: '100%', width: `${(s.count / max) * 100}%`, background: i === 0 ? 'var(--color-accent-primary)' : 'var(--color-border)', borderRadius: 2 }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Nenhum dado ainda</span>
+                )}
+              </div>
+
+              {/* Convênio mais atendido */}
+              <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>🏥 Convênios nos serviços</div>
+                {monthStats.insuranceBreakdown.length > 0 ? (
+                  <>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)', marginBottom: 10 }}>
+                      {monthStats.insuranceBreakdown[0].name}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {monthStats.insuranceBreakdown.slice(0, 6).map((ins, i) => (
+                        <span key={i} style={{
+                          padding: '4px 10px', borderRadius: 20, fontSize: 12,
+                          background: i === 0 ? 'var(--color-accent-primary)' : 'var(--color-bg-secondary)',
+                          color: i === 0 ? 'white' : 'var(--color-text-secondary)',
+                          border: `1px solid ${i === 0 ? 'transparent' : 'var(--color-border)'}`,
+                          fontWeight: i === 0 ? 600 : 400,
+                        }}>
+                          {ins.name}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Nenhum convênio vinculado</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
