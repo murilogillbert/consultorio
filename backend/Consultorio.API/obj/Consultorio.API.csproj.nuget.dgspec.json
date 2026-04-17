@@ -10,14 +10,14 @@
         "projectUniqueName": "C:\\consultorio\\backend\\Consultorio.API\\Consultorio.API.csproj",
         "projectName": "Consultorio.API",
         "projectPath": "C:\\consultorio\\backend\\Consultorio.API\\Consultorio.API.csproj",
-        "packagesPath": "C:\\Users\\muril\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages",
         "outputPath": "C:\\consultorio\\backend\\Consultorio.API\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\muril\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\Ludimila\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -523,14 +523,14 @@
         "projectUniqueName": "C:\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj",
         "projectName": "Consultorio.Domain",
         "projectPath": "C:\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj",
-        "packagesPath": "C:\\Users\\muril\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages",
         "outputPath": "C:\\consultorio\\backend\\Consultorio.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\muril\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\Ludimila\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -862,14 +862,14 @@
         "projectUniqueName": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
         "projectName": "Consultorio.Infra",
         "projectPath": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
-        "packagesPath": "C:\\Users\\muril\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages",
         "outputPath": "C:\\consultorio\\backend\\Consultorio.Infra\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\muril\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\Ludimila\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
