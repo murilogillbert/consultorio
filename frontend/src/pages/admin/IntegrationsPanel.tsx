@@ -211,7 +211,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!clinicId) return
     try {
       const result = await testMutation.mutateAsync({ clinicId, type })
-      addToast(result.message + (result.detail ? ` — ${result.detail}` : ''), 'success')
+      addToast(result.message + ((result as any).detail ? ` — ${(result as any).detail}` : ''), 'success')
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Falha no teste de conexão'
       addToast(msg, 'error')

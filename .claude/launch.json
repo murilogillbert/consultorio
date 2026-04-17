@@ -1,1 +1,1 @@
-{"version":"0.0.1","configurations":[{"name":"frontend","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"cwd":"C:\consultorio\frontend","port":5173}]}
+{"version":"0.0.1","configurations":[{"name":"frontend","runtimeExecutable":"npx","runtimeArgs":["vite","--port","5173"],"cwd":"C:\\consultorio\\frontend","port":5173}]}

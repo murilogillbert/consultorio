@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   Loader2, Download, Search, UserCheck, CreditCard, XCircle, Calendar,
   MessageSquare, AlertCircle, TrendingUp, TrendingDown, Minus, Clock,
-  UserPlus, DollarSign, CheckCircle, Activity, ChevronRight
+  UserPlus, DollarSign, CheckCircle, Activity
 } from 'lucide-react'
 
 const iconMap: Record<string, any> = {

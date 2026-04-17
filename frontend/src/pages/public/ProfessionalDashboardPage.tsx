@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   Calendar, Star, DollarSign, BarChart2, ChevronLeft, ChevronRight,
-  LogOut, Clock, CheckCircle, XCircle, AlertCircle, User
+  LogOut, Clock, CheckCircle, XCircle, AlertCircle, User, ArrowLeft
 } from 'lucide-react'
 import {
   useProfessionalLogin, useProfessionalMe, useProfessionalAgenda,
@@ -84,30 +84,38 @@ function LoginForm() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-primary)' }}>
-      <div style={{ width: '100%', maxWidth: 400, padding: 'var(--space-8)', background: 'var(--color-bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
-          <div style={{ width: 56, height: 56, background: 'var(--color-accent-primary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-primary)', padding: 'var(--space-6)' }}>
+      <div style={{ width: '100%', maxWidth: 420, background: 'var(--color-bg-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border-default)', boxShadow: 'var(--shadow-elevated)', overflow: 'hidden' }}>
+        {/* Card header */}
+        <div style={{ background: 'var(--color-accent-emerald)', padding: 'var(--space-8)', textAlign: 'center' }}>
+          <div style={{ width: 60, height: 60, background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)', border: '2px solid rgba(255,255,255,0.3)' }}>
             <User size={28} color="white" />
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)' }}>Portal do Profissional</h1>
-          <p style={{ color: 'var(--color-text-secondary)', marginTop: 4, fontSize: 14 }}>Acesse com suas credenciais</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'white', margin: '0 0 4px' }}>Portal do Profissional</h1>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, margin: 0 }}>Acesse com suas credenciais</p>
         </div>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="input-group">
-            <label className="input-label">E-mail</label>
-            <input className="input-field" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
+        {/* Form body */}
+        <div style={{ padding: 'var(--space-8)' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="input-group">
+              <label className="input-label">E-mail</label>
+              <input className="input-field" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Senha</label>
+              <input className="input-field" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+            </div>
+            {error && <p style={{ color: 'var(--color-accent-danger)', fontSize: 13, textAlign: 'center', margin: 0 }}>{error}</p>}
+            <button className="btn btn-primary btn-lg" type="submit" disabled={loginMutation.isPending}>
+              {loginMutation.isPending ? 'Entrando…' : 'Entrar'}
+            </button>
+          </form>
+          <div style={{ textAlign: 'center', marginTop: 'var(--space-6)', paddingTop: 'var(--space-6)', borderTop: '1px solid var(--color-border-default)' }}>
+            <Link to="/" style={{ fontSize: 13, color: 'var(--color-text-secondary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <ArrowLeft size={13} /> Voltar ao site
+            </Link>
           </div>
-          <div className="input-group">
-            <label className="input-label">Senha</label>
-            <input className="input-field" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
-          </div>
-          {error && <p style={{ color: 'var(--color-accent-danger)', fontSize: 13, textAlign: 'center' }}>{error}</p>}
-          <button className="btn btn-primary btn-lg" type="submit" disabled={loginMutation.isPending}>
-            {loginMutation.isPending ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   )
@@ -155,20 +163,35 @@ export default function ProfessionalDashboardPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg-primary)', paddingBottom: 48 }}>
       {/* Header */}
-      <div style={{ background: 'var(--color-bg-card)', borderBottom: '1px solid var(--color-border)', padding: '0 var(--space-4)' }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--color-accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 16 }}>
-              {(me?.name || user?.name || '?')[0].toUpperCase()}
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: 15 }}>{me?.name || user?.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{me?.specialty || 'Profissional'}</div>
-            </div>
+      <div style={{ background: 'var(--color-bg-white)', borderBottom: '1px solid var(--color-border-default)', boxShadow: 'var(--shadow-card)', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, padding: '0 var(--space-6)' }}>
+          {/* Left: back link + branding */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-text-secondary)', fontSize: 13, textDecoration: 'none', transition: 'color 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-accent-emerald)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-secondary)')}>
+              <ArrowLeft size={15} /> Voltar ao site
+            </Link>
+            <div style={{ width: 1, height: 24, background: 'var(--color-border-default)' }} />
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--color-accent-emerald)' }}>
+              Portal do Profissional
+            </span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <LogOut size={15} /> Sair
-          </button>
+          {/* Right: user info + logout */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--color-accent-emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 14 }}>
+                {(me?.name || user?.name || '?')[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: 14, lineHeight: 1.2 }}>{me?.name || user?.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.2 }}>{me?.specialty || 'Profissional'}</div>
+              </div>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-text-secondary)' }}>
+              <LogOut size={15} /> Sair
+            </button>
+          </div>
         </div>
       </div>
 
@@ -178,7 +201,7 @@ export default function ProfessionalDashboardPage() {
           {/* Row 1: key numbers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 12 }}>
             {/* Consultas realizadas */}
-            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Consultas (mês)</span>
                 <CheckCircle size={16} color="#16A34A" />
@@ -188,7 +211,7 @@ export default function ProfessionalDashboardPage() {
             </div>
 
             {/* Avaliação média */}
-            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Avaliação média</span>
                 <Star size={16} color="#F59E0B" />
@@ -201,7 +224,7 @@ export default function ProfessionalDashboardPage() {
             </div>
 
             {/* Receita bruta */}
-            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Receita gerada</span>
                 <BarChart2 size={16} color="#2563EB" />
@@ -211,7 +234,7 @@ export default function ProfessionalDashboardPage() {
             </div>
 
             {/* A receber (highlight) */}
-            <div style={{ background: 'var(--color-accent-primary)', borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ background: 'var(--color-accent-emerald)', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>A receber</span>
                 <DollarSign size={16} color="rgba(255,255,255,0.9)" />
@@ -225,7 +248,7 @@ export default function ProfessionalDashboardPage() {
           {(monthStats.serviceBreakdown.length > 0 || monthStats.insuranceBreakdown.length > 0) && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {/* Serviço mais realizado */}
-              <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '16px 20px' }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>🏆 Serviço mais realizado</div>
                 {monthStats.serviceBreakdown.length > 0 ? (
                   <>
@@ -244,7 +267,7 @@ export default function ProfessionalDashboardPage() {
                               <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{s.count}×  {formatMoney(s.revenue)}</span>
                             </div>
                             <div style={{ height: 4, background: 'var(--color-bg-secondary)', borderRadius: 2 }}>
-                              <div style={{ height: '100%', width: `${(s.count / max) * 100}%`, background: i === 0 ? 'var(--color-accent-primary)' : 'var(--color-border)', borderRadius: 2 }} />
+                              <div style={{ height: '100%', width: `${(s.count / max) * 100}%`, background: i === 0 ? 'var(--color-accent-emerald)' : 'var(--color-border-default)', borderRadius: 2 }} />
                             </div>
                           </div>
                         )
@@ -257,7 +280,7 @@ export default function ProfessionalDashboardPage() {
               </div>
 
               {/* Convênio mais atendido */}
-              <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '16px 20px' }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>🏥 Convênios nos serviços</div>
                 {monthStats.insuranceBreakdown.length > 0 ? (
                   <>
@@ -268,9 +291,9 @@ export default function ProfessionalDashboardPage() {
                       {monthStats.insuranceBreakdown.slice(0, 6).map((ins, i) => (
                         <span key={i} style={{
                           padding: '4px 10px', borderRadius: 20, fontSize: 12,
-                          background: i === 0 ? 'var(--color-accent-primary)' : 'var(--color-bg-secondary)',
+                          background: i === 0 ? 'var(--color-accent-emerald)' : 'var(--color-bg-secondary)',
                           color: i === 0 ? 'white' : 'var(--color-text-secondary)',
-                          border: `1px solid ${i === 0 ? 'transparent' : 'var(--color-border)'}`,
+                          border: `1px solid ${i === 0 ? 'transparent' : 'var(--color-border-default)'}`,
                           fontWeight: i === 0 ? 600 : 400,
                         }}>
                           {ins.name}
@@ -289,7 +312,7 @@ export default function ProfessionalDashboardPage() {
 
       {/* Tabs */}
       <div className="container" style={{ paddingTop: 24 }}>
-        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--color-border)', marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--color-border-default)', marginBottom: 24 }}>
           {([['agenda', 'Agenda', Calendar], ['reviews', 'Avaliações', Star], ['stats', 'Estatísticas', BarChart2]] as const).map(([key, label, Icon]) => (
             <button
               key={key}
@@ -297,8 +320,8 @@ export default function ProfessionalDashboardPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px',
                 background: 'none', border: 'none', cursor: 'pointer',
-                borderBottom: tab === key ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
-                color: tab === key ? 'var(--color-accent-primary)' : 'var(--color-text-secondary)',
+                borderBottom: tab === key ? '2px solid var(--color-accent-emerald)' : '2px solid transparent',
+                color: tab === key ? 'var(--color-accent-emerald)' : 'var(--color-text-secondary)',
                 fontWeight: tab === key ? 600 : 400, fontSize: 14, transition: 'all 0.15s',
               }}
             >
@@ -319,7 +342,7 @@ export default function ProfessionalDashboardPage() {
             {loadingAgenda ? (
               <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 40 }}>Carregando agenda…</div>
             ) : Object.keys(byDay).length === 0 ? (
-              <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 48, background: 'var(--color-bg-card)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
+              <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 48, background: 'var(--color-bg-white)', borderRadius: 12, border: '1px solid var(--color-border-default)' }}>
                 <Calendar size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
                 <p>Nenhuma consulta nesta semana.</p>
               </div>
@@ -332,7 +355,7 @@ export default function ProfessionalDashboardPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {apts.map(apt => (
-                        <div key={apt.id} style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderLeft: `4px solid ${STATUS_COLORS[apt.status] || '#6B7280'}`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div key={apt.id} style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderLeft: `4px solid ${STATUS_COLORS[apt.status] || '#6B7280'}`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--color-text-primary)' }}>{apt.patientName}</div>
                             <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>{apt.serviceName}{apt.roomName ? ` • ${apt.roomName}` : ''}</div>
@@ -364,20 +387,20 @@ export default function ProfessionalDashboardPage() {
             {loadingReviews ? (
               <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 40 }}>Carregando avaliações…</div>
             ) : !reviews || reviews.totalReviews === 0 ? (
-              <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 48, background: 'var(--color-bg-card)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
+              <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 48, background: 'var(--color-bg-white)', borderRadius: 12, border: '1px solid var(--color-border-default)' }}>
                 <Star size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
                 <p>Nenhuma avaliação ainda.</p>
               </div>
             ) : (
               <>
                 {/* Summary */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '20px 24px', background: 'var(--color-bg-card)', borderRadius: 12, border: '1px solid var(--color-border)', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '20px 24px', background: 'var(--color-bg-white)', borderRadius: 12, border: '1px solid var(--color-border-default)', marginBottom: 20 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1 }}>{reviews.averageRating.toFixed(1)}</div>
                     <StarRow rating={Math.round(reviews.averageRating)} />
                     <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4 }}>{reviews.totalReviews} avaliações</div>
                   </div>
-                  <div style={{ flex: 1, borderLeft: '1px solid var(--color-border)', paddingLeft: 20 }}>
+                  <div style={{ flex: 1, borderLeft: '1px solid var(--color-border-default)', paddingLeft: 20 }}>
                     {[5, 4, 3, 2, 1].map(star => {
                       const count = reviews.reviews.filter(r => r.rating === star).length
                       const pct = reviews.totalReviews > 0 ? (count / reviews.totalReviews) * 100 : 0
@@ -397,7 +420,7 @@ export default function ProfessionalDashboardPage() {
                 {/* List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {reviews.reviews.map(r => (
-                    <div key={r.id} style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '14px 16px' }}>
+                    <div key={r.id} style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 10, padding: '14px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--color-bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: 'var(--color-text-secondary)' }}>
@@ -443,7 +466,7 @@ export default function ProfessionalDashboardPage() {
             ) : !stats ? null : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Financial card */}
-                <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '20px 24px' }}>
+                <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '20px 24px' }}>
                   <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>💰 Financeiro</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
@@ -465,7 +488,7 @@ export default function ProfessionalDashboardPage() {
                 </div>
 
                 {/* Appointments card */}
-                <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '20px 24px' }}>
+                <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '20px 24px' }}>
                   <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>📅 Consultas</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                     {[
@@ -483,7 +506,7 @@ export default function ProfessionalDashboardPage() {
 
                 {/* Service breakdown */}
                 {stats.serviceBreakdown.length > 0 && (
-                  <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '20px 24px' }}>
+                  <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '20px 24px' }}>
                     <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>📊 Por Serviço</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {stats.serviceBreakdown.map((s, i) => {
@@ -495,7 +518,7 @@ export default function ProfessionalDashboardPage() {
                               <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{s.count} consultas · {formatMoney(s.revenue)}</span>
                             </div>
                             <div style={{ height: 6, background: 'var(--color-bg-secondary)', borderRadius: 3 }}>
-                              <div style={{ height: '100%', width: `${(s.count / maxCount) * 100}%`, background: 'var(--color-accent-primary)', borderRadius: 3 }} />
+                              <div style={{ height: '100%', width: `${(s.count / maxCount) * 100}%`, background: 'var(--color-accent-emerald)', borderRadius: 3 }} />
                             </div>
                           </div>
                         )
@@ -506,11 +529,11 @@ export default function ProfessionalDashboardPage() {
 
                 {/* Insurance breakdown */}
                 {stats.insuranceBreakdown.length > 0 && (
-                  <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '20px 24px' }}>
+                  <div style={{ background: 'var(--color-bg-white)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '20px 24px' }}>
                     <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>🏥 Convênios nos Serviços</h3>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       {stats.insuranceBreakdown.map((ins, i) => (
-                        <div key={i} style={{ padding: '6px 14px', background: 'var(--color-bg-secondary)', borderRadius: 20, fontSize: 13, color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+                        <div key={i} style={{ padding: '6px 14px', background: 'var(--color-bg-secondary)', borderRadius: 20, fontSize: 13, color: 'var(--color-text-primary)', border: '1px solid var(--color-border-default)' }}>
                           {ins.name}
                         </div>
                       ))}

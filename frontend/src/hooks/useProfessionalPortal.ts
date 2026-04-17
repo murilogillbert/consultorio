@@ -85,7 +85,7 @@ export function useProfessionalAgenda(weekStart?: string) {
   return useQuery({
     queryKey: ['proAgenda', weekStart],
     queryFn: async () => {
-      const params = weekStart ? { weekStart } : {}
+      const params: Record<string, string> | undefined = weekStart ? { weekStart } : undefined
       const { data } = await proApi().get<ProAppointment[]>('/public/professional/agenda', params)
       return data
     },
@@ -134,7 +134,7 @@ export function useProfessionalStats(period?: string) {
   return useQuery({
     queryKey: ['proStats', period],
     queryFn: async () => {
-      const params = period ? { period } : {}
+      const params: Record<string, string> | undefined = period ? { period } : undefined
       const { data } = await proApi().get<ProStats>('/public/professional/stats', params)
       return data
     },

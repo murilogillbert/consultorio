@@ -55,7 +55,7 @@ export default function PatientsPage() {
         await createPatient.mutateAsync({
           name: formData.name,
           email: formData.email,
-          cpf: formData.cpf || undefined,
+          cpf: formData.cpf || '',
           phone: formData.phone || undefined,
           birthDate: formData.birthDate || undefined,
           address: formData.address || undefined,

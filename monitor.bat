@@ -1,6 +1,10 @@
 @echo off
+setlocal EnableExtensions EnableDelayedExpansion
+
 title MONITOR - Consultorio (Git Watcher)
 color 0B
+
+set "DOCKER_DB_CONTAINER=consultorio_sqlserver"
 
 echo ============================================================
 echo   MONITOR DE ATUALIZACOES - Consultorio
@@ -9,7 +13,6 @@ echo ============================================================
 echo.
 
 :LOOP
-    :: Timestamp da verificacao
     for /f "tokens=1-3 delims=/ " %%a in ("%date%") do set DATA=%%a/%%b/%%c
     for /f "tokens=1-2 delims=: " %%a in ("%time%") do set HORA=%%a:%%b
 
@@ -31,21 +34,25 @@ echo.
         echo ************************************************************
         echo.
 
-        :: ─── Aplicar atualizacoes ───────────────────────────────────
         echo [1/4] Aplicando git pull...
         git pull origin
         echo.
 
-        :: ─── Encerrar servicos atuais ───────────────────────────────
         echo [2/4] Encerrando servicos em execucao...
         taskkill /FI "WINDOWTITLE eq BACKEND - Consultorio API*" /F >nul 2>&1
-        taskkill /FI "WINDOWTITLE eq FRONTEND - Consultorio*"    /F >nul 2>&1
-        taskkill /FI "WINDOWTITLE eq CLOUDFLARE - Tunnel*"       /F >nul 2>&1
+        taskkill /FI "WINDOWTITLE eq FRONTEND - Consultorio*" /F >nul 2>&1
+        taskkill /FI "WINDOWTITLE eq CLOUDFLARE - Tunnel*" /F >nul 2>&1
         timeout /t 3 /nobreak >nul
         echo       OK - Servicos encerrados.
         echo.
 
-        :: ─── Reiniciar servicos ─────────────────────────────────────
+        echo [3/4] Verificando SQL Server Docker...
+        for /f %%i in ('docker inspect -f "{{.State.Running}}" %DOCKER_DB_CONTAINER% 2^>nul') do set DB_RUNNING=%%i
+        if /I not "!DB_RUNNING!"=="true" (
+            docker start %DOCKER_DB_CONTAINER% >nul 2>&1
+            timeout /t 3 /nobreak >nul
+        )
+
         echo [3/4] Reiniciando Backend...
         start "BACKEND - Consultorio API" cmd /k "cd /d C:\consultorio\backend && dotnet run --project Consultorio.API --launch-profile http"
         timeout /t 5 /nobreak >nul
@@ -65,7 +72,6 @@ echo.
         echo.
     )
 
-    :: Aguarda 5 minutos (300 segundos) antes da proxima verificacao
     timeout /t 300 /nobreak >nul
 
 goto LOOP

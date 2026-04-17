@@ -67,17 +67,17 @@ export default function PublicLayout() {
           </div>
 
           {isProLogged ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Link to="/portal-profissional" className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="navbar-pro-actions">
+              <Link to="/portal-profissional" className="btn btn-ghost btn-sm navbar-pro-btn">
                 <User size={15} /> {proUser?.name?.split(' ')[0] || 'Portal'}
               </Link>
-              <button className="btn btn-ghost btn-sm" onClick={() => { clearProfessional(); navigate('/') }} style={{ fontSize: 12, opacity: 0.7 }}>
+              <button className="btn btn-ghost btn-sm navbar-pro-signout" onClick={() => { clearProfessional(); navigate('/') }}>
                 Sair
               </button>
             </div>
           ) : (
-            <Link to="/portal-profissional" className="btn btn-ghost btn-sm navbar-cta" style={{ marginRight: 8 }}>
-              <User size={14} style={{ marginRight: 4 }} /> Área do Profissional
+            <Link to="/portal-profissional" className="btn btn-ghost btn-sm navbar-pro-btn">
+              <User size={14} /> Área do Profissional
             </Link>
           )}
           <Link to="/agendar" className="btn btn-primary navbar-cta">

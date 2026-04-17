@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, X, Camera, Wrench, AlertTriangle, Palette, RotateCcw } from 'lucide-react'
+import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, Camera, Wrench, AlertTriangle, Palette, RotateCcw } from 'lucide-react'
 import IntegrationsPanel from './IntegrationsPanel'
 import { useClinics, useUpdateClinic } from '../../hooks/useClinics'
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../../hooks/useRooms'
@@ -665,7 +665,7 @@ export default function ConfiguracoesPage() {
                       <td>
                         <div className="row-actions">
                           <button className="btn btn-icon btn-sm" onClick={() => { setEditingUserId(su.id); setUserForm({ name: su.user.name, email: su.user.email, role: su.role, active: su.active, permissions: (su.permissions as Record<string, boolean>) || {} }) }}><Edit size={14} /></button>
-                          <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover acesso do usuário "${su.name}"?`, () => deleteSystemUser.mutateAsync(su.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                          <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover acesso do usuário "${su.user?.name || su.id}"?`, () => deleteSystemUser.mutateAsync(su.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                         </div>
                       </td>
                     </tr>

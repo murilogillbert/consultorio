@@ -1,11 +1,14 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, MessageSquare, Users, Stethoscope,
   Settings, BarChart3, TrendingUp, DollarSign, Megaphone, Activity,
-  LogOut, Bell, MessageCircle, Shield
+  LogOut, Bell, MessageCircle, Shield, ChevronDown
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMyClinic } from '../hooks/useClinics'
+import { useConversations } from '../hooks/useConversations'
+import { useAppointments } from '../hooks/useAppointments'
 
 interface InternalLayoutProps {
   environment: 'reception' | 'admin'
@@ -26,7 +29,7 @@ function ClinicLogoMini({ logoUrl }: { logoUrl?: string | null }) {
 const receptionLinks = [
   { to: '/recepcao', icon: LayoutDashboard, label: 'Visão Geral', end: true },
   { to: '/recepcao/agenda', icon: CalendarDays, label: 'Agenda' },
-  { to: '/recepcao/mensagens', icon: MessageSquare, label: 'Mensagens', badge: 3 },
+  { to: '/recepcao/mensagens', icon: MessageSquare, label: 'Mensagens' },
   { to: '/recepcao/pacientes', icon: Users, label: 'Pacientes' },
   { to: '/recepcao/profissionais', icon: Users, label: 'Profissionais' },
   { to: '/recepcao/servicos', icon: Stethoscope, label: 'Serviços' },
@@ -48,6 +51,25 @@ const adminLinks = [
   { to: '/admin/movimento', icon: Activity, label: 'Movimento' },
 ]
 
+const routeLabels: Record<string, string> = {
+  '/recepcao': 'Visão Geral',
+  '/recepcao/agenda': 'Agenda',
+  '/recepcao/mensagens': 'Mensagens',
+  '/recepcao/pacientes': 'Pacientes',
+  '/recepcao/profissionais': 'Profissionais',
+  '/recepcao/servicos': 'Serviços',
+  '/admin': 'Visão Geral',
+  '/admin/profissionais': 'Profissionais',
+  '/admin/servicos': 'Serviços',
+  '/admin/configuracoes': 'Configurações',
+  '/admin/metricas/profissionais': 'Métricas de Profissionais',
+  '/admin/metricas/servicos': 'Métricas de Serviços',
+  '/admin/faturamento': 'Faturamento',
+  '/admin/marketing': 'Marketing',
+  '/admin/movimento': 'Movimento',
+  '/admin/recrutamento': 'Recrutamento',
+}
+
 const roleLabels: Record<string, string> = {
   ADMIN: 'Administrador',
   RECEPTIONIST: 'Recepcionista',
@@ -60,13 +82,46 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
   const { user, signOut } = useAuth()
   const { data: clinic } = useMyClinic()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // Dynamic topbar data
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayEnd = new Date()
+  todayEnd.setHours(23, 59, 59, 999)
+  const { data: conversations = [] } = useConversations()
+  const { data: todayAppts = [] } = useAppointments(
+    todayStart.toISOString(),
+    todayEnd.toISOString()
+  )
+  const unreadMessages = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
+  const pendingAppts = todayAppts.filter(a => a.status === 'SCHEDULED').length
+
+  const pageTitle = routeLabels[location.pathname] || (environment === 'reception' ? 'Recepção' : 'Administração')
+
+  const todayLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+
   const userName = user?.name || 'Usuário'
   const userRole = user?.role ? roleLabels[user.role] : ''
+  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   const handleLogout = () => {
     signOut()
     navigate('/login')
   }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    if (userMenuOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [userMenuOpen])
 
   return (
     <div className="internal-layout">
@@ -97,7 +152,9 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
               >
                 <Icon size={20} />
                 <span>{navItem.label}</span>
-                {navItem.badge && <span className="badge-count">{navItem.badge}</span>}
+                {navItem.to === '/recepcao/mensagens' && unreadMessages > 0 && (
+                  <span className="badge-count">{unreadMessages > 99 ? '99+' : unreadMessages}</span>
+                )}
               </NavLink>
             )
           })}
@@ -105,7 +162,7 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
 
         <div className="sidebar-user">
           <div className="avatar avatar-sm avatar-placeholder">
-            {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {userInitials}
           </div>
           <div className="sidebar-user-info">
             <div className="name">{userName}</div>
@@ -124,20 +181,58 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
       <div className="main-content">
         {/* Top bar */}
         <header className="topbar">
-          <h1 className="topbar-title">
-            {environment === 'reception' ? 'Recepção' : 'Administração'}
-          </h1>
+          <div className="topbar-title-group">
+            <h1 className="topbar-title">{pageTitle}</h1>
+            <span className="topbar-date">{todayLabel}</span>
+          </div>
           <div className="topbar-actions">
-            <button className="topbar-icon-btn" title="Notificações">
+            {/* Pending appointments bell */}
+            <button className="topbar-icon-btn" title={`${pendingAppts} consulta(s) pendente(s) hoje`}
+              onClick={() => navigate('/recepcao/agenda')}>
               <Bell size={20} />
-              <span className="badge-count">5</span>
+              {pendingAppts > 0 && (
+                <span className="badge-count">{pendingAppts > 99 ? '99+' : pendingAppts}</span>
+              )}
             </button>
-            <button className="topbar-icon-btn" title="Chat Interno">
+
+            {/* Unread messages */}
+            <button className="topbar-icon-btn" title={`${unreadMessages} mensagem(ns) não lida(s)`}
+              onClick={() => navigate('/recepcao/mensagens')}>
               <MessageCircle size={20} />
-              <span className="badge-count">2</span>
+              {unreadMessages > 0 && (
+                <span className="badge-count">{unreadMessages > 99 ? '99+' : unreadMessages}</span>
+              )}
             </button>
-            <div className="avatar avatar-sm avatar-placeholder" style={{ cursor: 'pointer' }}>
-              {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+
+            {/* User menu */}
+            <div className="topbar-user-menu" ref={userMenuRef}>
+              <button
+                className="topbar-user-btn"
+                onClick={() => setUserMenuOpen(o => !o)}
+                aria-label="Menu do usuário"
+              >
+                <div className="avatar avatar-sm avatar-placeholder">{userInitials}</div>
+                <ChevronDown size={14} className={`topbar-chevron${userMenuOpen ? ' open' : ''}`} />
+              </button>
+
+              {userMenuOpen && (
+                <div className="topbar-user-dropdown">
+                  <div className="topbar-dropdown-header">
+                    <div className="avatar avatar-sm avatar-placeholder" style={{ flexShrink: 0 }}>{userInitials}</div>
+                    <div>
+                      <div className="topbar-dropdown-name">{userName}</div>
+                      <div className="topbar-dropdown-role">
+                        {environment === 'admin' && <Shield size={10} style={{ display: 'inline', marginRight: 3 }} />}
+                        {userRole}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="topbar-dropdown-divider" />
+                  <button className="topbar-dropdown-item topbar-dropdown-item--danger" onClick={handleLogout}>
+                    <LogOut size={15} /> Sair do sistema
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

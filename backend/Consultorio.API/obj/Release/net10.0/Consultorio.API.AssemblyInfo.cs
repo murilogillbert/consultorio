@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Consultorio.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0aa77300012a22ad786b19ebe18c521569a8e0a6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+edc2d666540054db45f10261b931fad296712ad7")]
 [assembly: System.Reflection.AssemblyProductAttribute("Consultorio.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Consultorio.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

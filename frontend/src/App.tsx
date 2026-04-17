@@ -43,11 +43,11 @@ export default function App() {
         <Route path="/trabalhe-conosco" element={<TrabalheConoscoPage />} />
         <Route path="/agendar" element={<AgendamentoPage />} />
         <Route path="/minhas-consultas" element={<MinhasConsultasPage />} />
-        <Route path="/portal-profissional" element={<ProfessionalDashboardPage />} />
       </Route>
 
       {/* Auth */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/portal-profissional" element={<ProfessionalDashboardPage />} />
 
       {/* Reception */}
       <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'RECEPTIONIST']} />}>

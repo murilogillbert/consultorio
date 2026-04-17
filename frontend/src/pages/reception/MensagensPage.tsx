@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, MessageSquare, Mail, Loader2, MessageCircle, User } from 'lucide-react'
+import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, Loader2, MessageCircle, User } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChannels } from '../../hooks/useChannels'
 import { useChannelMessages, useSendChannelMessage } from '../../hooks/useInternalMessages'
@@ -209,7 +209,7 @@ export default function MensagensPage() {
             const senderName = msg.sender?.name || 'Usuário'
             const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             return (
-              <div key={msg.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
+              <div key={msg.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
                 {!isMe && (
                   <div style={{ fontSize: 11, color: 'var(--color-accent-emerald)', marginBottom: 2, fontWeight: 500 }}>
                     {senderName}
@@ -233,7 +233,7 @@ export default function MensagensPage() {
             const isOut = msg.direction === 'OUT'
             const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             return (
-              <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
+              <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
                 {!isOut && (
                   <div style={{ fontSize: 11, color: 'var(--color-accent-brand)', marginBottom: 2, fontWeight: 500 }}>
                     {selectedConvo?.patientName || 'Paciente'}
