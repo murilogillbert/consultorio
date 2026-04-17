@@ -58,9 +58,9 @@ echo.
         start "BACKEND - Consultorio API" cmd /k "set ConnectionStrings__DefaultConnection=%DOTNET_CONNECTION% && cd /d C:\consultorio\backend\Consultorio.API && dotnet run --launch-profile http"
         timeout /t 5 /nobreak >nul
 
-        echo [3/4] Reiniciando Frontend...
-        start "FRONTEND - Consultorio" cmd /k "cd /d C:\consultorio\frontend && npm run dev"
-        timeout /t 3 /nobreak >nul
+        echo [3/4] Reiniciando Frontend de producao...
+        start "FRONTEND - Consultorio" cmd /k "cd /d C:\consultorio\frontend && npm run build && npm run preview -- --host 0.0.0.0 --port 5173"
+        timeout /t 5 /nobreak >nul
 
         echo [4/4] Reiniciando Cloudflare Tunnel...
         start "CLOUDFLARE - Tunnel" cmd /k "cloudflared tunnel run consultorio_oficial"

@@ -79,14 +79,14 @@ timeout /t 5 /nobreak >nul
 echo       OK - Janela do backend aberta.
 echo.
 
-echo [4/6] Iniciando Frontend (porta 5173)...
+echo [4/6] Preparando Frontend de producao (porta 5173)...
 if exist "C:\consultorio\frontend\node_modules" (
-    start "FRONTEND - Consultorio" cmd /k "cd /d C:\consultorio\frontend && npm run dev"
+    start "FRONTEND - Consultorio" cmd /k "cd /d C:\consultorio\frontend && npm run build && npm run preview -- --host 0.0.0.0 --port 5173"
 ) else (
-    start "FRONTEND - Consultorio" cmd /k "cd /d C:\consultorio\frontend && npm install && npm run dev"
+    start "FRONTEND - Consultorio" cmd /k "cd /d C:\consultorio\frontend && npm install && npm run build && npm run preview -- --host 0.0.0.0 --port 5173"
 )
-timeout /t 3 /nobreak >nul
-echo       OK - Janela do frontend aberta.
+timeout /t 5 /nobreak >nul
+echo       OK - Janela do frontend de producao aberta.
 echo.
 
 echo [5/6] Iniciando Cloudflare Tunnel...
@@ -115,7 +115,7 @@ echo   Front: https://front.psicologiaeexistir.com.br
 echo.
 echo   Janelas abertas:
 echo   - BACKEND          (dotnet run)
-echo   - FRONTEND         (vite dev)
+echo   - FRONTEND         (vite preview com build de producao)
 echo   - CLOUDFLARE       (tunnel)
 echo   - MONITOR          (git watcher - 5 min)
 echo ============================================================

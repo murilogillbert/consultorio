@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Consultorio.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+08def63733dbf43d0378d722dc4589e17bf64062")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+658f8ef02c873299a5ef0ff0a440703907cb25ce")]
 [assembly: System.Reflection.AssemblyProductAttribute("Consultorio.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Consultorio.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
