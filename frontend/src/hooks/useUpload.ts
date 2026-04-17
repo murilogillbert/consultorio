@@ -11,7 +11,10 @@ interface UploadResult {
 // Backend: POST /api/upload (singular) returning { url, fileName, originalName, size }
 // Backend returns a relative URL like "/uploads/general/xxx.png". Since the frontend
 // lives on a different host than the API, we must prefix with the API origin.
-const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')
+const API_ORIGIN = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? 'https://api.psicologiaeexistir.com.br/api' : 'http://localhost:3333/api')
+).replace(/\/api\/?$/, '')
 
 function absolutize(url: string): string {
   if (!url) return url
