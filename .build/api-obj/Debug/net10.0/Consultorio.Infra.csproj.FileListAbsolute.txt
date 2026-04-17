@@ -1,0 +1,14 @@
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.csproj.AssemblyReference.cache
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.GeneratedMSBuildEditorConfig.editorconfig
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.AssemblyInfoInputs.cache
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.AssemblyInfo.cs
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.csproj.CoreCompileInputs.cache
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.sourcelink.json
+C:\consultorio\.build\api-bin\Consultorio.Infra.deps.json
+C:\consultorio\.build\api-bin\Consultorio.Infra.dll
+C:\consultorio\.build\api-bin\Consultorio.Infra.pdb
+C:\consultorio\.build\api-obj\Debug\net10.0\Consulto.6A594769.Up2Date
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.dll
+C:\consultorio\.build\api-obj\Debug\net10.0\refint\Consultorio.Infra.dll
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.Infra.pdb
+C:\consultorio\.build\api-obj\Debug\net10.0\ref\Consultorio.Infra.dll

@@ -1,0 +1,8 @@
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.API.csproj.AssemblyReference.cache
+C:\consultorio\.build\api-obj\Debug\net10.0\rpswa.dswa.cache.json
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.API.GeneratedMSBuildEditorConfig.editorconfig
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.API.AssemblyInfoInputs.cache
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.API.AssemblyInfo.cs
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.API.csproj.CoreCompileInputs.cache
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.API.MvcApplicationPartsAssemblyInfo.cache
+C:\consultorio\.build\api-obj\Debug\net10.0\Consultorio.API.sourcelink.json
