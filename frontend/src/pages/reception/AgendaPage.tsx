@@ -44,7 +44,7 @@ export default function AgendaPage() {
   })
 
   const { data: professionals = [], isLoading: loadingProfs } = useProfessionals()
-  const { data: appointments = [], isLoading: loadingAppts } = useAppointments(
+  const { data: appointments = [], isLoading: loadingAppts, refetch: refetchAppointments } = useAppointments(
     `${selectedDate}T00:00:00`,
     `${selectedDate}T23:59:59`
   )
@@ -65,6 +65,8 @@ export default function AgendaPage() {
   const dayAppts = appointments.filter(
     a => showCancelled || a.status !== 'CANCELLED'
   )
+  const selectedPaymentStatus = selectedAppointment?.paymentStatus
+  const selectedIsPaid = selectedPaymentStatus === 'PAID'
 
   const handleCellClick = (profId: string, time: string) => {
     setNewForm({
@@ -289,6 +291,12 @@ export default function AgendaPage() {
                 </div>
               </div>
               <div>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cobrança</span>
+                <span className={`badge badge-${selectedIsPaid ? 'emerald' : selectedPaymentStatus === 'PENDING' ? 'gold' : 'muted'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
+                  {selectedIsPaid ? 'Pago' : selectedPaymentStatus === 'PENDING' ? 'Pendente' : 'Não cobrado'}
+                </span>
+              </div>
+              <div>
                 <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profissional</span>
                 <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{selectedAppointment.professional?.user?.name || '—'}</p>
               </div>
@@ -341,10 +349,21 @@ export default function AgendaPage() {
               {selectedAppointment.status !== 'CANCELLED' && (
                 <button
                   className="btn btn-full"
-                  style={{ background: '#16A34A', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                  onClick={() => setShowPaymentModal(true)}
+                  style={{
+                    background: selectedIsPaid ? 'var(--color-bg-secondary)' : '#16A34A',
+                    color: selectedIsPaid ? 'var(--color-text-muted)' : 'white',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                  onClick={() => {
+                    if (!selectedIsPaid) setShowPaymentModal(true)
+                  }}
+                  disabled={selectedIsPaid}
                 >
-                  <DollarSign size={16} /> Registrar Cobrança
+                  <DollarSign size={16} /> {selectedIsPaid ? 'Cobrança já registrada' : 'Registrar Cobrança'}
                 </button>
               )}
 
@@ -389,10 +408,12 @@ export default function AgendaPage() {
           serviceName={selectedAppointment.service?.name || 'Consulta'}
           servicePrice={Math.round((selectedAppointment.service?.price ?? 0) * 100)}
           appointmentStatus={selectedAppointment.status}
+          paymentStatus={selectedAppointment.paymentStatus}
           onClose={() => setShowPaymentModal(false)}
           onPaid={() => {
             setShowPaymentModal(false)
             setDrawerMsg({ type: 'success', text: 'Pagamento registrado com sucesso!' })
+            void refetchAppointments()
           }}
         />
       )}

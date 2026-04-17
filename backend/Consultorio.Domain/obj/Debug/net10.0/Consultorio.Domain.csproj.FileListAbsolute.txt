@@ -1,11 +1,11 @@
-C:\consultorio\backend\Consultorio.Domain\bin\Debug\net10.0\Consultorio.Domain.deps.json
-C:\consultorio\backend\Consultorio.Domain\bin\Debug\net10.0\Consultorio.Domain.dll
-C:\consultorio\backend\Consultorio.Domain\bin\Debug\net10.0\Consultorio.Domain.pdb
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\Consultorio.Domain.GeneratedMSBuildEditorConfig.editorconfig
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\Consultorio.Domain.AssemblyInfoInputs.cache
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\Consultorio.Domain.AssemblyInfo.cs
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\Consultorio.Domain.csproj.CoreCompileInputs.cache
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\Consultorio.Domain.sourcelink.json
+C:\consultorio\backend\Consultorio.Domain\bin\Debug\net10.0\Consultorio.Domain.deps.json
+C:\consultorio\backend\Consultorio.Domain\bin\Debug\net10.0\Consultorio.Domain.dll
+C:\consultorio\backend\Consultorio.Domain\bin\Debug\net10.0\Consultorio.Domain.pdb
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\Consultorio.Domain.dll
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\refint\Consultorio.Domain.dll
 C:\consultorio\backend\Consultorio.Domain\obj\Debug\net10.0\Consultorio.Domain.pdb

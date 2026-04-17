@@ -23,6 +23,7 @@ interface Props {
   serviceName: string
   servicePrice: number   // centavos
   appointmentStatus: string
+  paymentStatus?: string
   onClose: () => void
   onPaid: () => void
 }
@@ -44,7 +45,7 @@ function fmt(cents: number) {
 
 // ── componente principal ──────────────────────────────────────────────────────
 
-export default function PaymentModal({ appointmentId, serviceName, servicePrice, appointmentStatus, onClose, onPaid }: Props) {
+export default function PaymentModal({ appointmentId, serviceName, servicePrice, appointmentStatus, paymentStatus, onClose, onPaid }: Props) {
   const [step, setStep] = useState<'select' | 'confirm' | 'processing' | 'pix' | 'card' | 'done'>('select')
   const [method, setMethod] = useState<Method | null>(null)
   const [amountStr, setAmountStr] = useState((servicePrice / 100).toFixed(2).replace('.', ','))
@@ -144,6 +145,7 @@ export default function PaymentModal({ appointmentId, serviceName, servicePrice,
   const selectedMeta = METHODS.find(m => m.id === method)
   const isMP = method === 'PIX' || method === 'CREDIT_CARD' || method === 'DEBIT_CARD'
   const beforeCompletion = appointmentStatus !== 'COMPLETED'
+  const alreadyPaid = paymentStatus === 'PAID'
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -160,6 +162,18 @@ export default function PaymentModal({ appointmentId, serviceName, servicePrice,
         </div>
 
         <div className="modal-body">
+          {alreadyPaid ? (
+            <div style={{
+              padding: 'var(--space-4)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(22,163,74,0.08)',
+              color: 'var(--color-accent-emerald)',
+              border: '1px solid var(--color-accent-emerald)',
+            }}>
+              Este atendimento já possui cobrança paga. Não é possível registrar uma nova cobrança.
+            </div>
+          ) : (
+          <>
 
           {/* Badge — antes/depois do atendimento */}
           <div style={{
@@ -385,6 +399,8 @@ export default function PaymentModal({ appointmentId, serviceName, servicePrice,
             </div>
           )}
 
+          </>
+          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using Consultorio.API.DTOs;
 using Consultorio.API.Services;
 using Consultorio.Domain.Models;
@@ -25,6 +26,79 @@ public class PaymentsController : ControllerBase
     {
         var claim = User.FindFirst("clinicId");
         return claim != null ? Guid.Parse(claim.Value) : Guid.Empty;
+    }
+
+    private Guid GetUserId()
+    {
+        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        return claim != null && Guid.TryParse(claim.Value, out var id) ? id : Guid.Empty;
+    }
+
+    private static string FormatMoney(decimal amount) =>
+        amount.ToString("C", CultureInfo.GetCultureInfo("pt-BR"));
+
+    private static string GetMethodLabel(string? method) => method switch
+    {
+        "PIX" => "PIX",
+        "CREDIT_CARD" => "cartao de credito",
+        "DEBIT_CARD" => "cartao de debito",
+        "CASH" => "dinheiro",
+        "INSURANCE" => "convenio",
+        _ => "outro metodo"
+    };
+
+    private static string BuildChargeMessage(Appointment appt, Payment payment, string method)
+    {
+        var patientName = appt.Patient?.User?.Name ?? "Paciente";
+        var serviceName = appt.Service?.Name ?? "Consulta";
+        var amount = FormatMoney(payment.Amount);
+        var methodLabel = GetMethodLabel(method);
+
+        var lines = new List<string>
+        {
+            $"Ola, {patientName}!",
+            $"Registramos uma cobranca de {amount} referente a {serviceName}.",
+            $"Forma de cobranca: {methodLabel}."
+        };
+
+        if (!string.IsNullOrWhiteSpace(payment.ExternalQrCode))
+        {
+            lines.Add(string.Empty);
+            lines.Add("PIX copia e cola:");
+            lines.Add(payment.ExternalQrCode);
+        }
+
+        if (!string.IsNullOrWhiteSpace(payment.ExternalCheckoutUrl))
+        {
+            lines.Add(string.Empty);
+            lines.Add("Link de pagamento:");
+            lines.Add(payment.ExternalCheckoutUrl);
+        }
+
+        lines.Add(string.Empty);
+        lines.Add("Se precisar de ajuda, responda esta mensagem.");
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private async Task SendChargeNotificationAsync(Appointment appt, Payment payment, string method)
+    {
+        var patient = await _db.Patients.Include(p => p.User).FirstOrDefaultAsync(p => p.Id == appt.PatientId);
+        if (patient == null || patient.User == null)
+            return;
+
+        var msg = new PatientMessage
+        {
+            Id = Guid.NewGuid(),
+            PatientId = patient.Id,
+            ClinicId = appt.ClinicId,
+            Content = BuildChargeMessage(appt, payment, method),
+            Direction = "OUT",
+            SentByUserId = GetUserId() != Guid.Empty ? GetUserId() : null,
+            IsRead = true,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        _db.PatientMessages.Add(msg);
     }
 
     // ─── GET /api/payments ────────────────────────────────────────────
@@ -210,11 +284,15 @@ public class PaymentsController : ControllerBase
     {
         var appt = await _db.Appointments
             .Include(a => a.Service)
+            .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Payment)
             .FirstOrDefaultAsync(a => a.Id == dto.AppointmentId);
 
         if (appt == null)
             return NotFound(new { message = "Agendamento não encontrado." });
+
+        if (appt.Payment?.Status == "PAID")
+            return Conflict(new { message = "Este atendimento já possui cobrança paga. Não é permitido registrar uma nova cobrança." });
 
         var amount = dto.Amount ?? appt.Service?.Price ?? 0;
         var description = appt.Service?.Name ?? "Consulta";
@@ -237,6 +315,10 @@ public class PaymentsController : ControllerBase
         payment.PaymentMethod = dto.Method;
         payment.Notes = dto.Notes;
         payment.PaidBeforeCompletion = paidBefore;
+        payment.ExternalPaymentId = null;
+        payment.ExternalQrCode = null;
+        payment.ExternalQrCodeBase64 = null;
+        payment.ExternalCheckoutUrl = null;
         payment.UpdatedAt = DateTime.UtcNow;
 
         var resp = new ChargeResponseDto
@@ -306,6 +388,7 @@ public class PaymentsController : ControllerBase
                 break;
         }
 
+        await SendChargeNotificationAsync(appt, payment, dto.Method);
         await _db.SaveChangesAsync();
         resp.PaymentId = payment.Id;
         return Ok(resp);

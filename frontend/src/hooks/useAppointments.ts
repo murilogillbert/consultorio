@@ -18,6 +18,10 @@ interface AppointmentRaw {
   patient: { id: string; name: string; avatarUrl?: string }
   professional: { id: string; name: string; avatarUrl?: string }
   room?: { id: string; name: string } | null
+  paymentStatus?: string | null
+  paymentAmount?: number | null
+  paymentMethod?: string | null
+  paymentId?: string | null
 }
 
 export interface Appointment {
@@ -32,6 +36,10 @@ export interface Appointment {
   patient?: { name: string; user?: { name: string } }
   service?: { name: string; price?: number }
   professional?: { user?: { name: string } }
+  paymentStatus?: string
+  paymentAmount?: number
+  paymentMethod?: string
+  paymentId?: string
 }
 
 function mapAppointment(a: AppointmentRaw): Appointment {
@@ -47,6 +55,10 @@ function mapAppointment(a: AppointmentRaw): Appointment {
     patient: { name: a.patient.name, user: { name: a.patient.name } },
     service: { name: a.service.name, price: a.service.price },
     professional: { user: { name: a.professional.name } },
+    paymentStatus: a.paymentStatus ?? undefined,
+    paymentAmount: a.paymentAmount ?? undefined,
+    paymentMethod: a.paymentMethod ?? undefined,
+    paymentId: a.paymentId ?? undefined,
   }
 }
 

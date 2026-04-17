@@ -42,6 +42,10 @@ public class AppointmentResponseDto
     public AppointmentPersonDto Patient { get; set; } = null!;
     public AppointmentPersonDto Professional { get; set; } = null!;
     public AppointmentRoomDto? Room { get; set; }
+    public string? PaymentStatus { get; set; }
+    public decimal? PaymentAmount { get; set; }
+    public string? PaymentMethod { get; set; }
+    public Guid? PaymentId { get; set; }
 }
 
 public class AppointmentServiceDto

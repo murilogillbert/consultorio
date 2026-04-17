@@ -33,6 +33,7 @@ public class AppointmentsController : ControllerBase
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .Where(a => a.ClinicId == clinicId);
 
         // Suporta range (start+end) ou dia único (date)
@@ -67,6 +68,7 @@ public class AppointmentsController : ControllerBase
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (appt == null)
@@ -125,6 +127,7 @@ public class AppointmentsController : ControllerBase
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstAsync(a => a.Id == appt.Id);
 
         return CreatedAtAction(nameof(GetById), new { id = appt.Id }, ToDto(created));
@@ -139,6 +142,7 @@ public class AppointmentsController : ControllerBase
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (appt == null)
@@ -182,6 +186,7 @@ public class AppointmentsController : ControllerBase
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
@@ -256,6 +261,10 @@ public class AppointmentsController : ControllerBase
         {
             Id = a.Room.Id,
             Name = a.Room.Name
-        } : null
+        } : null,
+        PaymentStatus = a.Payment?.Status,
+        PaymentAmount = a.Payment?.Amount,
+        PaymentMethod = a.Payment?.PaymentMethod,
+        PaymentId = a.Payment?.Id
     };
 }
