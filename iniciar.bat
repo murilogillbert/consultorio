@@ -12,6 +12,7 @@ title Sistema Consultorio - Inicializando...
 color 0A
 
 set "DOCKER_DB_CONTAINER=consultorio_sqlserver"
+set "DOTNET_CONNECTION=Server=localhost,1433;Database=Consultorio;User Id=sa;Password=Consultorio@2026;TrustServerCertificate=True;Encrypt=False;"
 set "CLOUDFLARED=C:\Users\Ludimila\AppData\Local\Microsoft\WinGet\Links\cloudflared.exe"
 set "CF_CONFIG=C:\Users\Ludimila\.cloudflared\config.yml"
 
@@ -73,7 +74,7 @@ if %errorlevel%==0 (
 echo.
 
 echo [3/6] Iniciando Backend (porta 5205)...
-start "BACKEND - Consultorio API" cmd /k "cd /d C:\consultorio\backend && dotnet run --project Consultorio.API --launch-profile http"
+start "BACKEND - Consultorio API" cmd /k "set ConnectionStrings__DefaultConnection=%DOTNET_CONNECTION% && cd /d C:\consultorio\backend\Consultorio.API && dotnet run --launch-profile http"
 timeout /t 5 /nobreak >nul
 echo       OK - Janela do backend aberta.
 echo.
@@ -103,7 +104,7 @@ echo ============================================================
 echo     TODOS OS SERVICOS FORAM INICIADOS!
 echo ============================================================
 echo.
-echo   Banco local:     SQL Server Docker em localhost:1433 / clinic_db
+echo   Banco local:     SQL Server Docker em localhost:1433 / Consultorio
 echo   Backend local:   http://localhost:5205
 echo   Frontend local:  http://localhost:5173
 echo.

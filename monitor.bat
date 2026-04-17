@@ -5,6 +5,7 @@ title MONITOR - Consultorio (Git Watcher)
 color 0B
 
 set "DOCKER_DB_CONTAINER=consultorio_sqlserver"
+set "DOTNET_CONNECTION=Server=localhost,1433;Database=Consultorio;User Id=sa;Password=Consultorio@2026;TrustServerCertificate=True;Encrypt=False;"
 
 echo ============================================================
 echo   MONITOR DE ATUALIZACOES - Consultorio
@@ -46,7 +47,7 @@ echo.
         echo       OK - Servicos encerrados.
         echo.
 
-        echo [3/4] Verificando SQL Server Docker...
+        echo [3/4] Verificando SQL Server Docker (DB Consultorio)...
         for /f %%i in ('docker inspect -f "{{.State.Running}}" %DOCKER_DB_CONTAINER% 2^>nul') do set DB_RUNNING=%%i
         if /I not "!DB_RUNNING!"=="true" (
             docker start %DOCKER_DB_CONTAINER% >nul 2>&1
@@ -54,7 +55,7 @@ echo.
         )
 
         echo [3/4] Reiniciando Backend...
-        start "BACKEND - Consultorio API" cmd /k "cd /d C:\consultorio\backend && dotnet run --project Consultorio.API --launch-profile http"
+        start "BACKEND - Consultorio API" cmd /k "set ConnectionStrings__DefaultConnection=%DOTNET_CONNECTION% && cd /d C:\consultorio\backend\Consultorio.API && dotnet run --launch-profile http"
         timeout /t 5 /nobreak >nul
 
         echo [3/4] Reiniciando Frontend...
