@@ -4,6 +4,7 @@ import { api } from '../services/api'
 // Backend AppointmentResponseDto:
 // { id, startTime, endTime, status, notes, createdAt,
 //   service: { id, name, duration, color },
+//   insurancePlan?: { id, name, price, showPrice },
 //   patient: { id, name, avatarUrl },
 //   professional: { id, name, avatarUrl },
 //   room?: { id, name } }
@@ -15,6 +16,7 @@ interface AppointmentRaw {
   notes?: string
   createdAt: string
   service: { id: string; name: string; duration: number; color?: string; price?: number }
+  insurancePlan?: { id: string; name: string; price?: number | null; showPrice?: boolean }
   patient: { id: string; name: string; avatarUrl?: string }
   professional: { id: string; name: string; avatarUrl?: string }
   room?: { id: string; name: string } | null
@@ -29,12 +31,14 @@ export interface Appointment {
   patientId: string
   professionalId: string
   serviceId: string
+  insurancePlanId?: string
   startTime: string
   endTime: string
   status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
   notes?: string
   patient?: { name: string; user?: { name: string } }
   service?: { name: string; price?: number }
+  insurancePlan?: { id: string; name: string; price?: number | null; showPrice?: boolean }
   professional?: { user?: { name: string } }
   paymentStatus?: string
   paymentAmount?: number
@@ -48,12 +52,14 @@ function mapAppointment(a: AppointmentRaw): Appointment {
     patientId: a.patient.id,
     professionalId: a.professional.id,
     serviceId: a.service.id,
+    insurancePlanId: a.insurancePlan?.id,
     startTime: a.startTime,
     endTime: a.endTime,
     status: a.status,
     notes: a.notes,
     patient: { name: a.patient.name, user: { name: a.patient.name } },
     service: { name: a.service.name, price: a.service.price },
+    insurancePlan: a.insurancePlan ? { id: a.insurancePlan.id, name: a.insurancePlan.name, price: a.insurancePlan.price, showPrice: a.insurancePlan.showPrice } : undefined,
     professional: { user: { name: a.professional.name } },
     paymentStatus: a.paymentStatus ?? undefined,
     paymentAmount: a.paymentAmount ?? undefined,
@@ -92,6 +98,7 @@ export function useCreateAppointment() {
         patientId: appointmentData.patientId,
         professionalId: appointmentData.professionalId,
         serviceId: appointmentData.serviceId,
+        insurancePlanId: appointmentData.insurancePlanId,
         roomId: appointmentData.roomId,
         startTime: appointmentData.startTime,
         notes: appointmentData.notes,

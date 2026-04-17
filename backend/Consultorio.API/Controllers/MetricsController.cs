@@ -295,7 +295,7 @@ public class MetricsController : ControllerBase
                 returningPatients,
                 returnRate,
                 avgRealDuration,
-                insurancePct = 0,
+                insurancePct = total > 0 ? (int)Math.Round((double)appts.Count(a => a.InsurancePlanId.HasValue) / total * 100) : 0,
                 revenuePerHour,
                 proCount = s.Professionals.Count,
                 topProfessional = topPro,

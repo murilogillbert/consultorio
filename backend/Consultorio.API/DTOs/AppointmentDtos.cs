@@ -3,6 +3,7 @@ namespace Consultorio.API.DTOs;
 public class CreateAppointmentDto
 {
     public Guid ServiceId { get; set; }
+    public Guid? InsurancePlanId { get; set; }
     public Guid PatientId { get; set; }
     public Guid ProfessionalId { get; set; }
     public Guid? RoomId { get; set; }
@@ -39,6 +40,7 @@ public class AppointmentResponseDto
 
     // Dados aninhados para o frontend
     public AppointmentServiceDto Service { get; set; } = null!;
+    public AppointmentInsuranceDto? InsurancePlan { get; set; }
     public AppointmentPersonDto Patient { get; set; } = null!;
     public AppointmentPersonDto Professional { get; set; } = null!;
     public AppointmentRoomDto? Room { get; set; }
@@ -46,6 +48,14 @@ public class AppointmentResponseDto
     public decimal? PaymentAmount { get; set; }
     public string? PaymentMethod { get; set; }
     public Guid? PaymentId { get; set; }
+}
+
+public class AppointmentInsuranceDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = null!;
+    public decimal? Price { get; set; }
+    public bool ShowPrice { get; set; }
 }
 
 public class AppointmentServiceDto

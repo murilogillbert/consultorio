@@ -142,6 +142,7 @@ public class PublicProfessionalController : ControllerBase
 
         var appointments = await _db.Appointments
             .Include(a => a.Service)
+            .Include(a => a.InsurancePlan)
             .Include(a => a.Payment)
             .Where(a => a.ProfessionalId == proId && a.StartTime >= start)
             .ToListAsync();
@@ -153,7 +154,7 @@ public class PublicProfessionalController : ControllerBase
         var commissionPct = pro.CommissionPct;
         var netPayout = totalRevenue * (commissionPct / 100m);
 
-        // Service breakdown (used as proxy for insurance since appointment has no direct insurance link)
+        // Service breakdown
         var serviceBreakdown = completed
             .GroupBy(a => a.Service?.Name ?? "Outro")
             .Select(g => new
@@ -165,16 +166,12 @@ public class PublicProfessionalController : ControllerBase
             .OrderByDescending(x => x.count)
             .ToList();
 
-        // Insurance plans linked to services performed
-        var serviceIds = completed.Select(a => a.ServiceId).Distinct().ToList();
-        var insuranceBreakdown = await _db.ServiceInsurancePlans
-            .Include(sip => sip.InsurancePlan)
-            .Where(sip => serviceIds.Contains(sip.ServiceId))
-            .GroupBy(sip => sip.InsurancePlan!.Name)
+        // Insurance plans actually selected in the appointments
+        var insuranceBreakdown = completed
+            .GroupBy(a => a.InsurancePlan?.Name ?? "Particular")
             .Select(g => new { name = g.Key, serviceCount = g.Count() })
-            .ToListAsync();
-
-        var privateCount = 0;
+            .OrderByDescending(x => x.serviceCount)
+            .ToList();
 
         return Ok(new
         {

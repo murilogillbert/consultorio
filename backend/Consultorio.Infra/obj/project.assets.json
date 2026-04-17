@@ -1691,7 +1691,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Ludimila\\.nuget\\packages": {},
+    "C:\\Users\\muril\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -1700,14 +1700,14 @@
       "projectUniqueName": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
       "projectName": "Consultorio.Infra",
       "projectPath": "C:\\consultorio\\backend\\Consultorio.Infra\\Consultorio.Infra.csproj",
-      "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages",
+      "packagesPath": "C:\\Users\\muril\\.nuget\\packages\\",
       "outputPath": "C:\\consultorio\\backend\\Consultorio.Infra\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\Ludimila\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\muril\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -2046,13 +2046,5 @@
         }
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1900",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Ocorreu um erro ao obter os dados de vulnerabilidade do pacote: Não é possível carregar o índice de serviço para a origem https://api.nuget.org/v3/index.json."
-    }
-  ]
+  }
 }

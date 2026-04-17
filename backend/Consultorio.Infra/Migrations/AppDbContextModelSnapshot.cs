@@ -95,6 +95,9 @@ namespace Consultorio.Infra.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("InsurancePlanId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("PatientId")
                         .HasColumnType("uniqueidentifier");
 
@@ -120,6 +123,8 @@ namespace Consultorio.Infra.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClinicId");
+
+                    b.HasIndex("InsurancePlanId");
 
                     b.HasIndex("PatientId");
 
@@ -1164,6 +1169,11 @@ namespace Consultorio.Infra.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Consultorio.Domain.Models.InsurancePlan", "InsurancePlan")
+                        .WithMany()
+                        .HasForeignKey("InsurancePlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Consultorio.Domain.Models.Professional", "Professional")
                         .WithMany("Appointments")
                         .HasForeignKey("ProfessionalId")
@@ -1182,6 +1192,8 @@ namespace Consultorio.Infra.Migrations
                         .IsRequired();
 
                     b.Navigation("Clinic");
+
+                    b.Navigation("InsurancePlan");
 
                     b.Navigation("Patient");
 
@@ -1553,6 +1565,8 @@ namespace Consultorio.Infra.Migrations
             modelBuilder.Entity("Consultorio.Domain.Models.Appointment", b =>
                 {
                     b.Navigation("EquipmentUsages");
+
+                    b.Navigation("InsurancePlan");
 
                     b.Navigation("Payment");
                 });

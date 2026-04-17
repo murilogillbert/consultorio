@@ -270,6 +270,11 @@ public class AppDbContext : DbContext
             .HasForeignKey<Payment>(p => p.AppointmentId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Appointment>()
+            .HasOne(a => a.InsurancePlan)
+            .WithMany()
+            .HasForeignKey(a => a.InsurancePlanId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Appointment>()
             .HasMany(a => a.EquipmentUsages)
             .WithOne(eu => eu.Appointment)
             .HasForeignKey(eu => eu.AppointmentId)
