@@ -168,7 +168,12 @@ public class AppointmentsController : ControllerBase
         if (appt == null)
             return NotFound(new { message = "Consulta não encontrada." });
 
-        if (dto.Status != null) appt.Status = dto.Status;
+        if (dto.Status != null)
+        {
+            appt.Status = dto.Status;
+            if (string.Equals(dto.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(appt.CancellationSource))
+                appt.CancellationSource = "RECEPTION";
+        }
         if (dto.RoomId.HasValue) appt.RoomId = dto.RoomId.Value;
         if (dto.Notes != null) appt.Notes = dto.Notes;
 
@@ -214,6 +219,8 @@ public class AppointmentsController : ControllerBase
         if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
 
         appt.Status = dto.Status;
+        if (string.Equals(dto.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(appt.CancellationSource))
+            appt.CancellationSource = "RECEPTION";
         appt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -228,6 +235,8 @@ public class AppointmentsController : ControllerBase
         if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
 
         appt.Status = "CANCELLED";
+        appt.CancellationSource = string.IsNullOrWhiteSpace(dto.Source) ? "RECEPTION" : dto.Source.Trim().ToUpperInvariant();
+        appt.CancelledAt = DateTime.UtcNow;
         if (!string.IsNullOrEmpty(dto.Reason))
             appt.Notes = $"[CANCELADO] {dto.Reason}";
         appt.UpdatedAt = DateTime.UtcNow;
@@ -245,6 +254,8 @@ public class AppointmentsController : ControllerBase
             return NotFound(new { message = "Consulta não encontrada." });
 
         appt.Status = "CANCELLED";
+        appt.CancellationSource = "RECEPTION";
+        appt.CancelledAt = DateTime.UtcNow;
         appt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -270,7 +281,8 @@ public class AppointmentsController : ControllerBase
                 Name = a.Service.Name,
                 Duration = a.Service.DurationMinutes,
                 Color = a.Service.Color,
-                Price = a.Service.Price
+                Price = a.Service.Price,
+                OnlineBooking = a.Service.OnlineBooking
             },
             InsurancePlan = a.InsurancePlan != null ? new AppointmentInsuranceDto
             {
@@ -296,6 +308,8 @@ public class AppointmentsController : ControllerBase
                 Id = a.Room.Id,
                 Name = a.Room.Name
             } : null,
+            CancellationSource = a.CancellationSource,
+            CancelledAt = a.CancelledAt,
             PaymentStatus = a.Payment?.Status,
             PaymentAmount = a.Payment?.Amount,
             PaymentMethod = a.Payment?.PaymentMethod,

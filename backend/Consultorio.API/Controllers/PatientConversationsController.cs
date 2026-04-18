@@ -44,6 +44,9 @@ public class PatientConversationsController : ControllerBase
                 lastMessage   = g.OrderByDescending(m => m.CreatedAt)
                                  .Select(m => m.Content)
                                  .FirstOrDefault(),
+                source        = g.OrderByDescending(m => m.CreatedAt)
+                                 .Select(m => m.Source)
+                                 .FirstOrDefault(),
             })
             .OrderByDescending(c => c.lastMessageAt)
             .ToListAsync();
@@ -66,6 +69,7 @@ public class PatientConversationsController : ControllerBase
                 lastMessageAt = c.lastMessageAt,
                 unreadCount   = c.unreadCount,
                 lastMessage   = c.lastMessage,
+                source        = string.IsNullOrWhiteSpace(c.source) ? "APP" : c.source,
             };
         });
 
@@ -89,6 +93,7 @@ public class PatientConversationsController : ControllerBase
                 direction    = m.Direction,
                 content      = m.Content,
                 isRead       = m.IsRead,
+                source       = m.Source,
                 createdAt    = m.CreatedAt,
                 sentByUserId = m.SentByUserId,
             })
@@ -139,6 +144,11 @@ public class PatientConversationsController : ControllerBase
             ClinicId     = clinicId,
             Content      = dto.Content.Trim(),
             Direction    = "OUT",
+            Source       = await _db.PatientMessages
+                .Where(m => m.PatientId == patientId && m.ClinicId == clinicId)
+                .OrderByDescending(m => m.CreatedAt)
+                .Select(m => m.Source)
+                .FirstOrDefaultAsync() ?? "APP",
             SentByUserId = GetUserId() != Guid.Empty ? GetUserId() : null,
             IsRead       = true,
             CreatedAt    = DateTime.UtcNow,
@@ -153,6 +163,7 @@ public class PatientConversationsController : ControllerBase
             direction    = msg.Direction,
             content      = msg.Content,
             isRead       = msg.IsRead,
+            source       = msg.Source,
             createdAt    = msg.CreatedAt,
             sentByUserId = msg.SentByUserId,
         });

@@ -149,8 +149,9 @@ public class PublicPatientsController : ControllerBase
                 startTime    = a.StartTime,
                 endTime      = a.EndTime,
                 status       = a.Status,
+                cancellationSource = a.CancellationSource,
                 notes        = a.Notes,
-                service      = new { name = a.Service.Name, duration = a.Service.DurationMinutes },
+                service      = new { name = a.Service.Name, duration = a.Service.DurationMinutes, onlineBooking = a.Service.OnlineBooking },
                 professional = new { user = new { name = a.Professional.User.Name, avatarUrl = a.Professional.User.AvatarUrl } },
                 review       = _db.ProfessionalReviews
                     .Where(r => r.AppointmentId == a.Id)
@@ -182,6 +183,8 @@ public class PublicPatientsController : ControllerBase
             return BadRequest(new { message = "Consultas não podem ser canceladas com menos de 2 horas de antecedência." });
 
         appt.Status = "CANCELLED";
+        appt.CancellationSource = "PATIENT";
+        appt.CancelledAt = DateTime.UtcNow;
         appt.Notes = string.IsNullOrEmpty(appt.Notes)
             ? "[CANCELADO pelo paciente]"
             : $"[CANCELADO pelo paciente] {appt.Notes}";
@@ -251,12 +254,13 @@ public class PublicPatientsController : ControllerBase
             .OrderBy(m => m.CreatedAt)
             .Select(m => new
             {
-                id        = m.Id,
-                direction = m.Direction,
-                content   = m.Content,
-                isRead    = m.IsRead,
-                createdAt = m.CreatedAt,
-            })
+            id        = m.Id,
+            direction = m.Direction,
+            content   = m.Content,
+            isRead    = m.IsRead,
+            source    = m.Source,
+            createdAt = m.CreatedAt,
+        })
             .ToListAsync();
 
         return Ok(new { messages });
@@ -284,6 +288,7 @@ public class PublicPatientsController : ControllerBase
             ClinicId  = patient.ClinicId,
             Content   = dto.Content.Trim(),
             Direction = "IN",
+            Source    = string.IsNullOrWhiteSpace(dto.Source) ? "APP" : dto.Source.Trim().ToUpperInvariant(),
             IsRead    = false,
             CreatedAt = DateTime.UtcNow,
         };
@@ -291,7 +296,7 @@ public class PublicPatientsController : ControllerBase
         _db.PatientMessages.Add(msg);
         await _db.SaveChangesAsync();
 
-        return Ok(new { id = msg.Id, direction = msg.Direction, content = msg.Content, isRead = msg.IsRead, createdAt = msg.CreatedAt });
+        return Ok(new { id = msg.Id, direction = msg.Direction, content = msg.Content, isRead = msg.IsRead, source = msg.Source, createdAt = msg.CreatedAt });
     }
 }
 
@@ -321,4 +326,5 @@ public class SubmitReviewDto
 public class SendPatientMessageDto
 {
     public string Content { get; set; } = null!;
+    public string? Source { get; set; }
 }

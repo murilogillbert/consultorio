@@ -106,6 +106,8 @@ public class MetricsController : ControllerBase
             var total = appts.Count;
             var completed = appts.Count(a => a.Status == "COMPLETED");
             var cancelled = appts.Count(a => a.Status == "CANCELLED");
+            var cancelledByPatient = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "PATIENT");
+            var cancelledByReception = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "RECEPTION");
             var revenue = appts.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m);
 
             var cancellationRate = total > 0 ? (int)Math.Round((double)cancelled / total * 100) : 0;
@@ -167,6 +169,8 @@ public class MetricsController : ControllerBase
                 appointments = total,
                 completedCount = completed,
                 cancelledCount = cancelled,
+                cancelledByPatientCount = cancelledByPatient,
+                cancelledByReceptionCount = cancelledByReception,
                 noShowCount = 0,
                 cancellationRate,
                 conversionRate,
@@ -236,6 +240,8 @@ public class MetricsController : ControllerBase
             var total = appts.Count;
             var completed = appts.Count(a => a.Status == "COMPLETED");
             var cancelled = appts.Count(a => a.Status == "CANCELLED");
+            var cancelledByPatient = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "PATIENT");
+            var cancelledByReception = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "RECEPTION");
             var revenue = appts.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m);
             var avgPrice = completed > 0 ? revenue / completed : s.Price;
 
@@ -287,6 +293,8 @@ public class MetricsController : ControllerBase
                 totalAppointments = total,
                 completedCount = completed,
                 cancelledCount = cancelled,
+                cancelledByPatientCount = cancelledByPatient,
+                cancelledByReceptionCount = cancelledByReception,
                 noShowCount = 0,
                 cancellationRate,
                 revenue,
@@ -650,7 +658,11 @@ public class MetricsController : ControllerBase
                     "CONFIRMED" => "Confirmado",
                     "IN_PROGRESS" => "Em Andamento",
                     "COMPLETED" => "Concluído",
-                    "CANCELLED" => "Cancelado",
+                    "CANCELLED" => g.Any(a => a.CancellationSource == "PATIENT")
+                        ? "Cancelado pelo paciente"
+                        : g.Any(a => a.CancellationSource == "RECEPTION")
+                            ? "Cancelado pela recepção"
+                            : "Cancelado",
                     _ => g.Key
                 },
                 count = g.Count(),
@@ -668,6 +680,8 @@ public class MetricsController : ControllerBase
                 var proTotal = g.Count();
                 var proCompleted = g.Count(a => a.Status == "COMPLETED");
                 var proCancelled = g.Count(a => a.Status == "CANCELLED");
+                var proCancelledByPatient = g.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "PATIENT");
+                var proCancelledByReception = g.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "RECEPTION");
                 var proRevenue = g.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m);
                 var proScheduled = g.Count(a => a.Status == "SCHEDULED");
                 var proConfirmed = g.Count(a => a.Status == "CONFIRMED");
@@ -680,6 +694,8 @@ public class MetricsController : ControllerBase
                     total = proTotal,
                     completed = proCompleted,
                     cancelled = proCancelled,
+                    cancelledByPatient = proCancelledByPatient,
+                    cancelledByReception = proCancelledByReception,
                     scheduled = proScheduled,
                     confirmed = proConfirmed,
                     revenue = proRevenue,
@@ -706,7 +722,7 @@ public class MetricsController : ControllerBase
                 "COMPLETED" => ("arrival", $"{patName} — {svcName} (concluído)", "CHECK_IN"),
                 "IN_PROGRESS" => ("arrival", $"{patName} — {svcName} (em andamento)", "CHECK_IN"),
                 "CONFIRMED" => ("arrival", $"{patName} — {svcName} (confirmado)", "NEW_APPOINTMENT"),
-                "CANCELLED" => ("cancel", $"{patName} — {svcName} (cancelado)", "APPOINTMENT_CANCELLED"),
+                "CANCELLED" => ("cancel", $"{patName} — {svcName} ({(string.IsNullOrWhiteSpace(a.CancellationSource) ? "cancelado" : a.CancellationSource == "PATIENT" ? "cancelado pelo paciente" : "cancelado pela recepção")})", "APPOINTMENT_CANCELLED"),
                 _ => ("arrival", $"{patName} — {svcName} (agendado)", "NEW_APPOINTMENT")
             };
 

@@ -359,6 +359,9 @@ export default function ProfessionalDashboardPage() {
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--color-text-primary)' }}>{apt.patientName}</div>
                             <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>{apt.serviceName}{apt.roomName ? ` • ${apt.roomName}` : ''}</div>
+                            <div style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: apt.serviceOnlineBooking ? 'var(--color-accent-emerald)' : 'var(--color-accent-gold)', background: apt.serviceOnlineBooking ? 'rgba(45,106,79,0.08)' : 'rgba(201,168,76,0.12)', padding: '2px 8px', borderRadius: 20 }}>
+                              {apt.serviceOnlineBooking ? 'Online' : 'Presencial'}
+                            </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-secondary)', fontSize: 13 }}>
@@ -368,7 +371,13 @@ export default function ProfessionalDashboardPage() {
                               {apt.status === 'COMPLETED' && <CheckCircle size={11} />}
                               {apt.status === 'CANCELLED' && <XCircle size={11} />}
                               {(apt.status === 'SCHEDULED' || apt.status === 'CONFIRMED') && <AlertCircle size={11} />}
-                              {STATUS_LABELS[apt.status] || apt.status}
+                              {apt.status === 'CANCELLED'
+                                ? (apt.cancellationSource === 'PATIENT'
+                                  ? 'Cancelada pelo paciente'
+                                  : apt.cancellationSource === 'RECEPTION'
+                                    ? 'Cancelada pela recepção'
+                                    : 'Cancelada')
+                                : (STATUS_LABELS[apt.status] || apt.status)}
                             </div>
                           </div>
                         </div>

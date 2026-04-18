@@ -73,9 +73,11 @@ export interface ProAppointment {
   startTime: string
   endTime: string
   status: string
+  cancellationSource?: string
   patientName: string
   patientAvatarUrl?: string
   serviceName: string
+  serviceOnlineBooking?: boolean
   roomName?: string
   price: number
   paymentStatus: string

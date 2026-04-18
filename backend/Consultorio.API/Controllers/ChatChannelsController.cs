@@ -198,4 +198,103 @@ public class ChatChannelsController : ControllerBase
             sender    = new { id = userId, name = user?.Name, avatarUrl = user?.AvatarUrl }
         });
     }
+
+    // POST /api/chatchannels/arrival-alert
+    [HttpPost("arrival-alert")]
+    public async Task<ActionResult> SendArrivalAlert([FromBody] ArrivalAlertDto dto)
+    {
+        var clinicId = GetClinicId();
+        if (clinicId == Guid.Empty)
+            return BadRequest(new { message = "Clínica não identificada." });
+
+        var appointment = await _db.Appointments
+            .Include(a => a.Patient).ThenInclude(p => p.User)
+            .Include(a => a.Professional).ThenInclude(p => p.User)
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.Id == dto.AppointmentId && a.ClinicId == clinicId);
+
+        if (appointment == null)
+            return NotFound(new { message = "Consulta não encontrada." });
+
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized(new { message = "Usuário não identificado." });
+
+        var currentUser = await _db.Users.FindAsync(userId);
+        var professionalUser = await _db.Users.FindAsync(appointment.Professional.UserId);
+        if (currentUser == null || professionalUser == null)
+            return NotFound(new { message = "Usuários não encontrados." });
+
+        var channelName = $"Aviso - {appointment.Professional.User.Name}";
+        var channel = await _db.ChatChannels
+            .FirstOrDefaultAsync(c => c.ClinicId == clinicId && c.Type == "DIRECT" && c.Name == channelName);
+
+        if (channel == null)
+        {
+            channel = new ChatChannel
+            {
+                Id = Guid.NewGuid(),
+                ClinicId = clinicId,
+                Name = channelName,
+                Description = $"Canal direto entre recepção e {appointment.Professional.User.Name}",
+                Type = "DIRECT",
+                AdminOnly = false,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            };
+            _db.ChatChannels.Add(channel);
+            await _db.SaveChangesAsync();
+        }
+
+        await EnsureMember(channel.Id, currentUser.Id);
+        await EnsureMember(channel.Id, professionalUser.Id);
+
+        var content = string.IsNullOrWhiteSpace(dto.Message)
+            ? $"Paciente {appointment.Patient.User.Name} chegou para {appointment.Service.Name}."
+            : dto.Message.Trim();
+
+        var arrivalMessage = new ChatMessage
+        {
+            Id = Guid.NewGuid(),
+            ChatChannelId = channel.Id,
+            UserId = currentUser.Id,
+            Content = content,
+            IsEdited = false,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        _db.ChatMessages.Add(arrivalMessage);
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            channelId = channel.Id,
+            channelName = channel.Name,
+            messageId = arrivalMessage.Id,
+            content = arrivalMessage.Content,
+            createdAt = arrivalMessage.CreatedAt,
+        });
+    }
+
+    private async Task EnsureMember(Guid channelId, Guid userId)
+    {
+        var exists = await _db.ChatChannelMembers.AnyAsync(m => m.ChatChannelId == channelId && m.UserId == userId);
+        if (exists) return;
+
+        _db.ChatChannelMembers.Add(new ChatChannelMember
+        {
+            Id = Guid.NewGuid(),
+            ChatChannelId = channelId,
+            UserId = userId,
+            Role = "MEMBER",
+            JoinedAt = DateTime.UtcNow,
+        });
+        await _db.SaveChangesAsync();
+    }
+}
+
+public class ArrivalAlertDto
+{
+    public Guid AppointmentId { get; set; }
+    public string? Message { get; set; }
 }

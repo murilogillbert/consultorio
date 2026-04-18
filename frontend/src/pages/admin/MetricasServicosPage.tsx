@@ -43,6 +43,8 @@ export default function MetricasServicosPage() {
   const totalCompleted = services.reduce((s, sv) => s + sv.completedCount, 0)
   const totalAll = services.reduce((s, sv) => s + sv.totalAppointments, 0)
   const totalCancelled = services.reduce((s, sv) => s + sv.cancelledCount + sv.noShowCount, 0)
+  const totalCancelledByPatient = services.reduce((s, sv) => s + (sv.cancelledByPatientCount || 0), 0)
+  const totalCancelledByReception = services.reduce((s, sv) => s + (sv.cancelledByReceptionCount || 0), 0)
   const totalRevenue = services.reduce((s, sv) => s + sv.revenue, 0)
   const avgCancellation = totalAll > 0 ? Math.round((totalCancelled / totalAll) * 100) : 0
   const totalUniquePatients = services.reduce((s, sv) => s + sv.uniquePatients, 0)
@@ -86,7 +88,8 @@ export default function MetricasServicosPage() {
           <span className="metric-value" style={{ color: avgCancellation > 20 ? 'var(--color-accent-danger)' : avgCancellation > 10 ? 'var(--color-accent-gold)' : 'var(--color-accent-emerald)' }}>
             {avgCancellation}%
           </span>
-          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{totalCancelled} cancelados/ausências</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{totalCancelled} cancelamentos/ausências</span>
+          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>Paciente: {totalCancelledByPatient} · Recepção: {totalCancelledByReception}</span>
         </div>
         <div className="metric-card">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><BarChart3 size={14} /> Serviços Ativos</span>
@@ -203,6 +206,7 @@ export default function MetricasServicosPage() {
                     {s.cancellationRate}%
                   </span>
                   <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{s.cancelledCount + s.noShowCount} total</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>P: {s.cancelledByPatientCount || 0} · R: {s.cancelledByReceptionCount || 0}</div>
                 </td>
                 <td>
                   <div style={{ fontWeight: 500 }}>{s.uniquePatients}</div>

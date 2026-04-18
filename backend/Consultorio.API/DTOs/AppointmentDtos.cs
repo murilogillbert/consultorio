@@ -19,6 +19,7 @@ public class UpdateStatusDto
 public class CancelAppointmentDto
 {
     public string? Reason { get; set; }
+    public string? Source { get; set; }
 }
 
 public class UpdateAppointmentDto
@@ -44,6 +45,8 @@ public class AppointmentResponseDto
     public AppointmentPersonDto Patient { get; set; } = null!;
     public AppointmentPersonDto Professional { get; set; } = null!;
     public AppointmentRoomDto? Room { get; set; }
+    public string? CancellationSource { get; set; }
+    public DateTime? CancelledAt { get; set; }
     public string? PaymentStatus { get; set; }
     public decimal? PaymentAmount { get; set; }
     public string? PaymentMethod { get; set; }
@@ -65,6 +68,7 @@ public class AppointmentServiceDto
     public int Duration { get; set; }
     public string Color { get; set; } = null!;
     public decimal Price { get; set; }
+    public bool OnlineBooking { get; set; }
 }
 
 public class AppointmentPersonDto

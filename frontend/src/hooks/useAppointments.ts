@@ -15,7 +15,9 @@ interface AppointmentRaw {
   status: string
   notes?: string
   createdAt: string
-  service: { id: string; name: string; duration: number; color?: string; price?: number }
+  cancellationSource?: string | null
+  cancelledAt?: string | null
+  service: { id: string; name: string; duration: number; color?: string; price?: number; onlineBooking?: boolean }
   insurancePlan?: { id: string; name: string; price?: number | null; showPrice?: boolean }
   patient: { id: string; name: string; avatarUrl?: string }
   professional: { id: string; name: string; avatarUrl?: string }
@@ -37,9 +39,11 @@ export interface Appointment {
   status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
   notes?: string
   patient?: { name: string; user?: { name: string } }
-  service?: { name: string; price?: number }
+  service?: { name: string; price?: number; onlineBooking?: boolean }
   insurancePlan?: { id: string; name: string; price?: number | null; showPrice?: boolean }
   professional?: { user?: { name: string } }
+  cancellationSource?: string
+  cancelledAt?: string
   paymentStatus?: string
   paymentAmount?: number
   paymentMethod?: string
@@ -58,9 +62,11 @@ function mapAppointment(a: AppointmentRaw): Appointment {
     status: a.status,
     notes: a.notes,
     patient: { name: a.patient.name, user: { name: a.patient.name } },
-    service: { name: a.service.name, price: a.service.price },
+    service: { name: a.service.name, price: a.service.price, onlineBooking: a.service.onlineBooking },
     insurancePlan: a.insurancePlan ? { id: a.insurancePlan.id, name: a.insurancePlan.name, price: a.insurancePlan.price, showPrice: a.insurancePlan.showPrice } : undefined,
     professional: { user: { name: a.professional.name } },
+    cancellationSource: a.cancellationSource ?? undefined,
+    cancelledAt: a.cancelledAt ?? undefined,
     paymentStatus: a.paymentStatus ?? undefined,
     paymentAmount: a.paymentAmount ?? undefined,
     paymentMethod: a.paymentMethod ?? undefined,

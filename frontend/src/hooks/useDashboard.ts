@@ -118,6 +118,8 @@ export interface ProfessionalMetric {
   appointments: number
   completedCount: number
   cancelledCount: number
+  cancelledByPatientCount?: number
+  cancelledByReceptionCount?: number
   noShowCount: number
   cancellationRate: number
   conversionRate: number
@@ -157,6 +159,8 @@ export interface ServiceMetric {
   totalAppointments: number
   completedCount: number
   cancelledCount: number
+  cancelledByPatientCount?: number
+  cancelledByReceptionCount?: number
   noShowCount: number
   cancellationRate: number
   revenue: number

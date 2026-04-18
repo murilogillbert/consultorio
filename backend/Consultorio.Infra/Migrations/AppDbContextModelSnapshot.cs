@@ -83,6 +83,12 @@ namespace Consultorio.Infra.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CancellationSource")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uniqueidentifier");
 
@@ -92,11 +98,11 @@ namespace Consultorio.Infra.Migrations
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<Guid?>("InsurancePlanId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("PatientId")
                         .HasColumnType("uniqueidentifier");
@@ -677,6 +683,10 @@ namespace Consultorio.Infra.Migrations
                     b.Property<Guid?>("SentByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClinicId");
@@ -1163,16 +1173,16 @@ namespace Consultorio.Infra.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Consultorio.Domain.Models.InsurancePlan", "InsurancePlan")
+                        .WithMany()
+                        .HasForeignKey("InsurancePlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Consultorio.Domain.Models.Patient", "Patient")
                         .WithMany("Appointments")
                         .HasForeignKey("PatientId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Consultorio.Domain.Models.InsurancePlan", "InsurancePlan")
-                        .WithMany()
-                        .HasForeignKey("InsurancePlanId")
-                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Consultorio.Domain.Models.Professional", "Professional")
                         .WithMany("Appointments")
@@ -1565,8 +1575,6 @@ namespace Consultorio.Infra.Migrations
             modelBuilder.Entity("Consultorio.Domain.Models.Appointment", b =>
                 {
                     b.Navigation("EquipmentUsages");
-
-                    b.Navigation("InsurancePlan");
 
                     b.Navigation("Payment");
                 });
