@@ -28,7 +28,7 @@ export default function ProfissionaisPage() {
     userId: '',
     roomId: '',
     insuranceIds: [] as string[],
-    commission: 50
+    commissionPct: '50'
   })
   const [formError, setFormError] = useState('')
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
@@ -81,7 +81,7 @@ export default function ProfissionaisPage() {
           specialty: formData.specialty,
           bio: formData.bio,
           languages: formData.languages,
-          commission: formData.commission,
+          commissionPct: parseFloat(formData.commissionPct) || 50,
           schedules: parsedSchedules,
         })
       } else {
@@ -99,7 +99,7 @@ export default function ProfissionaisPage() {
           specialty: formData.specialty,
           bio: formData.bio,
           languages: formData.languages,
-          commission: formData.commission,
+          commissionPct: parseFloat(formData.commissionPct) || 50,
           schedules: parsedSchedules,
         })
       }
@@ -118,7 +118,7 @@ export default function ProfissionaisPage() {
         userId: '',
         roomId: '',
         insuranceIds: [],
-        commission: 50
+        commissionPct: '50'
       })
       setScheduleSlots({})
     } catch (err: any) {
@@ -149,7 +149,7 @@ export default function ProfissionaisPage() {
       userId: pro.userId,
       roomId: '', // Set from actual data if available
       insuranceIds: [], // Set from actual data if available
-      commission: pro.commission ?? 50
+      commissionPct: String(pro.commissionPct ?? 50)
     })
 
     setAvatarPreview(pro.user?.avatarUrl || null)
@@ -206,7 +206,7 @@ export default function ProfissionaisPage() {
                 />
               </div>
             </div>
-            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', password: '', phone: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomId: '', insuranceIds: [] }); setAvatarPreview(null); setShowForm(true); }}>
+            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', password: '', phone: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomId: '', insuranceIds: [], commissionPct: '50' }); setAvatarPreview(null); setShowForm(true); }}>
               <Plus size={16} /> Novo Profissional
             </button>
           </div>
@@ -415,19 +415,10 @@ export default function ProfissionaisPage() {
                 </button>
               </div>
 
-              {/* Comissão */}
+              {/* Banking */}
               <div className="input-group">
                 <label className="input-label">Comissão (%)</label>
-                <input
-                  className="input-field"
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  placeholder="50"
-                  value={formData.commission}
-                  onChange={e => setFormData({ ...formData, commission: Number(e.target.value) })}
-                />
+                <input className="input-field" type="number" placeholder="50" min="0" max="100" value={formData.commissionPct} onChange={e => setFormData({ ...formData, commissionPct: e.target.value })} />
               </div>
               <div className="input-group">
                 <ComboBox 

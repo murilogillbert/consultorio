@@ -14,7 +14,13 @@ import { useBanners } from '../../hooks/useBanners'
 
 const serviceIcons = [Stethoscope, Heart, Brain, Eye, Bone, Baby]
 
-const categories = ['Todos', 'Consultas', 'Exames', 'Procedimentos', 'Pacotes']
+function normalizeCategoryLabel(category: string): string {
+  const map: Record<string, string> = {
+    Avaliacoes: 'Avaliações',
+    Avaliacao: 'Avaliação',
+  }
+  return map[category] || category
+}
 
 function formatDuration(minutes: number): string {
   if (minutes >= 60) {
@@ -36,6 +42,12 @@ export default function HomePage() {
   const { data: banners = [], isLoading: loadingBanners } = useBanners(clinic?.id)
   const { data: services = [], isLoading: loadingServices } = useServices()
   const { data: professionals = [], isLoading: loadingProfessionals } = useProfessionals()
+  const categories = [
+    'Todos',
+    ...Array.from(new Set(services.map(s => s.category).filter(Boolean) as string[])),
+  ]
+  const mockupPrimaryService = services[0]?.name || 'Consulta de avaliacao bariatrica'
+  const mockupSecondaryService = services[1]?.name || 'Consulta neuropsicologica'
 
   const nextSlide = useCallback(() => {
     if (banners.length === 0) return
@@ -134,7 +146,7 @@ export default function HomePage() {
                   className={`pill-tab${activeCategory === cat ? ' active' : ''}`}
                   onClick={() => setActiveCategory(cat)}
                 >
-                  {cat}
+                  {normalizeCategoryLabel(cat)}
                 </button>
               ))}
             </div>
@@ -155,6 +167,11 @@ export default function HomePage() {
                     {formatDuration(service.duration)}
                   </div>
                   <div className="price">{formatPrice(service.price)}</div>
+                  {service.category && (
+                    <span className="badge badge-gold" style={{ marginTop: 8 }}>
+                      {normalizeCategoryLabel(service.category)}
+                    </span>
+                  )}
                   <Link to="/agendar" className="btn btn-primary btn-sm" style={{ marginTop: 'auto' }}>
                     Agendar
                   </Link>
@@ -248,12 +265,12 @@ export default function HomePage() {
                 </div>
                 <div className="mockup-appointment">
                   <span className="badge badge-emerald" style={{ fontSize: 11 }}>Confirmada</span>
-                  <div className="mockup-appointment-name">Consulta Geral</div>
+                  <div className="mockup-appointment-name">{mockupPrimaryService}</div>
                   <div className="mockup-appointment-date">Seg, 14 Abr — 09:00</div>
                 </div>
                 <div className="mockup-appointment" style={{ opacity: 0.5 }}>
                   <span className="badge badge-gold" style={{ fontSize: 11 }}>Agendada</span>
-                  <div className="mockup-appointment-name">Cardiologia</div>
+                  <div className="mockup-appointment-name">{mockupSecondaryService}</div>
                   <div className="mockup-appointment-date">Sex, 18 Abr — 14:30</div>
                 </div>
                 <div className="mockup-chat-preview">

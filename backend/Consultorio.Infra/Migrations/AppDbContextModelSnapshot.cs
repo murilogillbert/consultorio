@@ -83,6 +83,12 @@ namespace Consultorio.Infra.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CancellationSource")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uniqueidentifier");
 
@@ -91,6 +97,9 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("InsurancePlanId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
@@ -120,6 +129,8 @@ namespace Consultorio.Infra.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClinicId");
+
+                    b.HasIndex("InsurancePlanId");
 
                     b.HasIndex("PatientId");
 
@@ -672,6 +683,10 @@ namespace Consultorio.Infra.Migrations
                     b.Property<Guid?>("SentByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClinicId");
@@ -699,8 +714,23 @@ namespace Consultorio.Infra.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ExternalCheckoutUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExternalPaymentId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExternalQrCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExternalQrCodeBase64")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PaidBeforeCompletion")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("PaymentDate")
                         .HasColumnType("datetime2");
@@ -737,6 +767,10 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("CommissionPct")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -970,6 +1004,28 @@ namespace Consultorio.Infra.Migrations
                     b.ToTable("ServiceCategories");
                 });
 
+            modelBuilder.Entity("Consultorio.Domain.Models.ServiceInsurancePlan", b =>
+                {
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InsurancePlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("Price")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<bool>("ShowPrice")
+                        .HasColumnType("bit");
+
+                    b.HasKey("ServiceId", "InsurancePlanId");
+
+                    b.HasIndex("InsurancePlanId");
+
+                    b.ToTable("ServiceInsurancePlans");
+                });
+
             modelBuilder.Entity("Consultorio.Domain.Models.SystemUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1079,21 +1135,6 @@ namespace Consultorio.Infra.Migrations
                     b.ToTable("ServiceEquipment");
                 });
 
-            modelBuilder.Entity("ServiceInsurancePlan", b =>
-                {
-                    b.Property<Guid>("InsurancePlanId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ServiceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("InsurancePlanId", "ServiceId");
-
-                    b.HasIndex("ServiceId");
-
-                    b.ToTable("ServiceInsurancePlan");
-                });
-
             modelBuilder.Entity("ServiceRoom", b =>
                 {
                     b.Property<Guid>("RoomId")
@@ -1136,6 +1177,11 @@ namespace Consultorio.Infra.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Consultorio.Domain.Models.InsurancePlan", "InsurancePlan")
+                        .WithMany()
+                        .HasForeignKey("InsurancePlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Consultorio.Domain.Models.Patient", "Patient")
                         .WithMany("Appointments")
                         .HasForeignKey("PatientId")
@@ -1160,6 +1206,8 @@ namespace Consultorio.Infra.Migrations
                         .IsRequired();
 
                     b.Navigation("Clinic");
+
+                    b.Navigation("InsurancePlan");
 
                     b.Navigation("Patient");
 
@@ -1445,6 +1493,25 @@ namespace Consultorio.Infra.Migrations
                     b.Navigation("Clinic");
                 });
 
+            modelBuilder.Entity("Consultorio.Domain.Models.ServiceInsurancePlan", b =>
+                {
+                    b.HasOne("Consultorio.Domain.Models.InsurancePlan", "InsurancePlan")
+                        .WithMany()
+                        .HasForeignKey("InsurancePlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Consultorio.Domain.Models.Service", "Service")
+                        .WithMany("ServiceInsurancePlans")
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InsurancePlan");
+
+                    b.Navigation("Service");
+                });
+
             modelBuilder.Entity("Consultorio.Domain.Models.SystemUser", b =>
                 {
                     b.HasOne("Consultorio.Domain.Models.Clinic", "Clinic")
@@ -1484,21 +1551,6 @@ namespace Consultorio.Infra.Migrations
                     b.HasOne("Consultorio.Domain.Models.Equipment", null)
                         .WithMany()
                         .HasForeignKey("EquipmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Consultorio.Domain.Models.Service", null)
-                        .WithMany()
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("ServiceInsurancePlan", b =>
-                {
-                    b.HasOne("Consultorio.Domain.Models.InsurancePlan", null)
-                        .WithMany()
-                        .HasForeignKey("InsurancePlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1595,6 +1647,8 @@ namespace Consultorio.Infra.Migrations
             modelBuilder.Entity("Consultorio.Domain.Models.Service", b =>
                 {
                     b.Navigation("Appointments");
+
+                    b.Navigation("ServiceInsurancePlans");
                 });
 
             modelBuilder.Entity("Consultorio.Domain.Models.User", b =>

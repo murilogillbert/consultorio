@@ -8,7 +8,13 @@ import { useServices } from '../../hooks/useServices'
 
 const categoryIcons = [Stethoscope, Heart, Brain, Eye, Bone, Baby]
 
-const categories = ['Todos', 'Consultas', 'Exames', 'Procedimentos', 'Pacotes']
+function normalizeCategoryLabel(category: string): string {
+  const map: Record<string, string> = {
+    Avaliacoes: 'Avaliações',
+    Avaliacao: 'Avaliação',
+  }
+  return map[category] || category
+}
 
 function formatDuration(minutes: number): string {
   if (minutes >= 60) {
@@ -28,6 +34,11 @@ export default function ServicosPage() {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const { data: services = [], isLoading } = useServices()
 
+  const categories = [
+    'Todos',
+    ...Array.from(new Set(services.map(s => s.category).filter(Boolean) as string[])),
+  ]
+
   const filtered = activeCategory === 'Todos'
     ? services
     : services.filter(s => s.category === activeCategory)
@@ -44,7 +55,7 @@ export default function ServicosPage() {
               className={`pill-tab${activeCategory === cat ? ' active' : ''}`}
               onClick={() => setActiveCategory(cat)}
             >
-              {cat}
+              {normalizeCategoryLabel(cat)}
             </button>
           ))}
         </div>
@@ -74,7 +85,7 @@ export default function ServicosPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {service.category && <span className="badge badge-gold">{service.category}</span>}
+                    {service.category && <span className="badge badge-gold">{normalizeCategoryLabel(service.category)}</span>}
                     <Link to="/agendar" className="btn btn-primary btn-sm">Agendar</Link>
                     <button
                       className="btn btn-icon btn-sm"

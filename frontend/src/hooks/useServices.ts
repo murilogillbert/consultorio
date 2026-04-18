@@ -18,7 +18,7 @@ interface ServiceResponseDtoRaw {
   isActive: boolean
   createdAt: string
   professionals: Array<{ id: string; name: string; avatarUrl?: string }>
-  insurancePlans: Array<{ id: string; name: string }>
+  insurancePlans: Array<{ id: string; name: string; price?: number | null; showPrice: boolean }>
   equipments: Array<{ id: string; name: string }>
   rooms: Array<{ id: string; name: string }>
 }
@@ -40,7 +40,7 @@ export interface Service {
   createdAt: string
   updatedAt: string
   professionals?: Array<{ professional: { id: string; user?: { name: string; avatarUrl?: string } } }>
-  insurances?: Array<{ insurancePlan: { id: string; name: string } }>
+  insurances?: Array<{ insurancePlan: { id: string; name: string }; price?: number | null; showPrice: boolean }>
   equipments?: Array<{ id: string; name: string }>
   rooms?: Array<{ id: string; name: string }>
 }
@@ -64,7 +64,9 @@ function mapService(raw: ServiceResponseDtoRaw): Service {
       professional: { id: p.id, user: { name: p.name, avatarUrl: p.avatarUrl } }
     })),
     insurances: (raw.insurancePlans || []).map(i => ({
-      insurancePlan: { id: i.id, name: i.name }
+      insurancePlan: { id: i.id, name: i.name },
+      price: i.price ?? null,
+      showPrice: i.showPrice ?? true,
     })),
     equipments: raw.equipments || [],
     rooms: raw.rooms || [],
@@ -104,6 +106,7 @@ interface CreateServicePayload {
   imageUrl?: string
   roomId?: string
   insuranceIds?: string[]
+  insurances?: Array<{ insuranceId: string; price?: number | null; showPrice: boolean }>
   professionalIds?: string[]
   equipmentIds?: string[]
   roomIds?: string[]
@@ -123,7 +126,7 @@ function toBackendCreate(p: CreateServicePayload) {
     defaultRoomId: p.roomId || null,
     color: '#007BFF',
     professionalIds: p.professionalIds?.map(id => id) || [],
-    insuranceIds: p.insuranceIds?.map(id => id) || [],
+    insurances: p.insurances || p.insuranceIds?.map(id => ({ insuranceId: id, price: null, showPrice: true })) || [],
     equipmentIds: p.equipmentIds?.map(id => id) || [],
     roomIds: p.roomIds?.map(id => id) || [],
   }
@@ -159,7 +162,8 @@ export function useUpdateService() {
       }
       if (updateData.active !== undefined)           payload.isActive         = updateData.active
       if (updateData.professionalIds !== undefined)  payload.professionalIds  = updateData.professionalIds
-      if (updateData.insuranceIds !== undefined)     payload.insuranceIds     = updateData.insuranceIds
+      if (updateData.insurances !== undefined)        payload.insurances       = updateData.insurances
+      else if (updateData.insuranceIds !== undefined)  payload.insurances       = updateData.insuranceIds.map((id: string) => ({ insuranceId: id, price: null, showPrice: true }))
       if (updateData.equipmentIds !== undefined)     payload.equipmentIds     = updateData.equipmentIds
       if (updateData.roomIds !== undefined)          payload.roomIds          = updateData.roomIds
       const { data } = await api.put<ServiceResponseDtoRaw>(`/services/${id}`, payload)

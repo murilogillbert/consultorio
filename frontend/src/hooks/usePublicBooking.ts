@@ -8,6 +8,7 @@ export interface BookingData {
   cpf: string
   phone: string
   serviceId: string
+  insurancePlanId?: string
   professionalId: string
   startTime: string
   endTime: string

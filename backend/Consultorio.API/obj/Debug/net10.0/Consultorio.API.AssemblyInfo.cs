@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Consultorio.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b711e42f69e398b42ed124fed5084acc59af8b8c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+12a686c8eb75f87a50a10eed4f5af981041b6086")]
 [assembly: System.Reflection.AssemblyProductAttribute("Consultorio.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Consultorio.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

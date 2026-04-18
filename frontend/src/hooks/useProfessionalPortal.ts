@@ -1,127 +1,145 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
-// ─── Agenda ────────────────────────────────────────────────────────────────
-export interface PortalAppointment {
+const PRO_TOKEN_KEY = 'professional_token'
+const PRO_USER_KEY = 'professional_user'
+
+export function getProfessionalToken(): string | null {
+  return localStorage.getItem(PRO_TOKEN_KEY)
+}
+
+export function getProfessionalUser(): { id: string; name: string; email: string } | null {
+  const raw = localStorage.getItem(PRO_USER_KEY)
+  if (!raw) return null
+  try { return JSON.parse(raw) } catch { return null }
+}
+
+export function clearProfessional() {
+  localStorage.removeItem(PRO_TOKEN_KEY)
+  localStorage.removeItem(PRO_USER_KEY)
+}
+
+export function isProfessionalLoggedIn(): boolean {
+  return !!getProfessionalToken()
+}
+
+// Reutiliza o endpoint de login de paciente — que agora detecta se é profissional
+export function useProfessionalLogin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const { data } = await api.post('/public/patients/login', { email, password })
+      const res = data as { token: string; role: string; user: { id: string; name: string; email: string } }
+      if (res.role !== 'PROFESSIONAL') {
+        throw new Error('Estas credenciais não pertencem a um profissional.')
+      }
+      localStorage.setItem(PRO_TOKEN_KEY, res.token)
+      localStorage.setItem(PRO_USER_KEY, JSON.stringify(res.user))
+      return res
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proMe'] })
+      queryClient.invalidateQueries({ queryKey: ['proAgenda'] })
+      queryClient.invalidateQueries({ queryKey: ['proReviews'] })
+      queryClient.invalidateQueries({ queryKey: ['proStats'] })
+    }
+  })
+}
+
+function proApi() {
+  const token = getProfessionalToken()
+  return {
+    get: <T>(url: string, params?: Record<string, string>) =>
+      api.get<T>(url, { headers: { Authorization: `Bearer ${token}` }, params }),
+  }
+}
+
+export function useProfessionalMe() {
+  return useQuery({
+    queryKey: ['proMe'],
+    queryFn: async () => {
+      const { data } = await proApi().get<{
+        id: string; name: string; email: string
+        avatarUrl?: string; specialty?: string; commissionPct: number
+      }>('/public/professional/me')
+      return data
+    },
+    enabled: isProfessionalLoggedIn(),
+  })
+}
+
+export interface ProAppointment {
   id: string
   startTime: string
   endTime: string
   status: string
-  notes?: string
-  patient: { id: string; name: string; avatarUrl?: string }
-  service: {
-    id: string
-    name: string
-    durationMinutes: number
-    price: number
-    color: string
-  }
-  payment?: { status: string; amount: number; method?: string } | null
-}
-
-export interface AgendaData {
-  weekStart: string
-  weekEnd: string
-  appointments: PortalAppointment[]
-}
-
-export function useProfessionalAgenda(startDate?: string) {
-  return useQuery<AgendaData>({
-    queryKey: ['professional-portal', 'agenda', startDate],
-    queryFn: async () => {
-      const params = startDate ? `?startDate=${startDate}` : ''
-      const { data } = await api.get(`/professional-portal/agenda${params}`)
-      return data as AgendaData
-    },
-  })
-}
-
-// ─── Avaliações ────────────────────────────────────────────────────────────
-export interface ReviewItem {
-  id: string
-  rating: number
-  comment?: string
-  createdAt: string
-  appointmentId?: string
-  patient: { name: string; avatarUrl?: string }
-}
-
-export interface ReviewsData {
-  totalReviews: number
-  averageRating: number
-  distribution: Array<{ star: number; count: number }>
-  reviews: ReviewItem[]
-}
-
-export function useProfessionalReviews() {
-  return useQuery<ReviewsData>({
-    queryKey: ['professional-portal', 'reviews'],
-    queryFn: async () => {
-      const { data } = await api.get('/professional-portal/reviews')
-      return data as ReviewsData
-    },
-  })
-}
-
-// ─── Convênios ─────────────────────────────────────────────────────────────
-export interface InsuranceStatsData {
-  totalAppointments: number
-  totalWithInsurance: number
-  withoutInsurance: number
-  insurancePlans: Array<{ name: string; count: number; percentage: number }>
-}
-
-export function useProfessionalInsuranceStats() {
-  return useQuery<InsuranceStatsData>({
-    queryKey: ['professional-portal', 'insurance-stats'],
-    queryFn: async () => {
-      const { data } = await api.get('/professional-portal/insurance-stats')
-      return data as InsuranceStatsData
-    },
-  })
-}
-
-// ─── Ganhos ────────────────────────────────────────────────────────────────
-export interface EarningItem {
-  id: string
-  startTime: string
+  cancellationSource?: string
   patientName: string
+  patientAvatarUrl?: string
   serviceName: string
-  servicePrice: number
-  paidAmount: number
-  commission: number
-  earning: number
+  serviceOnlineBooking?: boolean
+  roomName?: string
+  price: number
   paymentStatus: string
 }
 
-export interface EarningsData {
-  year: number
-  month: number
-  commission: number
-  professionalName: string
-  totalCompleted: number
-  totalGross: number
-  totalEarnings: number
-  appointments: EarningItem[]
-  monthlyHistory: Array<{
-    year: number
-    month: number
-    label: string
-    gross: number
-    earning: number
-    count: number
+export function useProfessionalAgenda(weekStart?: string) {
+  return useQuery({
+    queryKey: ['proAgenda', weekStart],
+    queryFn: async () => {
+      const params: Record<string, string> | undefined = weekStart ? { weekStart } : undefined
+      const { data } = await proApi().get<ProAppointment[]>('/public/professional/agenda', params)
+      return data
+    },
+    enabled: isProfessionalLoggedIn(),
+  })
+}
+
+export interface ProReviews {
+  averageRating: number
+  totalReviews: number
+  reviews: Array<{
+    id: string
+    rating: number
+    comment?: string
+    createdAt: string
+    patientName: string
+    serviceName?: string
   }>
 }
 
-export function useProfessionalEarnings(year?: number, month?: number) {
-  return useQuery<EarningsData>({
-    queryKey: ['professional-portal', 'earnings', year, month],
+export function useProfessionalReviews() {
+  return useQuery({
+    queryKey: ['proReviews'],
     queryFn: async () => {
-      const params = new URLSearchParams()
-      if (year) params.append('year', String(year))
-      if (month) params.append('month', String(month))
-      const { data } = await api.get(`/professional-portal/earnings?${params.toString()}`)
-      return data as EarningsData
+      const { data } = await proApi().get<ProReviews>('/public/professional/reviews')
+      return data
     },
+    enabled: isProfessionalLoggedIn(),
+  })
+}
+
+export interface ProStats {
+  totalAppointments: number
+  completedCount: number
+  cancelledCount: number
+  scheduledCount: number
+  totalRevenue: number
+  commissionPct: number
+  netPayout: number
+  serviceBreakdown: Array<{ name: string; count: number; revenue: number }>
+  insuranceBreakdown: Array<{ name: string; serviceCount: number }>
+  periodLabel: string
+}
+
+export function useProfessionalStats(period?: string) {
+  return useQuery({
+    queryKey: ['proStats', period],
+    queryFn: async () => {
+      const params: Record<string, string> | undefined = period ? { period } : undefined
+      const { data } = await proApi().get<ProStats>('/public/professional/stats', params)
+      return data
+    },
+    enabled: isProfessionalLoggedIn(),
   })
 }

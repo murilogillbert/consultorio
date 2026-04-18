@@ -94,3 +94,12 @@ export function useDeleteChannel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
   })
 }
+
+export function useNotifyStaffArrival() {
+  return useMutation({
+    mutationFn: async ({ appointmentId, message }: { appointmentId: string; message?: string }) => {
+      const { data } = await api.post('/chatchannels/arrival-alert', { appointmentId, message })
+      return data as { channelId: string; channelName: string; messageId: string; content: string; createdAt: string }
+    }
+  })
+}

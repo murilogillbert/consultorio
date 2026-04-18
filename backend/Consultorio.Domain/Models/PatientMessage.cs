@@ -8,6 +8,8 @@ public class PatientMessage
     public string Content { get; set; } = null!;
     /// <summary>IN = sent by patient, OUT = sent by staff/clinic</summary>
     public string Direction { get; set; } = "IN";
+    /// <summary>APP, WHATSAPP, INSTAGRAM or EMAIL.</summary>
+    public string Source { get; set; } = "APP";
     /// <summary>Null when sent by patient; set when a staff member replies.</summary>
     public Guid? SentByUserId { get; set; }
     public bool IsRead { get; set; } = false;

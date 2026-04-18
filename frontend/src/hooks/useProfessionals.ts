@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 // Backend ProfessionalResponseDto:
-// { id, userId, name, email, phone, avatarUrl, licenseNumber, specialty, bio, isAvailable, commission, createdAt, services: string[], serviceIds: string[] }
+// { id, userId, name, email, phone, avatarUrl, licenseNumber, specialty, bio, isAvailable, createdAt, services: string[], serviceIds: string[] }
 interface ProfessionalResponseDtoRaw {
   id: string
   userId: string
@@ -14,10 +14,10 @@ interface ProfessionalResponseDtoRaw {
   specialty?: string
   bio?: string
   isAvailable: boolean
-  commission: number
   createdAt: string
   services: string[]
   serviceIds: string[]
+  commissionPct: number
   schedules: Array<{ id: string; dayOfWeek: number; startTime: string; endTime: string }>
 }
 
@@ -31,13 +31,13 @@ export interface Professional {
   bio?: string
   languages?: string
   active: boolean
-  commission: number
   user?: {
     id: string
     name: string
     email: string
     avatarUrl?: string
   }
+  commissionPct: number
   // IDs dos serviços vinculados — para filtrar profissionais por serviço no agendamento
   serviceIds?: string[]
   services?: Array<{ service: { id: string; name: string } }>
@@ -56,7 +56,7 @@ function mapProfessional(raw: ProfessionalResponseDtoRaw): Professional {
     bio: raw.bio,
     languages: '',
     active: raw.isAvailable,
-    commission: raw.commission ?? 50,
+    commissionPct: raw.commissionPct ?? 50,
     user: {
       id: raw.userId,
       name: raw.name,
@@ -111,10 +111,11 @@ export function useCreateProfessional() {
       specialty?: string
       bio?: string
       languages?: string
+      commissionPct?: number
       schedules?: Array<{ dayOfWeek: number; startTime: string; endTime: string }>
     }) => {
       // Backend requires name/email/password — create a user and professional in one call
-      const payload = {
+      const payload: any = {
         name: input.name || 'Novo Profissional',
         email: input.email || `prof_${Date.now()}@example.com`,
         password: input.password || 'ChangeMe@123',
@@ -122,8 +123,8 @@ export function useCreateProfessional() {
         licenseNumber: input.crm,
         specialty: input.specialty,
         bio: input.bio,
-        commission: (input as any).commission ?? 50,
       }
+      if (input.commissionPct !== undefined) payload.commissionPct = input.commissionPct
       const { data } = await api.post<ProfessionalResponseDtoRaw>('/professionals', payload)
       // Persist schedules (if provided) via POST /api/schedules
       if (input.schedules && input.schedules.length > 0) {
@@ -153,7 +154,7 @@ export function useUpdateProfessional() {
       if (updateData.specialty !== undefined) payload.specialty = updateData.specialty
       if (updateData.bio !== undefined) payload.bio = updateData.bio
       if (updateData.active !== undefined) payload.isAvailable = updateData.active
-      if (updateData.commission !== undefined) payload.commission = updateData.commission
+      if (updateData.commissionPct !== undefined) payload.commissionPct = updateData.commissionPct
       const { data } = await api.put<ProfessionalResponseDtoRaw>(`/professionals/${id}`, payload)
       // Persist schedules separately. Always overwrite when caller passed a
       // schedules array — SetSchedule deletes all existing and rewrites, so

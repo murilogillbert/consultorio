@@ -52,6 +52,32 @@ public class TokenService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    // Token específico para o portal do profissional (com professionalId)
+    public string GenerateProfessionalToken(Guid userId, string email, Guid professionalId)
+    {
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(_config["Jwt:Secret"]!)
+        );
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Email, email),
+            new Claim(ClaimTypes.Role, "PROFESSIONAL"),
+            new Claim("professionalId", professionalId.ToString()),
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: _config["Jwt:Issuer"],
+            audience: _config["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddDays(7),
+            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     // Token específico para o portal do paciente (sem clinicId, com patientId)
     public string GeneratePatientToken(Guid userId, string email, Guid patientId)
     {

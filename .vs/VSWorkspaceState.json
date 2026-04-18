@@ -1,0 +1,15 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\.dotnet\\.dotnet",
+    "\\backend",
+    "\\backend\\Consultorio.Infra\\obj",
+    "\\backend\\prisma\\migrations",
+    "\\backend\\prisma\\migrations\\20260401000605_init",
+    "\\frontend",
+    "\\frontend\\public",
+    "\\frontend\\src"
+  ],
+  "SelectedNode": "\\backend\\Consultorio.Infra",
+  "PreviewInSolutionExplorer": false
+}

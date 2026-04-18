@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<Announcement> Announcements { get; set; } = null!;
     public DbSet<PatientMessage> PatientMessages { get; set; } = null!;
     public DbSet<ServiceCategory> ServiceCategories { get; set; } = null!;
+    public DbSet<ServiceInsurancePlan> ServiceInsurancePlans { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -135,6 +136,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Professional>()
             .HasKey(p => p.Id);
         modelBuilder.Entity<Professional>()
+            .Property(p => p.CommissionPct)
+            .HasPrecision(5, 2);
+        modelBuilder.Entity<Professional>()
             .HasMany(p => p.Appointments)
             .WithOne(a => a.Professional)
             .HasForeignKey(a => a.ProfessionalId)
@@ -193,15 +197,27 @@ public class AppDbContext : DbContext
                 r => r.HasOne<Equipment>().WithMany().HasForeignKey("EquipmentId").OnDelete(DeleteBehavior.Cascade),
                 l => l.HasOne<Service>().WithMany().HasForeignKey("ServiceId").OnDelete(DeleteBehavior.Cascade)
             );
-        // Many-to-many: Service <-> InsurancePlan
+        // Many-to-many: Service <-> InsurancePlan (explicit join entity with Price + ShowPrice)
+        modelBuilder.Entity<ServiceInsurancePlan>()
+            .HasKey(sip => new { sip.ServiceId, sip.InsurancePlanId });
+        modelBuilder.Entity<ServiceInsurancePlan>()
+            .Property(sip => sip.Price)
+            .HasPrecision(10, 2);
+        modelBuilder.Entity<ServiceInsurancePlan>()
+            .HasOne(sip => sip.Service)
+            .WithMany(s => s.ServiceInsurancePlans)
+            .HasForeignKey(sip => sip.ServiceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ServiceInsurancePlan>()
+            .HasOne(sip => sip.InsurancePlan)
+            .WithMany()
+            .HasForeignKey(sip => sip.InsurancePlanId)
+            .OnDelete(DeleteBehavior.Cascade);
+        // Keep skip-navigation for convenience queries
         modelBuilder.Entity<Service>()
             .HasMany(s => s.InsurancePlans)
             .WithMany(ip => ip.Services)
-            .UsingEntity<Dictionary<string, object>>(
-                "ServiceInsurancePlan",
-                r => r.HasOne<InsurancePlan>().WithMany().HasForeignKey("InsurancePlanId").OnDelete(DeleteBehavior.Cascade),
-                l => l.HasOne<Service>().WithMany().HasForeignKey("ServiceId").OnDelete(DeleteBehavior.Cascade)
-            );
+            .UsingEntity<ServiceInsurancePlan>();
         // Many-to-many: Service <-> Room
         modelBuilder.Entity<Service>()
             .HasMany(s => s.Rooms)
@@ -253,6 +269,11 @@ public class AppDbContext : DbContext
             .WithOne(p => p.Appointment)
             .HasForeignKey<Payment>(p => p.AppointmentId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Appointment>()
+            .HasOne(a => a.InsurancePlan)
+            .WithMany()
+            .HasForeignKey(a => a.InsurancePlanId)
+            .OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<Appointment>()
             .HasMany(a => a.EquipmentUsages)
             .WithOne(eu => eu.Appointment)

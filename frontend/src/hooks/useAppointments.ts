@@ -4,6 +4,7 @@ import { api } from '../services/api'
 // Backend AppointmentResponseDto:
 // { id, startTime, endTime, status, notes, createdAt,
 //   service: { id, name, duration, color },
+//   insurancePlan?: { id, name, price, showPrice },
 //   patient: { id, name, avatarUrl },
 //   professional: { id, name, avatarUrl },
 //   room?: { id, name } }
@@ -14,10 +15,17 @@ interface AppointmentRaw {
   status: string
   notes?: string
   createdAt: string
-  service: { id: string; name: string; duration: number; color?: string }
+  cancellationSource?: string | null
+  cancelledAt?: string | null
+  service: { id: string; name: string; duration: number; color?: string; price?: number; onlineBooking?: boolean }
+  insurancePlan?: { id: string; name: string; price?: number | null; showPrice?: boolean }
   patient: { id: string; name: string; avatarUrl?: string }
   professional: { id: string; name: string; avatarUrl?: string }
   room?: { id: string; name: string } | null
+  paymentStatus?: string | null
+  paymentAmount?: number | null
+  paymentMethod?: string | null
+  paymentId?: string | null
 }
 
 export interface Appointment {
@@ -25,13 +33,21 @@ export interface Appointment {
   patientId: string
   professionalId: string
   serviceId: string
+  insurancePlanId?: string
   startTime: string
   endTime: string
   status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
   notes?: string
   patient?: { name: string; user?: { name: string } }
-  service?: { name: string }
+  service?: { name: string; price?: number; onlineBooking?: boolean }
+  insurancePlan?: { id: string; name: string; price?: number | null; showPrice?: boolean }
   professional?: { user?: { name: string } }
+  cancellationSource?: string
+  cancelledAt?: string
+  paymentStatus?: string
+  paymentAmount?: number
+  paymentMethod?: string
+  paymentId?: string
 }
 
 function mapAppointment(a: AppointmentRaw): Appointment {
@@ -40,13 +56,21 @@ function mapAppointment(a: AppointmentRaw): Appointment {
     patientId: a.patient.id,
     professionalId: a.professional.id,
     serviceId: a.service.id,
+    insurancePlanId: a.insurancePlan?.id,
     startTime: a.startTime,
     endTime: a.endTime,
     status: a.status,
     notes: a.notes,
     patient: { name: a.patient.name, user: { name: a.patient.name } },
-    service: { name: a.service.name },
+    service: { name: a.service.name, price: a.service.price, onlineBooking: a.service.onlineBooking },
+    insurancePlan: a.insurancePlan ? { id: a.insurancePlan.id, name: a.insurancePlan.name, price: a.insurancePlan.price, showPrice: a.insurancePlan.showPrice } : undefined,
     professional: { user: { name: a.professional.name } },
+    cancellationSource: a.cancellationSource ?? undefined,
+    cancelledAt: a.cancelledAt ?? undefined,
+    paymentStatus: a.paymentStatus ?? undefined,
+    paymentAmount: a.paymentAmount ?? undefined,
+    paymentMethod: a.paymentMethod ?? undefined,
+    paymentId: a.paymentId ?? undefined,
   }
 }
 
@@ -80,6 +104,7 @@ export function useCreateAppointment() {
         patientId: appointmentData.patientId,
         professionalId: appointmentData.professionalId,
         serviceId: appointmentData.serviceId,
+        insurancePlanId: appointmentData.insurancePlanId,
         roomId: appointmentData.roomId,
         startTime: appointmentData.startTime,
         notes: appointmentData.notes,

@@ -11,7 +11,7 @@ const steps = ['Serviço', 'Profissional', 'Data e Hora', 'Seus Dados', 'Confirm
 export default function AgendamentoPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [formData, setFormData] = useState({
-    service: '', serviceId: '', professional: '', professionalId: '', date: '', time: '', startTime: '', endTime: '', name: '', cpf: '', phone: '', email: '', password: '', confirmPassword: '', notes: ''
+    service: '', serviceId: '', insurancePlanId: '', professional: '', professionalId: '', date: '', time: '', startTime: '', endTime: '', name: '', cpf: '', phone: '', email: '', password: '', confirmPassword: '', notes: ''
   })
   const [showPass, setShowPass]   = useState(false)
   const [showConf, setShowConf]   = useState(false)
@@ -70,6 +70,11 @@ export default function AgendamentoPage() {
     formData.serviceId || undefined
   )
   const bookingMutation = usePublicBooking()
+  const selectedService = services.find(s => s.id === formData.serviceId)
+  const selectedInsurance = selectedService?.insurances?.find(i => i.insurancePlan.id === formData.insurancePlanId)
+  const serviceInsuranceOptions = selectedService?.insurances || []
+  const selectedServicePrice = selectedService ? selectedService.price / 100 : 0
+  const formatMoney = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 
   const handleLogin = async () => {
     setLoginError('')
@@ -90,7 +95,11 @@ export default function AgendamentoPage() {
   }
 
   const canAdvance = () => {
-    if (currentStep === 0) return formData.serviceId !== ''
+    if (currentStep === 0) {
+      if (!formData.serviceId) return false
+      if (serviceInsuranceOptions.length > 0) return formData.insurancePlanId !== ''
+      return true
+    }
     if (currentStep === 1) return formData.professionalId !== ''
     if (currentStep === 2) return formData.date !== '' && formData.time !== ''
     if (currentStep === 3) {
@@ -116,7 +125,7 @@ export default function AgendamentoPage() {
         </p>
 
         {/* Progress */}
-        <div className="booking-progress">
+        <div className="booking-progress booking-progress-scroll">
           {steps.map((step, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
               <div className={`booking-step ${i === currentStep ? 'active' : ''} ${i < currentStep ? 'completed' : ''}`}>
@@ -152,14 +161,67 @@ export default function AgendamentoPage() {
                   transition: 'all 150ms ease'
                 }}>
                   <input type="radio" name="service" checked={formData.serviceId === s.id}
-                    onChange={() => setFormData({ ...formData, service: s.name, serviceId: s.id, professional: '', professionalId: '' })}
+                    onChange={() => setFormData({ ...formData, service: s.name, serviceId: s.id, insurancePlanId: '', professional: '', professionalId: '', date: '', time: '', startTime: '', endTime: '' })}
                     style={{ accentColor: 'var(--color-accent-emerald)' }} />
                   <div style={{ flex: 1 }}>
                     <span style={{ fontWeight: 500 }}>{s.name}</span>
-                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{s.duration} min — R$ {(s.price / 100).toFixed(2).replace('.', ',')}</div>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{s.duration} min — {formatMoney(s.price / 100)}</div>
                   </div>
                 </label>
               ))}
+              {selectedService && serviceInsuranceOptions.length > 0 && (
+                <div style={{
+                  marginTop: 'var(--space-6)',
+                  padding: 'var(--space-5)',
+                  border: '1px solid var(--color-border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--color-bg-secondary)',
+                }}>
+                  <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>
+                    Selecione o convênio
+                  </h3>
+                  <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
+                    As opções abaixo seguem a configuração feita pelo admin para este serviço.
+                  </p>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {serviceInsuranceOptions.map(option => {
+                      const isSelected = formData.insurancePlanId === option.insurancePlan.id
+                      const priceLabel = option.showPrice
+                        ? formatMoney(Number(option.price ?? selectedServicePrice))
+                        : 'Valor sob consulta'
+                      return (
+                        <label
+                          key={option.insurancePlan.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: '12px 16px',
+                            background: isSelected ? 'rgba(45,106,79,0.08)' : 'transparent',
+                            border: `1px solid ${isSelected ? 'var(--color-accent-emerald)' : 'var(--color-border-default)'}`,
+                            borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="insurancePlan"
+                            checked={isSelected}
+                            onChange={() => setFormData({ ...formData, insurancePlanId: option.insurancePlan.id })}
+                            style={{ accentColor: 'var(--color-accent-emerald)' }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                              <span style={{ fontWeight: 500 }}>{option.insurancePlan.name}</span>
+                              <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{priceLabel}</span>
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -404,7 +466,20 @@ export default function AgendamentoPage() {
                 Confirme seu Agendamento
               </h2>
               <div style={{ textAlign: 'left', background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {selectedInsurance && (
+                  <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-default)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Convênio</div>
+                    <div style={{ fontWeight: 500 }}>{selectedInsurance.insurancePlan.name}</div>
+                    {selectedInsurance.showPrice ? (
+                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                        {formatMoney(Number(selectedInsurance.price ?? selectedServicePrice))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Valor sob consulta</div>
+                    )}
+                  </div>
+                )}
+                <div className="booking-summary-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Serviço</span><p style={{ fontWeight: 500 }}>{formData.service}</p></div>
                   <div><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Profissional</span><p style={{ fontWeight: 500 }}>{formData.professional}</p></div>
                   <div><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Data</span><p style={{ fontWeight: 500 }}>{formData.date}</p></div>
@@ -438,6 +513,7 @@ export default function AgendamentoPage() {
                         cpf: formData.cpf,
                         phone: formData.phone,
                         serviceId: formData.serviceId,
+                        insurancePlanId: formData.insurancePlanId || undefined,
                         professionalId: formData.professionalId,
                         startTime: formData.startTime,
                         endTime: formData.endTime,

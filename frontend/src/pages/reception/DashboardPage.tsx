@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarCheck, Clock, AlertTriangle, XCircle, UserCheck, Plus, Receipt, Bell, Paperclip } from 'lucide-react'
-import { useAppointments } from '../../hooks/useAppointments'
+import { useAppointments, type Appointment } from '../../hooks/useAppointments'
 import { useAnnouncements, useMarkAnnouncementRead } from '../../hooks/useAnnouncements'
 import { useAuth } from '../../contexts/AuthContext'
+import PaymentModal from '../../components/PaymentModal'
 
 const URGENCY_CSS: Record<string, string> = { NORMAL: 'normal', IMPORTANT: 'important', URGENT: 'urgent' }
 
@@ -10,9 +12,12 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const [showChargeSelector, setShowChargeSelector] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedChargeAppointment, setSelectedChargeAppointment] = useState<Appointment | null>(null)
 
   const today = new Date().toISOString().split('T')[0]
-  const { data: appointments = [] } = useAppointments(today + 'T00:00:00', today + 'T23:59:59')
+  const { data: appointments = [], refetch: refetchAppointments } = useAppointments(today + 'T00:00:00', today + 'T23:59:59')
   const { data: announcements = [], isLoading: loadingAvisos } = useAnnouncements(clinicId)
   const markRead = useMarkAnnouncementRead()
 
@@ -34,9 +39,12 @@ export default function DashboardPage() {
     const diff = Math.floor((now.getTime() - new Date(appt.startTime).getTime()) / 60000)
     return diff > 0 ? `${diff} min` : 'Agora'
   }
+  const chargeableAppointments = appointments
+    .filter(a => a.status !== 'CANCELLED' && a.paymentStatus !== 'PAID')
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in reception-dashboard-page">
       {/* Announcement Feed */}
       <div className="announcement-feed">
         <div className="announcement-feed-header">
@@ -179,10 +187,88 @@ export default function DashboardPage() {
         <button className="quick-action-btn" onClick={() => navigate('/recepcao/agenda')}>
           <UserCheck size={18} /> Registrar Chegada
         </button>
-        <button className="quick-action-btn" onClick={() => navigate('/recepcao/mensagens')}>
+        <button className="quick-action-btn" onClick={() => setShowChargeSelector(true)}>
           <Receipt size={18} /> Emitir Cobrança
         </button>
       </div>
+
+      {showChargeSelector && (
+        <div className="modal-overlay" onClick={() => setShowChargeSelector(false)}>
+          <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Selecionar atendimento para cobrança</h3>
+              <button className="modal-close" onClick={() => setShowChargeSelector(false)}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {chargeableAppointments.length === 0 ? (
+                <div className="empty-state" style={{ padding: '24px 16px' }}>
+                  <Receipt size={36} />
+                  <p>Nenhum atendimento pendente de cobrança.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {chargeableAppointments.map(appt => {
+                    const name = appt.patient?.user?.name || appt.patient?.name || 'Paciente'
+                    const timeLabel = new Date(appt.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <button
+                        key={appt.id}
+                        className="btn btn-ghost"
+                        style={{
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 14px',
+                          border: '1px solid var(--color-border-default)',
+                          borderRadius: 12,
+                        }}
+                        onClick={() => {
+                          setSelectedChargeAppointment(appt)
+                          setShowChargeSelector(false)
+                          setShowPaymentModal(true)
+                        }}
+                      >
+                        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                          <strong style={{ fontSize: 14 }}>{name}</strong>
+                          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                            {appt.service?.name || 'Serviço'} · {timeLabel}
+                          </span>
+                        </span>
+                        <span className="badge badge-gold">
+                          {appt.status === 'COMPLETED' ? 'Pós-atendimento' : 'Em aberto'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowChargeSelector(false)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentModal && selectedChargeAppointment && (
+        <PaymentModal
+          appointmentId={selectedChargeAppointment.id}
+          serviceName={selectedChargeAppointment.service?.name || 'Consulta'}
+          servicePrice={Math.round((selectedChargeAppointment.service?.price ?? 0) * 100)}
+          appointmentStatus={selectedChargeAppointment.status}
+          paymentStatus={selectedChargeAppointment.paymentStatus}
+          onClose={() => {
+            setShowPaymentModal(false)
+            setSelectedChargeAppointment(null)
+          }}
+          onPaid={() => {
+            setShowPaymentModal(false)
+            setSelectedChargeAppointment(null)
+            void refetchAppointments()
+          }}
+        />
+      )}
     </div>
   )
 }

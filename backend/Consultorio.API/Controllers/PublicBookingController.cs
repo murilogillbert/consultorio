@@ -31,9 +31,23 @@ public class PublicBookingController : ControllerBase
             return StatusCode(503, new { message = "Sistema ainda não configurado." });
 
         // Busca o serviço
-        var service = await _db.Services.FindAsync(dto.ServiceId);
+        var service = await _db.Services
+            .Include(s => s.ServiceInsurancePlans)
+            .FirstOrDefaultAsync(s => s.Id == dto.ServiceId);
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
+
+        if (service.ServiceInsurancePlans.Count > 0 && !dto.InsurancePlanId.HasValue)
+            return BadRequest(new { message = "Selecione um convênio para continuar." });
+
+        if (dto.InsurancePlanId.HasValue)
+        {
+            var selectedInsurance = service.ServiceInsurancePlans
+                .FirstOrDefault(sip => sip.InsurancePlanId == dto.InsurancePlanId.Value);
+
+            if (selectedInsurance == null)
+                return BadRequest(new { message = "O convênio selecionado não está disponível para este serviço." });
+        }
 
         // Verifica se o profissional existe
         var professional = await _db.Professionals.FindAsync(dto.ProfessionalId);
@@ -98,6 +112,7 @@ public class PublicBookingController : ControllerBase
             Id             = Guid.NewGuid(),
             ClinicId       = clinic.Id,
             ServiceId      = dto.ServiceId,
+            InsurancePlanId = dto.InsurancePlanId,
             PatientId      = patient.Id,
             ProfessionalId = dto.ProfessionalId,
             StartTime      = dto.StartTime,
@@ -131,6 +146,7 @@ public class PublicBookingDto
     public string? CPF          { get; set; }
     public string? Phone        { get; set; }
     public Guid ServiceId       { get; set; }
+    public Guid? InsurancePlanId { get; set; }
     public Guid ProfessionalId  { get; set; }
     public DateTime StartTime   { get; set; }
     public DateTime EndTime     { get; set; }

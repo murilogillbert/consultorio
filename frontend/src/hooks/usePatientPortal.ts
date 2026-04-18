@@ -50,8 +50,9 @@ export interface PatientAppointment {
   startTime: string
   endTime: string
   status: string
+  cancellationSource?: string
   notes?: string
-  service: { name: string; duration: number }
+  service: { name: string; duration: number; onlineBooking?: boolean }
   professional: { user: { name: string; avatarUrl?: string } }
   review?: { rating: number; comment?: string } | null
 }
@@ -75,6 +76,7 @@ export interface PatientMessage {
   direction: string
   content: string
   isRead: boolean
+  source?: string
   createdAt: string
 }
 

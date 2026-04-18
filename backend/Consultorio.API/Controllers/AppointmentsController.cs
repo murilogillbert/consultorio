@@ -30,9 +30,12 @@ public class AppointmentsController : ControllerBase
         var clinicId = GetClinicId();
         IQueryable<Appointment> query = _db.Appointments
             .Include(a => a.Service)
+                .ThenInclude(s => s.ServiceInsurancePlans)
+            .Include(a => a.InsurancePlan)
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .Where(a => a.ClinicId == clinicId);
 
         // Suporta range (start+end) ou dia único (date)
@@ -64,9 +67,12 @@ public class AppointmentsController : ControllerBase
     {
         var appt = await _db.Appointments
             .Include(a => a.Service)
+                .ThenInclude(s => s.ServiceInsurancePlans)
+            .Include(a => a.InsurancePlan)
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (appt == null)
@@ -84,9 +90,20 @@ public class AppointmentsController : ControllerBase
             return BadRequest(new { message = "Usuário não vinculado a uma clínica." });
 
         // Busca o serviço para calcular o EndTime
-        var service = await _db.Services.FindAsync(dto.ServiceId);
+        var service = await _db.Services
+            .Include(s => s.ServiceInsurancePlans)
+            .FirstOrDefaultAsync(s => s.Id == dto.ServiceId);
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
+
+        if (dto.InsurancePlanId.HasValue)
+        {
+            var insuranceAllowed = await _db.ServiceInsurancePlans.AnyAsync(sip =>
+                sip.ServiceId == dto.ServiceId && sip.InsurancePlanId == dto.InsurancePlanId.Value);
+
+            if (!insuranceAllowed)
+                return BadRequest(new { message = "O convênio selecionado não está disponível para este serviço." });
+        }
 
         var endTime = dto.StartTime.AddMinutes(service.DurationMinutes);
 
@@ -106,6 +123,7 @@ public class AppointmentsController : ControllerBase
             Id = Guid.NewGuid(),
             ClinicId = clinicId,
             ServiceId = dto.ServiceId,
+            InsurancePlanId = dto.InsurancePlanId,
             PatientId = dto.PatientId,
             ProfessionalId = dto.ProfessionalId,
             RoomId = dto.RoomId,
@@ -122,9 +140,12 @@ public class AppointmentsController : ControllerBase
         // Recarrega com Includes para montar o DTO
         var created = await _db.Appointments
             .Include(a => a.Service)
+                .ThenInclude(s => s.ServiceInsurancePlans)
+            .Include(a => a.InsurancePlan)
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstAsync(a => a.Id == appt.Id);
 
         return CreatedAtAction(nameof(GetById), new { id = appt.Id }, ToDto(created));
@@ -136,15 +157,23 @@ public class AppointmentsController : ControllerBase
     {
         var appt = await _db.Appointments
             .Include(a => a.Service)
+                .ThenInclude(s => s.ServiceInsurancePlans)
+            .Include(a => a.InsurancePlan)
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (appt == null)
             return NotFound(new { message = "Consulta não encontrada." });
 
-        if (dto.Status != null) appt.Status = dto.Status;
+        if (dto.Status != null)
+        {
+            appt.Status = dto.Status;
+            if (string.Equals(dto.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(appt.CancellationSource))
+                appt.CancellationSource = "RECEPTION";
+        }
         if (dto.RoomId.HasValue) appt.RoomId = dto.RoomId.Value;
         if (dto.Notes != null) appt.Notes = dto.Notes;
 
@@ -179,14 +208,19 @@ public class AppointmentsController : ControllerBase
     {
         var appt = await _db.Appointments
             .Include(a => a.Service)
+                .ThenInclude(s => s.ServiceInsurancePlans)
+            .Include(a => a.InsurancePlan)
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
+            .Include(a => a.Payment)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
 
         appt.Status = dto.Status;
+        if (string.Equals(dto.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(appt.CancellationSource))
+            appt.CancellationSource = "RECEPTION";
         appt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -201,6 +235,8 @@ public class AppointmentsController : ControllerBase
         if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
 
         appt.Status = "CANCELLED";
+        appt.CancellationSource = string.IsNullOrWhiteSpace(dto.Source) ? "RECEPTION" : dto.Source.Trim().ToUpperInvariant();
+        appt.CancelledAt = DateTime.UtcNow;
         if (!string.IsNullOrEmpty(dto.Reason))
             appt.Notes = $"[CANCELADO] {dto.Reason}";
         appt.UpdatedAt = DateTime.UtcNow;
@@ -218,43 +254,66 @@ public class AppointmentsController : ControllerBase
             return NotFound(new { message = "Consulta não encontrada." });
 
         appt.Status = "CANCELLED";
+        appt.CancellationSource = "RECEPTION";
+        appt.CancelledAt = DateTime.UtcNow;
         appt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
         return NoContent();
     }
 
-    private static AppointmentResponseDto ToDto(Appointment a) => new()
+    private static AppointmentResponseDto ToDto(Appointment a)
     {
-        Id = a.Id,
-        StartTime = a.StartTime,
-        EndTime = a.EndTime,
-        Status = a.Status,
-        Notes = a.Notes,
-        CreatedAt = a.CreatedAt,
-        Service = new AppointmentServiceDto
+        var selectedInsurance = a.Service.ServiceInsurancePlans
+            .FirstOrDefault(sip => a.InsurancePlanId.HasValue && sip.InsurancePlanId == a.InsurancePlanId.Value);
+
+        return new AppointmentResponseDto
         {
-            Id = a.Service.Id,
-            Name = a.Service.Name,
-            Duration = a.Service.DurationMinutes,
-            Color = a.Service.Color
-        },
-        Patient = new AppointmentPersonDto
-        {
-            Id = a.Patient.Id,
-            Name = a.Patient.User.Name,
-            AvatarUrl = a.Patient.User.AvatarUrl
-        },
-        Professional = new AppointmentPersonDto
-        {
-            Id = a.Professional.Id,
-            Name = a.Professional.User.Name,
-            AvatarUrl = a.Professional.User.AvatarUrl
-        },
-        Room = a.Room != null ? new AppointmentRoomDto
-        {
-            Id = a.Room.Id,
-            Name = a.Room.Name
-        } : null
-    };
+            Id = a.Id,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Status = a.Status,
+            Notes = a.Notes,
+            CreatedAt = a.CreatedAt,
+            Service = new AppointmentServiceDto
+            {
+                Id = a.Service.Id,
+                Name = a.Service.Name,
+                Duration = a.Service.DurationMinutes,
+                Color = a.Service.Color,
+                Price = a.Service.Price,
+                OnlineBooking = a.Service.OnlineBooking
+            },
+            InsurancePlan = a.InsurancePlan != null ? new AppointmentInsuranceDto
+            {
+                Id = a.InsurancePlan.Id,
+                Name = a.InsurancePlan.Name,
+                Price = selectedInsurance?.Price,
+                ShowPrice = selectedInsurance?.ShowPrice ?? true
+            } : null,
+            Patient = new AppointmentPersonDto
+            {
+                Id = a.Patient.Id,
+                Name = a.Patient.User.Name,
+                AvatarUrl = a.Patient.User.AvatarUrl
+            },
+            Professional = new AppointmentPersonDto
+            {
+                Id = a.Professional.Id,
+                Name = a.Professional.User.Name,
+                AvatarUrl = a.Professional.User.AvatarUrl
+            },
+            Room = a.Room != null ? new AppointmentRoomDto
+            {
+                Id = a.Room.Id,
+                Name = a.Room.Name
+            } : null,
+            CancellationSource = a.CancellationSource,
+            CancelledAt = a.CancelledAt,
+            PaymentStatus = a.Payment?.Status,
+            PaymentAmount = a.Payment?.Amount,
+            PaymentMethod = a.Payment?.PaymentMethod,
+            PaymentId = a.Payment?.Id
+        };
+    }
 }

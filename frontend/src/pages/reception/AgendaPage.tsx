@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, X, UserCheck, MessageSquare, Search, Loader2, Plus, XCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, UserCheck, MessageSquare, Search, Loader2, Plus, XCircle, DollarSign } from 'lucide-react'
 import { useAppointments, useCreateAppointment, useCancelAppointment, useUpdateAppointmentStatus } from '../../hooks/useAppointments'
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useServices } from '../../hooks/useServices'
 import { usePatients } from '../../hooks/usePatients'
+import { useNotifyStaffArrival } from '../../hooks/useChannels'
 import ComboBox from '../../components/ComboBox'
+import PaymentModal from '../../components/PaymentModal'
 import type { Appointment } from '../../hooks/useAppointments'
 
 const timeSlots = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
@@ -29,6 +31,7 @@ export default function AgendaPage() {
   const [formError, setFormError] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [drawerMsg, setDrawerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   // New appointment form
   const [newForm, setNewForm] = useState({
@@ -42,7 +45,7 @@ export default function AgendaPage() {
   })
 
   const { data: professionals = [], isLoading: loadingProfs } = useProfessionals()
-  const { data: appointments = [], isLoading: loadingAppts } = useAppointments(
+  const { data: appointments = [], isLoading: loadingAppts, refetch: refetchAppointments } = useAppointments(
     `${selectedDate}T00:00:00`,
     `${selectedDate}T23:59:59`
   )
@@ -52,6 +55,7 @@ export default function AgendaPage() {
   const createAppointment = useCreateAppointment()
   const cancelAppointment = useCancelAppointment()
   const updateStatus = useUpdateAppointmentStatus()
+  const notifyStaff = useNotifyStaffArrival()
 
   // Filter columns by search AND specialized filter
   const displayedProfs = professionals.filter(p => {
@@ -63,6 +67,16 @@ export default function AgendaPage() {
   const dayAppts = appointments.filter(
     a => showCancelled || a.status !== 'CANCELLED'
   )
+  const selectedPaymentStatus = selectedAppointment?.paymentStatus
+  const selectedIsPaid = selectedPaymentStatus === 'PAID'
+  const selectedIsOnline = !!selectedAppointment?.service?.onlineBooking
+  const cancellationLabel = selectedAppointment?.status === 'CANCELLED'
+    ? (selectedAppointment.cancellationSource === 'PATIENT'
+      ? 'Cancelado pelo paciente'
+      : selectedAppointment.cancellationSource === 'RECEPTION'
+        ? 'Cancelado pela recepção'
+        : 'Cancelado')
+    : ''
 
   const handleCellClick = (profId: string, time: string) => {
     setNewForm({
@@ -134,7 +148,7 @@ export default function AgendaPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in agenda-page-layout">
       {/* Filters */}
       <div className="agenda-filters">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -192,7 +206,7 @@ export default function AgendaPage() {
       </div>
 
       {/* Calendar Grid — Day View */}
-      <div style={{ display: 'flex', gap: 0, overflow: 'hidden' }}>
+      <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, overflow: 'hidden' }}>
         <div className="calendar-grid" style={{ flex: 1, minWidth: 0 }}>
           {/* Header */}
           <div className="calendar-header" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>
@@ -244,9 +258,10 @@ export default function AgendaPage() {
                     width: `calc((100% - 60px) / ${displayedProfs.length} - 4px)`,
                   }}
                   onClick={() => { setSelectedAppointment(appt); setDrawerMsg(null) }}
-                >
+                  >
                   <div className="patient-name">{appt.patient?.user?.name || appt.patient?.name || 'Paciente'}</div>
                   <div className="service-name">{appt.service?.name || 'Serviço'}</div>
+                  <div className="service-name" style={{ fontSize: 11, opacity: 0.85 }}>{appt.service?.onlineBooking ? 'Online' : 'Presencial'}</div>
                 </div>
               )
             })}
@@ -282,13 +297,26 @@ export default function AgendaPage() {
                 <div>
                   <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
                   <span className={`badge badge-${selectedAppointment.status === 'CONFIRMED' ? 'emerald' : selectedAppointment.status === 'IN_PROGRESS' ? 'emerald' : selectedAppointment.status === 'COMPLETED' ? 'muted' : selectedAppointment.status === 'SCHEDULED' ? 'gold' : selectedAppointment.status === 'CANCELLED' ? 'danger' : 'muted'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
-                    {STATUS_LABEL[selectedAppointment.status] || selectedAppointment.status}
+                    {selectedAppointment.status === 'CANCELLED' ? cancellationLabel : (STATUS_LABEL[selectedAppointment.status] || selectedAppointment.status)}
                   </span>
                 </div>
               </div>
               <div>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cobrança</span>
+                <span className={`badge badge-${selectedIsPaid ? 'emerald' : selectedPaymentStatus === 'PENDING' ? 'gold' : 'muted'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
+                  {selectedIsPaid ? 'Pago' : selectedPaymentStatus === 'PENDING' ? 'Pendente' : 'Não cobrado'}
+                </span>
+              </div>
+              <div>
                 <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profissional</span>
                 <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{selectedAppointment.professional?.user?.name || '—'}</p>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Modalidade</span>
+                <span className={`badge badge-${selectedIsOnline ? 'emerald' : 'gold'}`} style={{ display: 'block', width: 'fit-content', marginTop: 4 }}>
+                  {selectedIsOnline ? 'Online' : 'Presencial'}
+                </span>
               </div>
 
               {selectedAppointment.notes && (
@@ -336,8 +364,42 @@ export default function AgendaPage() {
                 </button>
               )}
 
-              <button className="btn btn-secondary btn-full">
-                <MessageSquare size={16} /> Avisar Funcionario
+              {selectedAppointment.status !== 'CANCELLED' && (
+                <button
+                  className="btn btn-full"
+                  style={{
+                    background: selectedIsPaid ? 'var(--color-bg-secondary)' : '#16A34A',
+                    color: selectedIsPaid ? 'var(--color-text-muted)' : 'white',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                  onClick={() => {
+                    if (!selectedIsPaid) setShowPaymentModal(true)
+                  }}
+                  disabled={selectedIsPaid}
+                >
+                  <DollarSign size={16} /> {selectedIsPaid ? 'Cobrança já registrada' : 'Registrar Cobrança'}
+                </button>
+              )}
+
+              <button
+                className="btn btn-secondary btn-full"
+                onClick={async () => {
+                  if (!selectedAppointment) return
+                  setDrawerMsg(null)
+                  try {
+                    await notifyStaff.mutateAsync({ appointmentId: selectedAppointment.id })
+                    setDrawerMsg({ type: 'success', text: 'Funcionário avisado com sucesso.' })
+                  } catch (err: any) {
+                    setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao avisar o funcionário.' })
+                  }
+                }}
+                disabled={notifyStaff.isPending}
+              >
+                <MessageSquare size={16} /> {notifyStaff.isPending ? 'Avisando...' : 'Avisar Funcionário'}
               </button>
 
               {selectedAppointment.status !== 'CANCELLED' && selectedAppointment.status !== 'COMPLETED' && (
@@ -369,6 +431,23 @@ export default function AgendaPage() {
           </div>
         )}
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && selectedAppointment && (
+        <PaymentModal
+          appointmentId={selectedAppointment.id}
+          serviceName={selectedAppointment.service?.name || 'Consulta'}
+          servicePrice={Math.round((selectedAppointment.service?.price ?? 0) * 100)}
+          appointmentStatus={selectedAppointment.status}
+          paymentStatus={selectedAppointment.paymentStatus}
+          onClose={() => setShowPaymentModal(false)}
+          onPaid={() => {
+            setShowPaymentModal(false)
+            setDrawerMsg({ type: 'success', text: 'Pagamento registrado com sucesso!' })
+            void refetchAppointments()
+          }}
+        />
+      )}
 
       {/* New Appointment Modal */}
       {showNewModal && (

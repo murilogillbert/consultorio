@@ -26,5 +26,6 @@ public class Service
     public ICollection<Room> Rooms { get; set; } = new List<Room>();
     public ICollection<Equipment> Equipments { get; set; } = new List<Equipment>();
     public ICollection<InsurancePlan> InsurancePlans { get; set; } = new List<InsurancePlan>();
+    public ICollection<ServiceInsurancePlan> ServiceInsurancePlans { get; set; } = new List<ServiceInsurancePlan>();
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 }

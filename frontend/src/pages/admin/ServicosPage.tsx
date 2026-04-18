@@ -38,7 +38,7 @@ export default function ServicosPage() {
     onlineBooking: true,
     roomIds: [] as string[],
     equipmentIds: [] as string[],
-    insuranceIds: [] as string[],
+    insuranceBindings: [] as Array<{ insuranceId: string; price: string; showPrice: boolean }>,
     professionalIds: [] as string[]
   })
 
@@ -77,7 +77,7 @@ export default function ServicosPage() {
     name: '', category: '', shortDescription: '', description: '',
     duration: '', price: '', preparation: '', onlineBooking: true,
     roomIds: [] as string[], equipmentIds: [] as string[],
-    insuranceIds: [] as string[], professionalIds: [] as string[]
+    insuranceBindings: [] as Array<{ insuranceId: string; price: string; showPrice: boolean }>, professionalIds: [] as string[]
   }
 
   const handleSave = async () => {
@@ -96,7 +96,11 @@ export default function ServicosPage() {
         onlineBooking: formData.onlineBooking,
         roomIds: formData.roomIds,
         equipmentIds: formData.equipmentIds,
-        insuranceIds: formData.insuranceIds,
+        insurances: formData.insuranceBindings.map(b => ({
+          insuranceId: b.insuranceId,
+          price: b.price ? parseFloat(b.price.replace(',', '.')) : null,
+          showPrice: b.showPrice,
+        })),
         professionalIds: formData.professionalIds,
       }
       if (editingId) {
@@ -125,7 +129,11 @@ export default function ServicosPage() {
       onlineBooking: svc.onlineBooking,
       roomIds: svc.rooms?.map(r => r.id) || [],
       equipmentIds: svc.equipments?.map(e => e.id) || [],
-      insuranceIds: svc.insurances?.map(i => i.insurancePlan.id) || [],
+      insuranceBindings: svc.insurances?.map(i => ({
+        insuranceId: i.insurancePlan.id,
+        price: i.price != null ? String(i.price) : '',
+        showPrice: i.showPrice ?? true,
+      })) || [],
       professionalIds: svc.professionals?.map(p => p.professional.id) || []
     })
     setShowForm(true)
@@ -507,14 +515,68 @@ export default function ServicosPage() {
                 />
               </div>
               <div className="input-group">
+                <label className="input-label">Convênios Aceitos</label>
                 <ComboBox
-                  label="Convenios Aceitos"
-                  placeholder="Selecione os convenios..."
+                  placeholder="Adicionar convênio..."
                   multiple
-                  options={insurancePlans.map(i => ({ value: i.id, label: i.name }))}
-                  value={formData.insuranceIds}
-                  onChange={(vals: string[]) => setFormData({ ...formData, insuranceIds: vals })}
+                  options={insurancePlans
+                    .filter(i => !formData.insuranceBindings.some(b => b.insuranceId === i.id))
+                    .map(i => ({ value: i.id, label: i.name }))}
+                  value={formData.insuranceBindings.map(b => b.insuranceId)}
+                  onChange={(vals: string[]) => {
+                    const existing = formData.insuranceBindings.filter(b => vals.includes(b.insuranceId))
+                    const newIds = vals.filter(v => !formData.insuranceBindings.some(b => b.insuranceId === v))
+                    const newBindings = newIds.map(id => ({ insuranceId: id, price: '', showPrice: true }))
+                    setFormData({ ...formData, insuranceBindings: [...existing, ...newBindings] })
+                  }}
                 />
+                {formData.insuranceBindings.length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {formData.insuranceBindings.map((binding, idx) => {
+                      const plan = insurancePlans.find(i => i.id === binding.insuranceId)
+                      return (
+                        <div key={binding.insuranceId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--color-bg-secondary)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                          <span style={{ flex: 1, fontWeight: 500, fontSize: 14 }}>{plan?.name || 'Convênio'}</span>
+                          <input
+                            className="input-field"
+                            type="text"
+                            placeholder="Valor (R$)"
+                            style={{ width: 110, margin: 0 }}
+                            value={binding.price}
+                            onChange={e => {
+                              const updated = [...formData.insuranceBindings]
+                              updated[idx] = { ...updated[idx], price: e.target.value }
+                              setFormData({ ...formData, insuranceBindings: updated })
+                            }}
+                          />
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            <input
+                              type="checkbox"
+                              checked={binding.showPrice}
+                              onChange={e => {
+                                const updated = [...formData.insuranceBindings]
+                                updated[idx] = { ...updated[idx], showPrice: e.target.checked }
+                                setFormData({ ...formData, insuranceBindings: updated })
+                              }}
+                            />
+                            Exibir valor
+                          </label>
+                          <button
+                            type="button"
+                            className="btn btn-icon btn-sm"
+                            style={{ color: 'var(--color-accent-danger)' }}
+                            onClick={() => {
+                              const updated = formData.insuranceBindings.filter((_, i) => i !== idx)
+                              setFormData({ ...formData, insuranceBindings: updated })
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
               <div className="input-group">
                 <ComboBox

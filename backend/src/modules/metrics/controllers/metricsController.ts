@@ -192,43 +192,69 @@ export class MetricsController {
       }
 
       const { start, end } = periodToDates(startDate, endDate, period)
+      const periodMs = end.getTime() - start.getTime()
+      const prevStart = new Date(start.getTime() - periodMs)
+      const prevEnd = new Date(start.getTime() - 1)
+      const clinicAppointmentFilter = clinicId ? { room: { clinicId } } : undefined
 
-      // 1. Receita por Canal
-      const revenueByChannel = await prisma.payment.groupBy({
-        by: ['method'],
-        _sum: { amount: true },
-        where: {
-          status: 'PAID',
-          paidAt: { gte: start, lte: end },
-          appointment: clinicId ? { room: { clinicId } } : undefined
-        }
-      })
-
-      // 2. Repasses por Profissional (usa commissionPct real)
-      const paymentsWithPro = await prisma.payment.findMany({
-        where: {
-          status: 'PAID',
-          paidAt: { gte: start, lte: end },
-          appointment: clinicId ? { room: { clinicId } } : undefined
-        },
-        include: {
-          appointment: {
-            include: {
-              professional: { include: { user: true } }
+      const [paidPayments, prevRevenueAgg, totalAppointments, completedAppts] = await Promise.all([
+        prisma.payment.findMany({
+          where: {
+            status: 'PAID',
+            paidAt: { gte: start, lte: end },
+            appointment: clinicAppointmentFilter
+          },
+          include: {
+            appointment: {
+              include: {
+                professional: { include: { user: true } }
+              }
             }
           }
-        }
-      })
+        }),
+        prisma.payment.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'PAID',
+            paidAt: { gte: prevStart, lte: prevEnd },
+            appointment: clinicAppointmentFilter
+          }
+        }),
+        prisma.appointment.count({
+          where: {
+            startTime: { gte: start, lte: end },
+            room: clinicId ? { clinicId } : undefined
+          }
+        }),
+        prisma.appointment.count({
+          where: {
+            status: 'COMPLETED',
+            startTime: { gte: start, lte: end },
+            room: clinicId ? { clinicId } : undefined
+          }
+        })
+      ])
+
+      const totalRevenue = paidPayments.reduce((sum, payment) => sum + payment.amount, 0)
+      const prevRevenue = prevRevenueAgg._sum.amount || 0
+      const revenueTrend = prevRevenue > 0
+        ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100)
+        : (totalRevenue > 0 ? 100 : 0)
+      const ticketMedio = completedAppts > 0 ? totalRevenue / completedAppts : 0
+      const revenueByChannelMap = new Map<string, number>()
 
       const proPayouts: Record<string, any> = {}
-      paymentsWithPro.forEach(p => {
-        const pro = p.appointment.professional
+      paidPayments.forEach(payment => {
+        revenueByChannelMap.set(payment.method, (revenueByChannelMap.get(payment.method) || 0) + payment.amount)
+
+        const pro = payment.appointment.professional
         const proId = pro.id
-        const commission = (pro as any).commissionPct ?? 50
+        const commission = pro.commissionPct ?? 50
         if (!proPayouts[proId]) {
           proPayouts[proId] = {
             id: proId,
             name: pro.user.name,
+            specialty: pro.specialty || 'Especialista',
             appointments: 0,
             gross: 0,
             pct: `${commission}%`,
@@ -236,9 +262,12 @@ export class MetricsController {
           }
         }
         proPayouts[proId].appointments += 1
-        proPayouts[proId].gross += p.amount
-        proPayouts[proId].net += p.amount * (commission / 100)
+        proPayouts[proId].gross += payment.amount
+        proPayouts[proId].net += payment.amount * (commission / 100)
       })
+
+      const payouts = Object.values(proPayouts).sort((a, b) => b.gross - a.gross)
+      const totalPayout = payouts.reduce((sum, payout) => sum + payout.net, 0)
 
       // 3. Inadimplência
       const now = new Date()
@@ -246,7 +275,7 @@ export class MetricsController {
         where: {
           status: 'PENDING',
           dueAt: { lt: now },
-          appointment: clinicId ? { room: { clinicId } } : undefined
+          appointment: clinicAppointmentFilter
         },
         include: {
           appointment: {
@@ -260,19 +289,48 @@ export class MetricsController {
         take: 10
       })
 
+      const totalDelinquency = delinquency.reduce((sum, payment) => sum + payment.amount, 0)
+
+      const monthlyRevenue = []
+      for (let i = 11; i >= 0; i--) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59)
+        const agg = await prisma.payment.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'PAID',
+            paidAt: { gte: monthStart, lte: monthEnd },
+            appointment: clinicAppointmentFilter
+          }
+        })
+
+        monthlyRevenue.push({
+          month: monthStart.toLocaleString('pt-BR', { month: 'short' }),
+          revenue: agg._sum.amount || 0
+        })
+      }
+
       res.status(200).json({
-        revenueByChannel: revenueByChannel.map(c => ({
-          name: c.method,
-          value: c._sum.amount || 0
-        })),
-        payouts: Object.values(proPayouts),
+        totalRevenue,
+        revenueTrend,
+        totalPayout,
+        receitaLiquida: totalRevenue - totalPayout,
+        totalAppointments,
+        completedAppts,
+        ticketMedio,
+        totalDelinquency,
+        revenueByChannel: Array.from(revenueByChannelMap.entries())
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value),
+        payouts,
         delinquency: delinquency.map(d => ({
           patient: d.appointment.patient.user.name,
           service: d.appointment.service.name,
           value: d.amount,
           date: d.dueAt,
           days: Math.floor((now.getTime() - d.dueAt!.getTime()) / (1000 * 60 * 60 * 24))
-        }))
+        })),
+        monthlyRevenue
       })
     } catch (err) {
       next(err)
@@ -293,6 +351,38 @@ export class MetricsController {
       const prevEnd = new Date(start.getTime() - 1)
 
       const clinicFilter = clinicId ? { user: { systemUsers: { some: { clinicId } } } } : undefined
+      const clinicAppointmentFilter = clinicId ? { room: { clinicId } } : undefined
+
+      const [periodPayments, previousPayments] = await Promise.all([
+        prisma.payment.findMany({
+          where: {
+            status: 'PAID',
+            paidAt: { gte: start, lte: end },
+            appointment: clinicAppointmentFilter
+          },
+          include: {
+            appointment: {
+              select: {
+                professionalId: true
+              }
+            }
+          }
+        }),
+        prisma.payment.findMany({
+          where: {
+            status: 'PAID',
+            paidAt: { gte: prevStart, lte: prevEnd },
+            appointment: clinicAppointmentFilter
+          },
+          include: {
+            appointment: {
+              select: {
+                professionalId: true
+              }
+            }
+          }
+        })
+      ])
 
       const professionals = await prisma.professional.findMany({
         where: clinicFilter,
@@ -301,7 +391,6 @@ export class MetricsController {
           appointments: {
             where: { startTime: { gte: start, lte: end } },
             include: {
-              payments: { where: { status: 'PAID' } },
               service: true,
               patient: true
             }
@@ -319,15 +408,32 @@ export class MetricsController {
           startTime: { gte: prevStart, lte: prevEnd },
           professional: clinicFilter
         },
-        include: { payments: { where: { status: 'PAID' } } }
+        select: { professionalId: true }
       })
 
       const prevByProfessional = new Map<string, { count: number; revenue: number }>()
       prevAppointments.forEach(app => {
         const curr = prevByProfessional.get(app.professionalId) || { count: 0, revenue: 0 }
         curr.count++
-        curr.revenue += app.payments.reduce((s, p) => s + p.amount, 0)
         prevByProfessional.set(app.professionalId, curr)
+      })
+
+      const currentRevenueByProfessional = new Map<string, number>()
+      periodPayments.forEach(payment => {
+        const professionalId = payment.appointment.professionalId
+        currentRevenueByProfessional.set(
+          professionalId,
+          (currentRevenueByProfessional.get(professionalId) || 0) + payment.amount
+        )
+      })
+
+      const prevRevenueByProfessional = new Map<string, number>()
+      previousPayments.forEach(payment => {
+        const professionalId = payment.appointment.professionalId
+        prevRevenueByProfessional.set(
+          professionalId,
+          (prevRevenueByProfessional.get(professionalId) || 0) + payment.amount
+        )
       })
 
       // Para detectar pacientes novos: buscar primeiro agendamento de cada paciente com cada profissional
@@ -364,9 +470,7 @@ export class MetricsController {
           : 0
 
         // Receita
-        const totalRevenue = allAppts.reduce((sum: number, app: any) =>
-          sum + (app.payments?.reduce((pSum: number, pay: any) => pSum + pay.amount, 0) || 0), 0
-        )
+        const totalRevenue = currentRevenueByProfessional.get(p.id) || 0
 
         // Repasse
         const commissionPct = p.commissionPct ?? 50
@@ -423,7 +527,7 @@ export class MetricsController {
 
         // Tendência vs período anterior
         const prev = prevByProfessional.get(p.id)
-        const prevRevenue = prev?.revenue || 0
+        const prevRevenue = prevRevenueByProfessional.get(p.id) || 0
         const prevCount = prev?.count || 0
         const revenueTrend = prevRevenue > 0
           ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100)
@@ -595,6 +699,36 @@ export class MetricsController {
       const prevEnd = new Date(start.getTime() - 1)
 
       const clinicAppFilter = clinicId ? { room: { clinicId } } : undefined
+      const [periodPayments, previousPayments] = await Promise.all([
+        prisma.payment.findMany({
+          where: {
+            status: 'PAID',
+            paidAt: { gte: start, lte: end },
+            appointment: clinicAppFilter
+          },
+          include: {
+            appointment: {
+              select: {
+                serviceId: true
+              }
+            }
+          }
+        }),
+        prisma.payment.findMany({
+          where: {
+            status: 'PAID',
+            paidAt: { gte: prevStart, lte: prevEnd },
+            appointment: clinicAppFilter
+          },
+          include: {
+            appointment: {
+              select: {
+                serviceId: true
+              }
+            }
+          }
+        })
+      ])
 
       const services = await prisma.service.findMany({
         where: clinicId ? { appointments: { some: { room: { clinicId } } } } : undefined,
@@ -602,7 +736,6 @@ export class MetricsController {
           appointments: {
             where: { startTime: { gte: start, lte: end }, ...clinicAppFilter },
             include: {
-              payments: { where: { status: 'PAID' } },
               professional: { include: { user: true } }
             }
           },
@@ -613,15 +746,26 @@ export class MetricsController {
       // Agendamentos do período anterior para tendência
       const prevAppointments = await prisma.appointment.findMany({
         where: { startTime: { gte: prevStart, lte: prevEnd }, ...clinicAppFilter },
-        include: { payments: { where: { status: 'PAID' } } }
+        select: { serviceId: true }
       })
 
       const prevByService = new Map<string, { count: number; revenue: number }>()
       prevAppointments.forEach(app => {
         const curr = prevByService.get(app.serviceId) || { count: 0, revenue: 0 }
         curr.count++
-        curr.revenue += app.payments.reduce((s, p) => s + p.amount, 0)
         prevByService.set(app.serviceId, curr)
+      })
+
+      const currentRevenueByService = new Map<string, number>()
+      periodPayments.forEach(payment => {
+        const serviceId = payment.appointment.serviceId
+        currentRevenueByService.set(serviceId, (currentRevenueByService.get(serviceId) || 0) + payment.amount)
+      })
+
+      const prevRevenueByService = new Map<string, number>()
+      previousPayments.forEach(payment => {
+        const serviceId = payment.appointment.serviceId
+        prevRevenueByService.set(serviceId, (prevRevenueByService.get(serviceId) || 0) + payment.amount)
       })
 
       const result = services.map(s => {
@@ -635,9 +779,7 @@ export class MetricsController {
           ? Math.round(((cancelledCount + noShowCount) / totalAppointments) * 100)
           : 0
 
-        const totalRevenue = allAppts.reduce((sum: number, app: any) =>
-          sum + (app.payments?.reduce((pSum: number, pay: any) => pSum + pay.amount, 0) || 0), 0
-        )
+        const totalRevenue = currentRevenueByService.get(s.id) || 0
         const avgPrice = completedCount > 0 ? totalRevenue / completedCount : s.price
 
         // Pacientes únicos e taxa de retorno
@@ -677,7 +819,7 @@ export class MetricsController {
 
         // Tendência vs período anterior
         const prev = prevByService.get(s.id)
-        const prevRevenue = prev?.revenue || 0
+        const prevRevenue = prevRevenueByService.get(s.id) || 0
         const prevCount = prev?.count || 0
         const revenueTrend = prevRevenue > 0
           ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100)

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, MessageSquare, Mail, Loader2, MessageCircle, User } from 'lucide-react'
+import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, Loader2, MessageCircle, User } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChannels } from '../../hooks/useChannels'
 import { useChannelMessages, useSendChannelMessage } from '../../hooks/useInternalMessages'
@@ -18,6 +18,7 @@ export default function MensagensPage() {
   const [activeTab, setActiveTab] = useState<'patients' | 'internal'>('patients')
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+  const [patientChannelFilter, setPatientChannelFilter] = useState<'ALL' | 'APP' | 'WHATSAPP' | 'INSTAGRAM' | 'EMAIL'>('ALL')
   const [message, setMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -31,6 +32,10 @@ export default function MensagensPage() {
   const { data: convDetail, isLoading: loadingExtMsgs } = usePatientConversationDetail(selectedPatientId)
   const sendExternal = useSendConversationMessage()
   const markRead = useMarkConversationRead()
+  const filteredConversations = conversations.filter((c) => {
+    if (patientChannelFilter === 'ALL') return true
+    return (c.source || 'APP') === patientChannelFilter
+  })
 
   // Auto-select first channel / conversation
   useEffect(() => {
@@ -39,6 +44,11 @@ export default function MensagensPage() {
   useEffect(() => {
     if (conversations.length > 0 && !selectedPatientId) setSelectedPatientId(conversations[0].patientId)
   }, [conversations])
+  useEffect(() => {
+    if (filteredConversations.length > 0 && (!selectedPatientId || !filteredConversations.some(c => c.patientId === selectedPatientId))) {
+      setSelectedPatientId(filteredConversations[0].patientId)
+    }
+  }, [filteredConversations, selectedPatientId])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -64,8 +74,15 @@ export default function MensagensPage() {
   const selectedChannel = channels.find(c => c.id === selectedChannelId)
   const externalMessages = convDetail?.messages || []
 
+  const sourceLabel: Record<string, string> = {
+    APP: 'Aplicação',
+    WHATSAPP: 'WhatsApp',
+    INSTAGRAM: 'Instagram',
+    EMAIL: 'E-mail',
+  }
+
   return (
-    <div className="messages-layout" style={{ margin: 'calc(var(--space-8) * -1)', height: 'calc(100vh - var(--topbar-height))' }}>
+    <div className="messages-layout messages-layout-shell">
       {/* ── Left Panel ── */}
       <div className="messages-list-panel">
         <div className="messages-list-header">
@@ -82,18 +99,31 @@ export default function MensagensPage() {
         {/* PATIENTS TAB */}
         {activeTab === 'patients' && (
           <div className="messages-list-body">
+            <div style={{ padding: '0 16px 12px' }}>
+              <select
+                className="input-field"
+                value={patientChannelFilter}
+                onChange={e => setPatientChannelFilter(e.target.value as typeof patientChannelFilter)}
+              >
+                <option value="ALL">Todas as origens</option>
+                <option value="APP">Aplicação</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="EMAIL">E-mail</option>
+              </select>
+            </div>
             {loadingConvos && (
               <div style={{ padding: 16, textAlign: 'center' }}>
                 <Loader2 size={20} className="animate-spin" color="var(--color-text-muted)" />
               </div>
             )}
-            {!loadingConvos && conversations.length === 0 && (
+            {!loadingConvos && filteredConversations.length === 0 && (
               <div style={{ padding: 16, textAlign: 'center' }}>
                 <MessageCircle size={32} color="var(--color-text-muted)" style={{ marginBottom: 8 }} />
                 <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Nenhuma mensagem de pacientes ainda.</p>
               </div>
             )}
-            {conversations.map((c) => {
+            {filteredConversations.map((c) => {
               const initials = c.patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
               const timeLabel = c.lastMessageAt
                 ? new Date(c.lastMessageAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -114,6 +144,9 @@ export default function MensagensPage() {
                       <span style={{ marginLeft: 6 }}>{c.patientName}</span>
                     </div>
                     <div className="preview">{c.lastMessage || '...'}</div>
+                    <div className="preview" style={{ fontSize: 11, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {sourceLabel[(c.source || 'APP').toUpperCase()] || (c.source || 'APP')}
+                    </div>
                   </div>
                   <div className="conversation-meta">
                     <span className="time">{timeLabel}</span>
@@ -165,18 +198,18 @@ export default function MensagensPage() {
                 ? (selectedConvo?.patientName || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
                 : '#'}
             </div>
-            <div>
-              <div style={{ fontWeight: 500, fontSize: 14 }}>
-                {activeTab === 'patients'
+              <div>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>
+                  {activeTab === 'patients'
                   ? (selectedConvo?.patientName || 'Selecione uma conversa')
                   : selectedChannel ? `#${selectedChannel.name}` : 'Selecione um canal'}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                {activeTab === 'patients'
-                  ? selectedConvo?.patientEmail || ''
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                  {activeTab === 'patients'
+                  ? `${selectedConvo?.patientEmail || ''}${selectedConvo?.source ? ` · ${sourceLabel[(selectedConvo.source || 'APP').toUpperCase()] || selectedConvo.source}` : ''}`
                   : selectedChannel ? `${selectedChannel._count?.members || 0} membros · ${selectedChannel.description || ''}` : ''}
+                </div>
               </div>
-            </div>
           </div>
           <div className="chat-header-actions">
             {activeTab === 'patients' && (
@@ -209,7 +242,7 @@ export default function MensagensPage() {
             const senderName = msg.sender?.name || 'Usuário'
             const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             return (
-              <div key={msg.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
+              <div key={msg.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
                 {!isMe && (
                   <div style={{ fontSize: 11, color: 'var(--color-accent-emerald)', marginBottom: 2, fontWeight: 500 }}>
                     {senderName}
@@ -233,7 +266,7 @@ export default function MensagensPage() {
             const isOut = msg.direction === 'OUT'
             const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             return (
-              <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
+              <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
                 {!isOut && (
                   <div style={{ fontSize: 11, color: 'var(--color-accent-brand)', marginBottom: 2, fontWeight: 500 }}>
                     {selectedConvo?.patientName || 'Paciente'}

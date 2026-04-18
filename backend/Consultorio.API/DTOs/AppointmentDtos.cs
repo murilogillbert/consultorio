@@ -3,6 +3,7 @@ namespace Consultorio.API.DTOs;
 public class CreateAppointmentDto
 {
     public Guid ServiceId { get; set; }
+    public Guid? InsurancePlanId { get; set; }
     public Guid PatientId { get; set; }
     public Guid ProfessionalId { get; set; }
     public Guid? RoomId { get; set; }
@@ -18,6 +19,7 @@ public class UpdateStatusDto
 public class CancelAppointmentDto
 {
     public string? Reason { get; set; }
+    public string? Source { get; set; }
 }
 
 public class UpdateAppointmentDto
@@ -39,9 +41,24 @@ public class AppointmentResponseDto
 
     // Dados aninhados para o frontend
     public AppointmentServiceDto Service { get; set; } = null!;
+    public AppointmentInsuranceDto? InsurancePlan { get; set; }
     public AppointmentPersonDto Patient { get; set; } = null!;
     public AppointmentPersonDto Professional { get; set; } = null!;
     public AppointmentRoomDto? Room { get; set; }
+    public string? CancellationSource { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? PaymentStatus { get; set; }
+    public decimal? PaymentAmount { get; set; }
+    public string? PaymentMethod { get; set; }
+    public Guid? PaymentId { get; set; }
+}
+
+public class AppointmentInsuranceDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = null!;
+    public decimal? Price { get; set; }
+    public bool ShowPrice { get; set; }
 }
 
 public class AppointmentServiceDto
@@ -50,6 +67,8 @@ public class AppointmentServiceDto
     public string Name { get; set; } = null!;
     public int Duration { get; set; }
     public string Color { get; set; } = null!;
+    public decimal Price { get; set; }
+    public bool OnlineBooking { get; set; }
 }
 
 public class AppointmentPersonDto

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Mail, Loader2, CalendarDays, Clock, UserCheck,
+  Loader2, CalendarDays, Clock, UserCheck,
   MessageCircle, Send, CheckCircle, XCircle, LogOut, Lock, Eye, EyeOff, AlertTriangle, X
 } from 'lucide-react'
 import {
@@ -346,7 +346,7 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
             {convData?.messages.map(msg => {
               const isOut = msg.direction === 'IN' // paciente enviou
               return (
-                <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
+                <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
                   {!isOut && (
                     <div style={{ fontSize: 11, color: 'var(--color-accent-emerald)', marginBottom: 2, fontWeight: 600 }}>
                       Recepção

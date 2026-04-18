@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, X, Camera, Wrench, AlertTriangle, Palette, RotateCcw } from 'lucide-react'
+import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, Camera, Wrench, AlertTriangle, Palette, RotateCcw } from 'lucide-react'
 import IntegrationsPanel from './IntegrationsPanel'
 import { useClinics, useUpdateClinic } from '../../hooks/useClinics'
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../../hooks/useRooms'
@@ -164,7 +164,8 @@ export default function ConfiguracoesPage() {
   const updateSystemUser = useUpdateSystemUser()
   const deleteSystemUser = useDeleteSystemUser()
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
-  const [userForm, setUserForm] = useState({ name: '', email: '', role: 'STAFF', active: true, permissions: {} as Record<string, boolean> })
+  const [userForm, setUserForm] = useState({ name: '', email: '', role: 'RECEPTIONIST', active: true, permissions: {} as Record<string, boolean> })
+  const [userSaveMsg, setUserSaveMsg] = useState('')
 
   useEffect(() => {
     if (clinic) {
@@ -335,10 +336,13 @@ export default function ConfiguracoesPage() {
 
   const handleSaveUser = async () => {
     if (!clinic) return
+    setUserSaveMsg('')
     if (editingUserId === 'new') {
-      await createSystemUser.mutateAsync({ clinicId: clinic.id, name: userForm.name, email: userForm.email, role: userForm.role, password: 'password123', permissions: userForm.permissions })
+      const created = await createSystemUser.mutateAsync({ clinicId: clinic.id, name: userForm.name, email: userForm.email, role: userForm.role, permissions: userForm.permissions })
+      setUserSaveMsg(created.generatedPassword ? `Usuário criado. Senha padrão: ${created.generatedPassword}` : 'Usuário criado com sucesso.')
     } else if (editingUserId) {
       await updateSystemUser.mutateAsync({ id: editingUserId, role: userForm.role, active: userForm.active, permissions: userForm.permissions })
+      setUserSaveMsg('Usuário atualizado com sucesso.')
     }
     setEditingUserId(null)
   }
@@ -580,7 +584,7 @@ export default function ConfiguracoesPage() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)' }}>Usuários do Sistema</h3>
-                <button className="btn btn-primary btn-sm" onClick={() => { setEditingUserId('new'); setUserForm({ name: '', email: '', role: 'STAFF', active: true, permissions: {} }) }}>
+                <button className="btn btn-primary btn-sm" onClick={() => { setEditingUserId('new'); setUserForm({ name: '', email: '', role: 'RECEPTIONIST', active: true, permissions: {} }) }}>
                   <Plus size={14} /> Novo Usuário
                 </button>
               </div>
@@ -604,9 +608,8 @@ export default function ConfiguracoesPage() {
                     <div className="input-group">
                       <label className="input-label">Perfil de Acesso</label>
                       <select className="input-field" value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })}>
-                        <option value="STAFF">Atendimento / Recepcionista</option>
+                        <option value="RECEPTIONIST">Atendimento / Recepcionista</option>
                         <option value="ADMIN">Administrador</option>
-                        <option value="MEMBER">Membro Consultivo</option>
                       </select>
                     </div>
                     {editingUserId !== 'new' && (
@@ -637,11 +640,12 @@ export default function ConfiguracoesPage() {
                       ))}
                     </div>
                   </div>
-                  {editingUserId === 'new' && <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>Uma senha padrão <code>password123</code> será gerada.</p>}
+                  {editingUserId === 'new' && <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>A senha padrão será as 4 primeiras letras do nome + <code>123!</code>.</p>}
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => setEditingUserId(null)}>Cancelar</button>
                     <button className="btn btn-primary btn-sm" onClick={handleSaveUser} disabled={createSystemUser.isPending || updateSystemUser.isPending}>Salvar</button>
                   </div>
+                  {userSaveMsg && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--color-accent-emerald)' }}>{userSaveMsg}</p>}
                 </div>
               )}
 
@@ -654,7 +658,7 @@ export default function ConfiguracoesPage() {
                       <td>{su.user.email}</td>
                       <td>
                         <span className={`badge ${su.role === 'ADMIN' ? 'badge-gold' : 'badge-emerald'}`}>
-                          {su.role === 'ADMIN' ? 'Administrador' : su.role === 'STAFF' ? 'Staff' : su.role}
+                          {su.role === 'ADMIN' ? 'Administrador' : su.role === 'RECEPTIONIST' ? 'Recepção' : su.role}
                         </span>
                       </td>
                       <td>
@@ -665,7 +669,7 @@ export default function ConfiguracoesPage() {
                       <td>
                         <div className="row-actions">
                           <button className="btn btn-icon btn-sm" onClick={() => { setEditingUserId(su.id); setUserForm({ name: su.user.name, email: su.user.email, role: su.role, active: su.active, permissions: (su.permissions as Record<string, boolean>) || {} }) }}><Edit size={14} /></button>
-                          <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover acesso do usuário "${su.name}"?`, () => deleteSystemUser.mutateAsync(su.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
+                          <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover acesso do usuário "${su.user?.name || su.id}"?`, () => deleteSystemUser.mutateAsync(su.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                         </div>
                       </td>
                     </tr>

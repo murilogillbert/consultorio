@@ -884,3 +884,128 @@ select.input-field {
   font-size: 13px;
   color: var(--color-text-muted);
 }
+
+@media (max-width: 768px) {
+  .btn {
+    height: 44px;
+    padding: 0 var(--space-4);
+  }
+
+  .btn-sm {
+    height: 38px;
+    padding: 0 var(--space-3);
+  }
+
+  .btn-lg {
+    height: 48px;
+    padding: 0 var(--space-6);
+  }
+
+  .btn-icon {
+    width: 44px;
+  }
+
+  .modal {
+    width: calc(100vw - var(--space-4) * 2);
+    max-width: none;
+    max-height: calc(100vh - var(--space-4) * 2);
+    padding: var(--space-5);
+    border-radius: var(--radius-md);
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: var(--space-4);
+  }
+
+  .modal-header {
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+  }
+
+  .drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .drawer-overlay {
+    overflow-y: auto;
+  }
+
+  .drawer-header,
+  .drawer-body,
+  .drawer-footer {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    white-space: nowrap;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .pill-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .data-table {
+    display: block;
+    width: 100%;
+    min-width: 720px;
+    overflow-x: auto;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+  }
+
+  .toast {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .input-field {
+    font-size: 16px;
+  }
+
+  textarea.input-field {
+    font-size: 16px;
+  }
+
+  select.input-field {
+    font-size: 16px;
+  }
+
+  .modal-header h2 {
+    font-size: var(--text-body);
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .tab {
+    padding: var(--space-2) var(--space-3);
+  }
+}

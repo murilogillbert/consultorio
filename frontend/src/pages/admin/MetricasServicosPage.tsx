@@ -43,11 +43,18 @@ export default function MetricasServicosPage() {
   const totalCompleted = services.reduce((s, sv) => s + sv.completedCount, 0)
   const totalAll = services.reduce((s, sv) => s + sv.totalAppointments, 0)
   const totalCancelled = services.reduce((s, sv) => s + sv.cancelledCount + sv.noShowCount, 0)
+  const totalCancelledByPatient = services.reduce((s, sv) => s + (sv.cancelledByPatientCount || 0), 0)
+  const totalCancelledByReception = services.reduce((s, sv) => s + (sv.cancelledByReceptionCount || 0), 0)
   const totalRevenue = services.reduce((s, sv) => s + sv.revenue, 0)
   const avgCancellation = totalAll > 0 ? Math.round((totalCancelled / totalAll) * 100) : 0
   const totalUniquePatients = services.reduce((s, sv) => s + sv.uniquePatients, 0)
   const avgInsurancePct = services.length > 0 ? Math.round(services.reduce((s, sv) => s + sv.insurancePct, 0) / services.length) : 0
   const avgRevenuePerHour = services.length > 0 ? Math.round(services.reduce((s, sv) => s + sv.revenuePerHour, 0) / services.length) : 0
+  const peakTotal = peakHours.reduce((sum, h) => sum + h.count, 0)
+  const peakAverage = peakHours.length > 0 ? peakTotal / peakHours.length : 0
+  const peakMax = peakHours.reduce((best, h) => (h.count > best.count ? h : best), peakHours[0] || { hour: '--:--', count: 0 })
+  const peakMin = peakHours.reduce((worst, h) => (h.count < worst.count ? h : worst), peakHours[0] || { hour: '--:--', count: 0 })
+  const peakTop = [...peakHours].sort((a, b) => b.count - a.count).slice(0, 3)
 
   const sorted = [...services].sort((a, b) => b.revenue - a.revenue)
   const topService = sorted[0]
@@ -86,7 +93,8 @@ export default function MetricasServicosPage() {
           <span className="metric-value" style={{ color: avgCancellation > 20 ? 'var(--color-accent-danger)' : avgCancellation > 10 ? 'var(--color-accent-gold)' : 'var(--color-accent-emerald)' }}>
             {avgCancellation}%
           </span>
-          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{totalCancelled} cancelados/ausências</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{totalCancelled} cancelamentos/ausências</span>
+          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>Paciente: {totalCancelledByPatient} · Recepção: {totalCancelledByReception}</span>
         </div>
         <div className="metric-card">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><BarChart3 size={14} /> Serviços Ativos</span>
@@ -123,18 +131,72 @@ export default function MetricasServicosPage() {
       <div className="charts-row" style={{ marginTop: 'var(--space-6)' }}>
         <div className="chart-card">
           <h3><Clock size={16} style={{ display: 'inline', marginRight: 8 }} />Horários de Pico</h3>
-          <div className="chart-placeholder">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, margin: '12px 0 16px' }}>
+            <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
+              <span className="metric-label">Total no período</span>
+              <span className="metric-value" style={{ fontSize: 20 }}>{peakTotal}</span>
+            </div>
+            <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
+              <span className="metric-label">Média por faixa</span>
+              <span className="metric-value" style={{ fontSize: 20 }}>{peakAverage.toFixed(1)}</span>
+            </div>
+            <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
+              <span className="metric-label">Pico mais forte</span>
+              <span className="metric-value" style={{ fontSize: 20 }}>{peakMax.hour}</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{peakMax.count} atendimentos</span>
+            </div>
+          </div>
+          <div className="chart-placeholder" style={{ position: 'relative', minHeight: 240, alignItems: 'flex-end', paddingTop: 24 }}>
             {peakHours.length === 0 && <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', width: '100%' }}>Sem dados de pico.</p>}
+            {peakHours.length > 0 && (
+              <>
+                <div style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: `${100 - (peakAverage / (Math.max(...peakHours.map(ph => ph.count)) || 1)) * 100}%`,
+                  borderTop: '1px dashed var(--color-text-muted)',
+                  opacity: 0.7,
+                  pointerEvents: 'none'
+                }} />
+                <span style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: `${Math.max(0, 100 - (peakAverage / (Math.max(...peakHours.map(ph => ph.count)) || 1)) * 100) - 2}%`,
+                  fontSize: 10,
+                  color: 'var(--color-text-muted)',
+                  background: 'var(--color-surface)',
+                  padding: '0 4px'
+                }}>
+                  média {peakAverage.toFixed(1)}
+                </span>
+              </>
+            )}
             {peakHours.map((h: any, i: number) => {
               const maxCount = Math.max(...peakHours.map((ph: any) => ph.count)) || 1
               const height = (h.count / maxCount) * 100
+              const isTop = peakTop.some(t => t.hour === h.hour)
+              const isLast = i === peakHours.length - 1
               return (
                 <div key={i} className="bar-wrapper" title={`${h.hour}: ${h.count} atendimentos`}>
-                  <div className="bar" style={{ height: `${height + 5}%`, background: h.count === maxCount ? 'var(--color-accent-gold)' : 'var(--color-accent-emerald)' }} />
-                  <span style={{ fontSize: 10, marginTop: 4, color: 'var(--color-text-muted)' }}>{h.hour.split(':')[0]}</span>
+                  <div
+                    className="bar"
+                    style={{
+                      height: `${Math.max(height + 5, 3)}%`,
+                      background: isTop ? 'var(--color-accent-gold)' : 'var(--color-accent-emerald)',
+                      boxShadow: isTop ? '0 0 0 1px rgba(0,0,0,0.06)' : 'none',
+                    }}
+                  />
+                  <span style={{ fontSize: 10, marginTop: 4, color: isLast || i % 2 === 0 ? 'var(--color-text-muted)' : 'transparent' }}>
+                    {h.hour.split(':')[0]}
+                  </span>
                 </div>
               )
             })}
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12, fontSize: 12, color: 'var(--color-text-muted)' }}>
+            <span>Top 3: {peakTop.map(t => `${t.hour} (${t.count})`).join(' · ') || '—'}</span>
+            <span>Menor faixa: {peakMin.hour} ({peakMin.count})</span>
           </div>
         </div>
         <div className="chart-card">
@@ -203,6 +265,7 @@ export default function MetricasServicosPage() {
                     {s.cancellationRate}%
                   </span>
                   <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{s.cancelledCount + s.noShowCount} total</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>P: {s.cancelledByPatientCount || 0} · R: {s.cancelledByReceptionCount || 0}</div>
                 </td>
                 <td>
                   <div style={{ fontWeight: 500 }}>{s.uniquePatients}</div>

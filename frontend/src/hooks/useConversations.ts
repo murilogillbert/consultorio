@@ -8,6 +8,7 @@ export interface PatientConversationSummary {
   lastMessageAt: string
   unreadCount: number
   lastMessage?: string
+  source?: string
 }
 
 export interface PatientMessageItem {
@@ -15,6 +16,7 @@ export interface PatientMessageItem {
   direction: 'IN' | 'OUT'
   content: string
   isRead: boolean
+  source?: string
   createdAt: string
   sentByUserId?: string
 }
