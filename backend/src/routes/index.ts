@@ -18,6 +18,7 @@ import hrRoutes from './hrRoutes'
 import uploadRoutes from './uploadRoutes'
 import bannerRoutes from './bannerRoutes'
 import whatsappRoutes from './whatsappRoutes'
+import notificationsRoutes from './notificationsRoutes'
 
 const r = Router()
 
@@ -44,5 +45,6 @@ r.use('/announcements', announcementsRoutes)
 r.use('/hr', hrRoutes)
 r.use('/banners', bannerRoutes)
 r.use('/uploads', uploadRoutes)
+r.use('/notifications', notificationsRoutes)
 
 export default r

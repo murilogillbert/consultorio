@@ -770,17 +770,14 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<decimal>("CommissionPct")
                         .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(50m);
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsAvailable")
                         .HasColumnType("bit");
-
-                    b.Property<decimal>("Commission")
-                        .HasColumnType("decimal(5,2)")
-                        .HasDefaultValue(50m);
 
                     b.Property<string>("LicenseNumber")
                         .IsRequired()

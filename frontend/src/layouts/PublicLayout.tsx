@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom'
-import { Menu, X, MessageCircle, Phone, ExternalLink, User } from 'lucide-react'
+import { Menu, X, MessageCircle, Phone, ExternalLink, LogIn, LogOut, CheckCircle, User } from 'lucide-react'
 import { useClinics } from '../hooks/useClinics'
-import { isProfessionalLoggedIn, getProfessionalUser, clearProfessional } from '../hooks/useProfessionalPortal'
+import { useAuth } from '../contexts/AuthContext'
 
 function ClinicLogo({ logoUrl }: { logoUrl?: string | null }) {
   if (logoUrl) {
@@ -22,11 +22,10 @@ export default function PublicLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [floatingOpen, setFloatingOpen] = useState(false)
   const { data: clinics } = useClinics()
+  const { user, isAuthenticated, signOut } = useAuth()
+  const navigate = useNavigate()
   const clinic = clinics?.[0]
   const clinicName = clinic?.name || 'Clínica Vitalis'
-  const navigate = useNavigate()
-  const isProLogged = isProfessionalLoggedIn()
-  const proUser = getProfessionalUser()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80)
@@ -34,11 +33,27 @@ export default function PublicLayout() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  const handleSignOut = () => {
+    signOut()
+    navigate('/')
+    setMobileOpen(false)
+  }
+
+  const roleLabel: Record<string, string> = {
+    PATIENT: 'Paciente',
+    PROFESSIONAL: 'Profissional',
+    ADMIN: 'Admin',
+    RECEPTIONIST: 'Recepcionista',
+  }
+
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/servicos', label: 'Serviços' },
     { to: '/profissionais', label: 'Equipe Médica' },
-    { to: '/minhas-consultas', label: 'Minhas Consultas' },
+    // "Minhas Consultas" só aparece para visitantes ou pacientes
+    ...(!isAuthenticated || user?.role === 'PATIENT'
+      ? [{ to: '/minhas-consultas', label: 'Minhas Consultas' }]
+      : []),
     { to: '/sobre', label: 'Sobre' },
     { to: '/trabalhe-conosco', label: 'Trabalhe Conosco' },
   ]
@@ -52,7 +67,7 @@ export default function PublicLayout() {
             <ClinicLogo logoUrl={clinic?.logoUrl} />
             <span>{clinicName}</span>
           </Link>
-          
+
           <div className="navbar-links">
             {navLinks.map(link => (
               <NavLink
@@ -66,20 +81,50 @@ export default function PublicLayout() {
             ))}
           </div>
 
-          {isProLogged ? (
-            <div className="navbar-pro-actions">
-              <Link to="/portal-profissional" className="btn btn-ghost btn-sm navbar-pro-btn">
-                <User size={15} /> {proUser?.name?.split(' ')[0] || 'Portal'}
+          {/* Área de autenticação no header */}
+          <div className="navbar-auth">
+            {isAuthenticated && user ? (
+              <div className="navbar-user-chip">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div className="navbar-user-avatar-placeholder">
+                    <User size={14} />
+                  </div>
+                )}
+                <div className="navbar-user-info">
+                  <span className="navbar-user-name">{user.name.split(' ')[0]}</span>
+                  <span className="navbar-user-status">
+                    <CheckCircle size={10} />
+                    {roleLabel[user.role] ?? 'Logado'}
+                  </span>
+                </div>
+                {user.role === 'PROFESSIONAL' && (
+                  <Link to="/profissional" className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: '4px 10px' }}>
+                    Meu Portal
+                  </Link>
+                )}
+                <button
+                  className="btn btn-ghost btn-sm navbar-signout"
+                  onClick={handleSignOut}
+                  title="Sair"
+                  aria-label="Sair"
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
+            ) : (
+              <Link to="/login" className="btn btn-outline btn-sm navbar-login-btn">
+                <LogIn size={15} />
+                Login / Cadastro
               </Link>
-              <button className="btn btn-ghost btn-sm navbar-pro-signout" onClick={() => { clearProfessional(); navigate('/') }}>
-                Sair
-              </button>
-            </div>
-          ) : (
-            <Link to="/portal-profissional" className="btn btn-ghost btn-sm navbar-pro-btn">
-              <User size={14} /> Área do Profissional
-            </Link>
-          )}
+            )}
+          </div>
+
           <Link to="/agendar" className="btn btn-primary navbar-cta">
             Agendar Consulta
           </Link>
@@ -103,6 +148,25 @@ export default function PublicLayout() {
           >
             <X size={28} />
           </button>
+
+          {isAuthenticated && user && (
+            <div className="mobile-user-info">
+              <div className="mobile-user-avatar">
+                {user.avatarUrl
+                  ? <img src={user.avatarUrl} alt={user.name} />
+                  : <User size={20} />
+                }
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>{user.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <CheckCircle size={11} style={{ color: 'var(--color-brand)' }} />
+                  {roleLabel[user.role] ?? 'Logado'}
+                </div>
+              </div>
+            </div>
+          )}
+
           {navLinks.map(link => (
             <NavLink
               key={link.to}
@@ -114,14 +178,17 @@ export default function PublicLayout() {
               {link.label}
             </NavLink>
           ))}
-          <Link
-            to="/portal-profissional"
-            className="btn btn-ghost btn-lg"
-            onClick={() => setMobileOpen(false)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-          >
-            <User size={18} /> {isProLogged ? `Portal: ${proUser?.name?.split(' ')[0]}` : 'Área do Profissional'}
-          </Link>
+
+          {isAuthenticated && user?.role === 'PROFESSIONAL' && (
+            <Link
+              to="/profissional"
+              className="navbar-link"
+              onClick={() => setMobileOpen(false)}
+            >
+              Meu Portal
+            </Link>
+          )}
+
           <Link
             to="/agendar"
             className="btn btn-primary btn-lg"
@@ -129,6 +196,22 @@ export default function PublicLayout() {
           >
             Agendar Consulta
           </Link>
+
+          {isAuthenticated ? (
+            <button className="btn btn-outline btn-lg" onClick={handleSignOut}>
+              <LogOut size={16} />
+              Sair
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="btn btn-outline btn-lg"
+              onClick={() => setMobileOpen(false)}
+            >
+              <LogIn size={16} />
+              Login / Cadastro
+            </Link>
+          )}
         </div>
       )}
 

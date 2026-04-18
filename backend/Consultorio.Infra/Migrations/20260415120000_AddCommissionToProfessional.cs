@@ -11,7 +11,7 @@ namespace Consultorio.Infra.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<decimal>(
-                name: "Commission",
+                name: "CommissionPct",
                 table: "Professionals",
                 type: "decimal(5,2)",
                 nullable: false,
@@ -22,7 +22,7 @@ namespace Consultorio.Infra.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "Commission",
+                name: "CommissionPct",
                 table: "Professionals");
         }
     }

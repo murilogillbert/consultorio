@@ -215,7 +215,7 @@ public class ProfessionalPortalController : ControllerBase
         if (professional == null)
             return NotFound(new { message = "Profissional não encontrado." });
 
-        var commission = professional.Commission; // % configurada no admin
+        var commission = professional.CommissionPct; // % configurada no admin
 
         // Consultas COMPLETED do mês com pagamento PAID
         var appointments = await _db.Appointments
