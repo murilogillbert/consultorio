@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, MessageSquare, Users, Stethoscope,
   Settings, BarChart3, TrendingUp, DollarSign, Megaphone, Activity,
-  LogOut, Bell, MessageCircle, Shield, ChevronDown
+  LogOut, Bell, MessageCircle, Shield, ChevronDown, Menu, X
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMyClinic } from '../hooks/useClinics'
@@ -84,7 +84,10 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null)
 
   // Dynamic topbar data
   const todayStart = new Date()
@@ -106,6 +109,8 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
   const userName = user?.name || 'Usuário'
   const userRole = user?.role ? roleLabels[user.role] : ''
   const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const alertsPath = environment === 'reception' ? '/recepcao/agenda' : '/admin/movimento'
+  const messagesPath = environment === 'reception' ? '/recepcao/mensagens' : '/admin'
 
   const handleLogout = () => {
     signOut()
@@ -122,6 +127,54 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
     if (userMenuOpen) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [userMenuOpen])
+
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      document.body.classList.remove('mobile-menu-open')
+      return
+    }
+
+    document.body.classList.add('mobile-menu-open')
+
+    const focusable = mobileMenuRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    focusable?.[0]?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false)
+        mobileMenuTriggerRef.current?.focus()
+        return
+      }
+
+      if (event.key !== 'Tab' || !focusable || focusable.length === 0) {
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.classList.remove('mobile-menu-open')
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [mobileMenuOpen])
 
   return (
     <div className="internal-layout">
@@ -186,9 +239,23 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
             <span className="topbar-date">{todayLabel}</span>
           </div>
           <div className="topbar-actions">
+            <button
+              ref={mobileMenuTriggerRef}
+              className="topbar-icon-btn topbar-mobile-menu-btn"
+              title="Abrir menu"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Abrir navegação"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="internal-mobile-menu"
+            >
+              <Menu size={20} />
+            </button>
+
             {/* Pending appointments bell */}
             <button className="topbar-icon-btn" title={`${pendingAppts} consulta(s) pendente(s) hoje`}
-              onClick={() => navigate('/recepcao/agenda')}>
+              onClick={() => navigate(alertsPath)}
+              aria-label="Abrir alertas e agenda"
+            >
               <Bell size={20} />
               {pendingAppts > 0 && (
                 <span className="badge-count">{pendingAppts > 99 ? '99+' : pendingAppts}</span>
@@ -197,7 +264,9 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
 
             {/* Unread messages */}
             <button className="topbar-icon-btn" title={`${unreadMessages} mensagem(ns) não lida(s)`}
-              onClick={() => navigate('/recepcao/mensagens')}>
+              onClick={() => navigate(messagesPath)}
+              aria-label="Abrir mensagens e comunicações"
+            >
               <MessageCircle size={20} />
               {unreadMessages > 0 && (
                 <span className="badge-count">{unreadMessages > 99 ? '99+' : unreadMessages}</span>
@@ -242,6 +311,59 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
           <Outlet />
         </div>
       </div>
+
+      {mobileMenuOpen && (
+        <div
+          className="internal-mobile-menu-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        >
+          <div
+            id="internal-mobile-menu"
+            ref={mobileMenuRef}
+            className="internal-mobile-menu"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Menu de navegação ${environment === 'reception' ? 'da recepção' : 'do admin'}`}
+          >
+            <div className="internal-mobile-menu-header">
+              <div className="sidebar-logo" style={{ borderBottom: 'none', padding: 0 }}>
+                <ClinicLogoMini logoUrl={clinic?.logoUrl} />
+                <span>{clinic?.name || 'Vitalis'}</span>
+              </div>
+              <button className="modal-close" onClick={() => setMobileMenuOpen(false)} aria-label="Fechar navegação">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="internal-mobile-menu-links">
+              {links.map((item, i) => {
+                if ('section' in item) {
+                  return <div key={i} className="sidebar-section-title" style={{ color: 'var(--color-text-muted)' }}>{item.section}</div>
+                }
+                const navItem = item as any
+                const Icon = navItem.icon
+                return (
+                  <NavLink
+                    key={navItem.to}
+                    to={navItem.to}
+                    end={navItem.end}
+                    className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Icon size={18} />
+                    <span>{navItem.label}</span>
+                    {navItem.to === '/recepcao/mensagens' && unreadMessages > 0 && (
+                      <span className="badge-count">{unreadMessages > 99 ? '99+' : unreadMessages}</span>
+                    )}
+                  </NavLink>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile bottom bar */}
       <div className="mobile-bottombar">

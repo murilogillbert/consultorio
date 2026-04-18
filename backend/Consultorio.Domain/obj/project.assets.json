@@ -8,7 +8,7 @@
     "net10.0": []
   },
   "packageFolders": {
-    "C:\\Users\\Ludimila\\.nuget\\packages": {},
+    "C:\\Users\\muril\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -17,14 +17,14 @@
       "projectUniqueName": "C:\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj",
       "projectName": "Consultorio.Domain",
       "projectPath": "C:\\consultorio\\backend\\Consultorio.Domain\\Consultorio.Domain.csproj",
-      "packagesPath": "C:\\Users\\Ludimila\\.nuget\\packages",
+      "packagesPath": "C:\\Users\\muril\\.nuget\\packages\\",
       "outputPath": "C:\\consultorio\\backend\\Consultorio.Domain\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\Ludimila\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\muril\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],

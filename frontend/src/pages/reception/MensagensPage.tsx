@@ -82,7 +82,7 @@ export default function MensagensPage() {
   }
 
   return (
-    <div className="messages-layout" style={{ margin: 'calc(var(--space-8) * -1)', height: 'calc(100vh - var(--topbar-height))' }}>
+    <div className="messages-layout messages-layout-shell">
       {/* ── Left Panel ── */}
       <div className="messages-list-panel">
         <div className="messages-list-header">

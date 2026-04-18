@@ -13,6 +13,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
 /* ---- Utility Classes ---- */
@@ -21,6 +22,11 @@
   margin: 0 auto;
   padding: 0 var(--space-8);
   width: 100%;
+}
+
+.page-content {
+  width: 100%;
+  min-width: 0;
 }
 
 .sr-only {
@@ -128,11 +134,34 @@
   .container {
     padding: 0 var(--space-4);
   }
+  .section {
+    padding: var(--space-8) 0;
+  }
+  .card,
+  .card-elevated {
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+  }
+  .toast-container {
+    left: var(--space-4);
+    right: var(--space-4);
+    top: var(--space-4);
+  }
 }
 
 @media (max-width: 1024px) {
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 var(--space-3);
+  }
+
+  .section {
+    padding: var(--space-6) 0;
   }
 }
 

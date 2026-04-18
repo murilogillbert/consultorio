@@ -148,7 +148,7 @@ export default function AgendaPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in agenda-page-layout">
       {/* Filters */}
       <div className="agenda-filters">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -206,7 +206,7 @@ export default function AgendaPage() {
       </div>
 
       {/* Calendar Grid — Day View */}
-      <div style={{ display: 'flex', gap: 0, overflow: 'hidden' }}>
+      <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, overflow: 'hidden' }}>
         <div className="calendar-grid" style={{ flex: 1, minWidth: 0 }}>
           {/* Header */}
           <div className="calendar-header" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>

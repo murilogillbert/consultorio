@@ -125,7 +125,7 @@ export default function AgendamentoPage() {
         </p>
 
         {/* Progress */}
-        <div className="booking-progress">
+        <div className="booking-progress booking-progress-scroll">
           {steps.map((step, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
               <div className={`booking-step ${i === currentStep ? 'active' : ''} ${i < currentStep ? 'completed' : ''}`}>
@@ -479,7 +479,7 @@ export default function AgendamentoPage() {
                     )}
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="booking-summary-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Serviço</span><p style={{ fontWeight: 500 }}>{formData.service}</p></div>
                   <div><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Profissional</span><p style={{ fontWeight: 500 }}>{formData.professional}</p></div>
                   <div><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Data</span><p style={{ fontWeight: 500 }}>{formData.date}</p></div>

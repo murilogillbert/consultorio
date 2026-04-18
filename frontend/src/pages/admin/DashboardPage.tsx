@@ -106,7 +106,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in admin-dashboard-page">
       {/* Announcement Publisher */}
       <div className="announcement-publisher">
         <h3>

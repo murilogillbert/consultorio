@@ -44,7 +44,7 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in reception-dashboard-page">
       {/* Announcement Feed */}
       <div className="announcement-feed">
         <div className="announcement-feed-header">

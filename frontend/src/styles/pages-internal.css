@@ -3,6 +3,14 @@
    ============================================ */
 
 /* ---- Dashboard Metric Cards ---- */
+.reception-dashboard-page,
+.admin-dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
 .metrics-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -17,6 +25,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .metric-card .metric-label {
@@ -29,6 +38,7 @@
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
+  word-break: break-word;
 }
 
 .metric-card .metric-change {
@@ -54,6 +64,7 @@
   padding: var(--space-6);
   margin-bottom: var(--space-6);
   box-shadow: var(--shadow-card);
+  min-width: 0;
 }
 
 .announcement-feed-header {
@@ -115,6 +126,8 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--space-2);
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .announcement-time {
@@ -128,6 +141,7 @@
   flex-direction: column;
   gap: var(--space-3);
   margin-bottom: var(--space-6);
+  min-width: 0;
 }
 
 .alert-row {
@@ -138,6 +152,8 @@
   background: var(--color-bg-secondary);
   border-radius: var(--radius-sm);
   border-left: 3px solid var(--color-accent-warning);
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .alert-row.urgent {
@@ -153,6 +169,8 @@
 .alert-row .alert-text {
   flex: 1;
   font-size: var(--text-sm);
+  min-width: 0;
+  word-break: break-word;
 }
 
 /* ---- Quick Actions ---- */
@@ -160,6 +178,7 @@
   display: flex;
   gap: var(--space-4);
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .quick-action-btn {
@@ -175,6 +194,7 @@
   font-weight: var(--weight-medium);
   cursor: pointer;
   transition: all var(--transition-fast);
+  min-width: 0;
 }
 
 .quick-action-btn:hover {
@@ -188,6 +208,12 @@
 }
 
 /* ---- Agenda / Calendar ---- */
+.agenda-main-layout {
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+}
+
 .agenda-filters {
   display: flex;
   gap: var(--space-2);
@@ -370,8 +396,12 @@
 /* ---- Messages ---- */
 .messages-layout {
   display: flex;
-  height: calc(100vh - var(--topbar-height));
+  min-height: calc(100dvh - var(--topbar-height));
   overflow: hidden;
+}
+
+.messages-layout-shell {
+  margin: 0;
 }
 
 .messages-list-panel {
@@ -670,6 +700,7 @@
   border-top: 3px solid var(--color-accent-gold);
   box-shadow: var(--shadow-card);
   margin-bottom: var(--space-6);
+  min-width: 0;
 }
 
 .announcement-publisher h3 {
@@ -726,6 +757,7 @@
   align-items: center;
   gap: var(--space-4);
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .urgency-selector {
@@ -764,6 +796,7 @@
 
 .announcement-published-list {
   margin-top: var(--space-6);
+  min-width: 0;
 }
 
 .published-announcement {
@@ -772,10 +805,37 @@
   gap: var(--space-4);
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-border-default);
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .published-announcement .read-rate {
   flex: 1;
+  min-width: 140px;
+}
+
+.admin-dashboard-page .announcement-publisher {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.admin-dashboard-page .publisher-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.admin-dashboard-page .urgency-selector {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.admin-dashboard-page .announcement-published-list {
+  margin-top: var(--space-4);
 }
 
 /* ---- Admin: Executive Charts ---- */
@@ -790,12 +850,23 @@
   background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
   padding: var(--space-6);
+  min-width: 0;
 }
 
 .chart-card h3 {
   font-size: var(--text-ui);
   font-weight: var(--weight-bold);
   margin-bottom: var(--space-4);
+}
+
+.booking-progress-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+.booking-summary-grid {
+  width: 100%;
 }
 
 .chart-placeholder {
@@ -807,6 +878,8 @@
   justify-content: space-around;
   padding: var(--space-4);
   position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .chart-placeholder .bar {
@@ -814,6 +887,7 @@
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--color-accent-emerald);
   transition: height var(--transition-slow);
+  flex: 0 0 auto;
 }
 
 .chart-placeholder .line-chart {
@@ -1063,21 +1137,204 @@
 
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
+  .reception-dashboard-page .announcement-feed,
+  .admin-dashboard-page .announcement-publisher {
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+  }
+
+  .reception-dashboard-page .announcement-feed-header,
+  .reception-dashboard-page .announcement-meta,
+  .admin-dashboard-page .announcement-publisher h3,
+  .admin-dashboard-page .publisher-controls {
+    align-items: flex-start;
+  }
+
+  .reception-dashboard-page .announcement-item,
+  .admin-dashboard-page .published-announcement {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reception-dashboard-page .announcement-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .reception-dashboard-page .metrics-row,
+  .admin-dashboard-page .metrics-row {
+    grid-template-columns: 1fr;
+  }
+
+  .reception-dashboard-page .metric-card,
+  .admin-dashboard-page .metric-card {
+    padding: var(--space-4);
+  }
+
+  .reception-dashboard-page .alerts-list,
+  .admin-dashboard-page .alerts-list {
+    gap: var(--space-3);
+  }
+
+  .reception-dashboard-page .alert-row,
+  .admin-dashboard-page .alert-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .reception-dashboard-page .quick-actions {
+    flex-direction: column;
+  }
+
+  .reception-dashboard-page .quick-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .reception-dashboard-page .card {
+    margin-bottom: var(--space-4);
+  }
+
+  .admin-dashboard-page .charts-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard-page .announcement-publisher,
+  .admin-dashboard-page .metrics-row,
+  .admin-dashboard-page .charts-row,
+  .admin-dashboard-page .card {
+    margin-bottom: var(--space-4);
+  }
+
+  .admin-dashboard-page .publisher-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-dashboard-page .publisher-controls > * {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .admin-dashboard-page .editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .admin-dashboard-page .editor-toolbar button {
+    min-width: 40px;
+  }
+
+  .admin-dashboard-page .chart-placeholder {
+    height: 220px;
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .admin-dashboard-page .chart-placeholder .bar-wrapper {
+    min-width: 32px;
+    flex: 1 0 auto;
+  }
+
+  .admin-dashboard-page .published-announcement .read-rate {
+    width: 100% !important;
+  }
+
+  .admin-dashboard-page .published-announcement .btn {
+    width: 100%;
+  }
+
+  .agenda-main-layout {
+    flex-direction: column;
+  }
+  .agenda-filters {
+    align-items: stretch;
+  }
+  .agenda-filters > * {
+    width: 100%;
+  }
+  .agenda-filters > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .agenda-filters > div:first-child .input-field {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
   .metrics-row {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .metrics-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+  }
+  .metrics-header h2 {
+    font-size: var(--text-section);
+  }
+  .metrics-header > div {
+    width: 100%;
+    flex-wrap: wrap;
   }
   .charts-row {
     grid-template-columns: 1fr;
   }
+  .chart-card {
+    padding: var(--space-4);
+  }
+  .chart-placeholder {
+    height: 200px;
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .chart-placeholder .bar-wrapper {
+    min-width: 28px;
+    flex: 1 0 auto;
+  }
   .messages-layout {
     flex-direction: column;
+    min-height: calc(100dvh - var(--topbar-height));
+  }
+  .messages-layout-shell {
+    margin: 0;
+    min-height: calc(100dvh - var(--topbar-height));
   }
   .messages-list-panel {
     width: 100%;
     max-height: 40vh;
   }
+  .chat-panel {
+    min-height: 60vh;
+  }
   .chat-channels-panel {
     display: none;
+  }
+  .chat-header,
+  .chat-input-bar,
+  .chat-action-bar {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .chat-header {
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+  .chat-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .chat-messages {
+    padding: var(--space-4);
+  }
+  .message-bubble {
+    max-width: 92%;
   }
   .availability-grid {
     grid-template-columns: 1fr;
@@ -1095,5 +1352,147 @@
   }
   .form-2col .full-span {
     grid-column: span 1;
+  }
+  .crud-header {
+    align-items: stretch;
+  }
+  .crud-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .service-list-header,
+  .service-list-meta,
+  .announcement-meta,
+  .alert-row,
+  .published-announcement {
+    align-items: flex-start;
+  }
+  .calendar-grid {
+    overflow-x: auto;
+  }
+  .calendar-body {
+    overflow-x: auto;
+  }
+  .calendar-header,
+  .calendar-row {
+    min-width: 720px;
+  }
+  .appointment-drawer {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--color-border-default);
+  }
+  .data-table {
+    min-width: 760px;
+  }
+  .row-actions {
+    flex-wrap: wrap;
+  }
+  .service-list-card,
+  .professional-profile-card,
+  .availability-card,
+  .metric-card,
+  .chart-card,
+  .card {
+    border-radius: var(--radius-md);
+  }
+  .quick-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .booking-progress-scroll {
+    justify-content: flex-start;
+  }
+  .booking-progress-scroll .booking-step {
+    flex: 0 0 auto;
+  }
+  .booking-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .reception-dashboard-page,
+  .admin-dashboard-page {
+    gap: var(--space-4);
+  }
+
+  .reception-dashboard-page .announcement-feed,
+  .admin-dashboard-page .announcement-publisher,
+  .reception-dashboard-page .card,
+  .admin-dashboard-page .card,
+  .reception-dashboard-page .chart-card,
+  .admin-dashboard-page .chart-card {
+    padding: var(--space-4);
+  }
+
+  .reception-dashboard-page .announcement-feed-header,
+  .admin-dashboard-page .announcement-publisher h3 {
+    margin-bottom: var(--space-3);
+  }
+
+  .reception-dashboard-page .announcement-item,
+  .admin-dashboard-page .published-announcement {
+    padding: var(--space-3);
+  }
+
+  .reception-dashboard-page .announcement-meta,
+  .admin-dashboard-page .published-announcement {
+    gap: var(--space-3);
+  }
+
+  .reception-dashboard-page .announcement-meta .btn,
+  .reception-dashboard-page .alert-row .btn,
+  .admin-dashboard-page .alert-row .btn,
+  .admin-dashboard-page .published-announcement .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .reception-dashboard-page .metric-card,
+  .admin-dashboard-page .metric-card {
+    gap: var(--space-1);
+    padding: var(--space-4);
+  }
+
+  .metric-card .metric-value {
+    font-size: var(--text-lg);
+  }
+
+  .reception-dashboard-page .quick-action-btn {
+    min-height: 48px;
+  }
+
+  .admin-dashboard-page .publisher-controls {
+    gap: var(--space-2);
+  }
+
+  .admin-dashboard-page .publisher-controls select,
+  .admin-dashboard-page .publisher-controls input,
+  .admin-dashboard-page .publisher-controls .btn,
+  .admin-dashboard-page .publisher-controls .urgency-selector {
+    width: 100% !important;
+  }
+
+  .admin-dashboard-page .urgency-selector {
+    justify-content: stretch;
+  }
+
+  .admin-dashboard-page .urgency-pill {
+    flex: 1 1 calc(33.333% - 8px);
+    text-align: center;
+  }
+
+  .admin-dashboard-page .chart-card h3,
+  .reception-dashboard-page .card h3 {
+    font-size: var(--text-body);
+  }
+
+  .admin-dashboard-page .chart-placeholder {
+    height: 180px;
+  }
+
+  .admin-dashboard-page .chart-placeholder .bar-wrapper {
+    min-width: 24px;
   }
 }
