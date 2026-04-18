@@ -17,12 +17,23 @@
   --color-text-white: #FFFFFF;
 
   --color-accent-gold: #C9A84C;
+  --color-accent-gold-05: rgba(201, 168, 76, 0.05);
+  --color-accent-gold-10: rgba(201, 168, 76, 0.1);
+  --color-accent-gold-15: rgba(201, 168, 76, 0.15);
   --color-accent-gold-40: rgba(201, 168, 76, 0.4);
   --color-accent-gold-60: rgba(201, 168, 76, 0.6);
   --color-accent-emerald: #2D6A4F;
+  --color-accent-emerald-04: rgba(45, 106, 79, 0.04);
+  --color-accent-emerald-08: rgba(45, 106, 79, 0.08);
+  --color-accent-emerald-10: rgba(45, 106, 79, 0.10);
+  --color-accent-emerald-12: rgba(45, 106, 79, 0.12);
+  --color-accent-emerald-15: rgba(45, 106, 79, 0.15);
   --color-accent-brand: #2D6A4F;
   --color-accent-danger: #8B2020;
+  --color-accent-danger-06: rgba(139, 32, 32, 0.06);
+  --color-accent-danger-10: rgba(139, 32, 32, 0.1);
   --color-accent-warning: #A0622A;
+  --color-accent-warning-12: rgba(160, 98, 42, 0.12);
 
   --color-border-default: #D4CFC6;
   --color-border-accent: rgba(201, 168, 76, 0.6);
@@ -35,8 +46,10 @@
   --shadow-modal: 0 4px 20px rgba(26, 26, 26, 0.12);
   --shadow-navbar: 0 2px 12px rgba(26, 26, 26, 0.1);
   --shadow-elevated: 0 8px 32px rgba(26, 26, 26, 0.14);
+  --shadow-lg: 0 8px 32px rgba(26, 26, 26, 0.14);
 
   /* ---- Border Radii ---- */
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
@@ -56,6 +69,7 @@
   --space-10: 40px;
   --space-12: 48px;
   --space-16: 64px;
+  --space-20: 80px;
 
   /* ---- Typography ---- */
   --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;

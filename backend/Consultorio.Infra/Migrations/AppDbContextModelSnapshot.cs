@@ -770,8 +770,7 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<decimal>("CommissionPct")
                         .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)")
-                        .HasDefaultValue(50m);
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");

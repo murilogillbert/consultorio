@@ -1,14 +1,19 @@
 import { useState, type ReactNode } from 'react'
 import {
   CalendarDays, Star, Shield, DollarSign, ChevronLeft, ChevronRight,
-  Clock, User, CheckCircle, XCircle, AlertCircle, TrendingUp, Award
+  Clock, User, CheckCircle, XCircle, AlertCircle, TrendingUp, Award, Bell
 } from 'lucide-react'
 import {
   useProfessionalAgenda,
   useProfessionalReviews,
   useProfessionalInsuranceStats,
   useProfessionalEarnings,
+<<<<<<< HEAD
   type PortalAppointment,
+=======
+  useProfessionalAlerts,
+  type AlertMessage,
+>>>>>>> d7793d1f090d3e773123b6abfd146d75425d0881
 } from '../../hooks/useProfessionalPortal'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -61,10 +66,57 @@ function Stars({ rating }: { rating: number }) {
   )
 }
 
+// ─── Alerts Panel ────────────────────────────────────────────────────────────
+function AlertsPanel({ alerts, isLoading }: { alerts?: AlertMessage[]; isLoading: boolean }) {
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'agora'
+    if (mins < 60) return `${mins}min atrás`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h atrás`
+    return `${Math.floor(hrs / 24)}d atrás`
+  }
+
+  return (
+    <div className="prof-alerts-panel">
+      <div className="prof-alerts-header">
+        <Bell size={15} />
+        <span>Avisos da Recepção</span>
+        {alerts && alerts.length > 0 && (
+          <span className="prof-alerts-badge">{alerts.length}</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="skeleton" style={{ height: 80, borderRadius: 8, margin: '12px 0' }} />
+      ) : !alerts || alerts.length === 0 ? (
+        <div className="prof-alerts-empty">
+          <Bell size={28} style={{ opacity: 0.3 }} />
+          <p>Nenhum aviso recebido</p>
+        </div>
+      ) : (
+        <div className="prof-alerts-list">
+          {alerts.map(alert => (
+            <div key={alert.id} className="prof-alert-item">
+              <div className="prof-alert-content">{alert.content}</div>
+              <div className="prof-alert-meta">
+                <span className="prof-alert-sender">{alert.sender.name}</span>
+                <span className="prof-alert-time">{timeAgo(alert.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Tab: Agenda ─────────────────────────────────────────────────────────────
 function AgendaTab() {
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek())
   const { data, isLoading } = useProfessionalAgenda(weekStart)
+  const { data: alerts, isLoading: alertsLoading } = useProfessionalAlerts()
 
   const prevWeek = () => setWeekStart(addWeeks(weekStart, -1))
   const nextWeek = () => setWeekStart(addWeeks(weekStart, 1))
@@ -75,7 +127,11 @@ function AgendaTab() {
     : '...'
 
   // Group appointments by day
+<<<<<<< HEAD
   const byDay: Record<string, PortalAppointment[]> = {}
+=======
+  const byDay: Record<string, NonNullable<typeof data>['appointments']> = {}
+>>>>>>> d7793d1f090d3e773123b6abfd146d75425d0881
   if (data) {
     for (const appt of data.appointments) {
       const day = appt.startTime.split('T')[0]
@@ -93,7 +149,8 @@ function AgendaTab() {
     : []
 
   return (
-    <div>
+    <div className="prof-agenda-layout">
+      <div className="prof-agenda-main">
       {/* Navigation */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button className="btn btn-ghost btn-sm" onClick={prevWeek}><ChevronLeft size={16} /></button>
@@ -187,6 +244,8 @@ function AgendaTab() {
           })}
         </div>
       )}
+      </div>
+      <AlertsPanel alerts={alerts} isLoading={alertsLoading} />
     </div>
   )
 }

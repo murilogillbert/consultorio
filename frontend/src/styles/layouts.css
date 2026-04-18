@@ -326,7 +326,7 @@ body.mobile-menu-open {
 }
 
 .topbar-dropdown-item--danger:hover {
-  background: rgba(139, 32, 32, 0.06);
+  background: var(--color-accent-danger-06);
   color: var(--color-accent-danger);
 }
 
@@ -779,7 +779,7 @@ body.mobile-menu-open {
 .internal-mobile-menu-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(17, 17, 17, 0.55);
+  background: var(--color-overlay-dark);
   backdrop-filter: blur(6px);
   z-index: calc(var(--z-modal) + 10);
   display: none;
@@ -830,4 +830,171 @@ body.mobile-menu-open {
 
 .internal-mobile-menu-links .sidebar-link svg {
   color: var(--color-accent-emerald);
+}
+
+/* ============================================
+   NAVBAR AUTH — User info chip & login button
+   ============================================ */
+
+.navbar-auth {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---- Login button (outline variant) ---- */
+.btn-outline {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+  transition: all var(--transition-fast);
+}
+
+.btn-outline:hover {
+  border-color: var(--color-accent-emerald);
+  color: var(--color-accent-emerald);
+  background: var(--color-accent-emerald-08);
+}
+
+.navbar-login-btn {
+  gap: var(--space-2);
+}
+
+/* ---- Authenticated user chip ---- */
+.navbar-user-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.navbar-user-chip:hover {
+  border-color: var(--color-accent-emerald);
+  box-shadow: 0 0 0 3px var(--color-accent-emerald-08);
+}
+
+.navbar-user-avatar-placeholder {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-accent-emerald), var(--color-accent-gold));
+  color: var(--color-text-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.navbar-user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  max-width: 120px;
+}
+
+.navbar-user-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navbar-user-status {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-caption);
+  color: var(--color-accent-emerald);
+}
+
+.navbar-portal-btn {
+  font-size: var(--text-caption);
+  padding: 4px var(--space-3);
+  height: auto;
+  border-radius: var(--radius-full);
+  color: var(--color-accent-emerald);
+  white-space: nowrap;
+}
+
+.navbar-signout {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.navbar-signout:hover {
+  color: var(--color-accent-danger);
+  background: var(--color-accent-danger-10);
+}
+
+/* ---- Mobile menu user info ---- */
+.mobile-user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 360px;
+}
+
+.mobile-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-accent-emerald), var(--color-accent-gold));
+  color: var(--color-text-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.mobile-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-user-info .mobile-user-name {
+  font-size: var(--text-ui);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+}
+
+.mobile-user-info .mobile-user-role {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-accent-emerald);
+  margin-top: 2px;
+}
+
+/* ---- Responsive: hide user info text on small screens ---- */
+@media (max-width: 960px) {
+  .navbar-user-info {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-auth {
+    display: none;
+  }
 }

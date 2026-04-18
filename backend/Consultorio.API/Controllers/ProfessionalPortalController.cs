@@ -190,6 +190,45 @@ public class ProfessionalPortalController : ControllerBase
         });
     }
 
+    // ─── GET /api/professional-portal/alerts ─────────────────────────────
+    // Retorna as mensagens de alerta enviadas pela recepção via "Avisar Funcionário".
+    [HttpGet("alerts")]
+    public async Task<ActionResult> GetAlerts()
+    {
+        var proId = GetProfessionalId();
+        if (proId == Guid.Empty)
+            return Unauthorized(new { message = "Profissional não identificado." });
+
+        var professional = await _db.Professionals
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == proId);
+
+        if (professional == null)
+            return NotFound(new { message = "Profissional não encontrado." });
+
+        var memberChannelIds = await _db.ChatChannelMembers
+            .Where(m => m.UserId == professional.UserId)
+            .Select(m => m.ChatChannelId)
+            .ToListAsync();
+
+        var messages = await _db.ChatMessages
+            .Include(m => m.User)
+            .Where(m => memberChannelIds.Contains(m.ChatChannelId))
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(50)
+            .Select(m => new
+            {
+                id = m.Id,
+                content = m.Content,
+                createdAt = m.CreatedAt,
+                channelId = m.ChatChannelId,
+                sender = new { name = m.User.Name }
+            })
+            .ToListAsync();
+
+        return Ok(messages);
+    }
+
     // ─── GET /api/professional-portal/earnings ────────────────────────────
     // Retorna os ganhos do mês = Σ(valor do serviço × comissão do profissional).
     // Parâmetros: year (int), month (int, 1-12) — padrão = mês/ano atual.
