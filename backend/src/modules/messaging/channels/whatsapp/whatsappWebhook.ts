@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { whatsappConfig } from '../../../../config/whatsapp'
 import { prisma } from '../../../../config/database'
+import { emitToClinic } from '../../../../shared/websocket/socketServer'
 import crypto from 'crypto'
 
 export class WhatsappWebhookController {
@@ -156,7 +157,7 @@ export class WhatsappWebhookController {
     }
 
     // Persiste a mensagem
-    await prisma.externalMessage.create({
+    const savedMessage = await prisma.externalMessage.create({
       data: {
         conversationId: conversation.id,
         channelMessageId: waId,
@@ -174,6 +175,13 @@ export class WhatsappWebhookController {
         lastMessageAt: new Date(timestamp),
         unreadCount: { increment: 1 },
       },
+    })
+
+    // Emite evento em tempo real para todos os usuários da clínica
+    emitToClinic(clinic.id, 'messaging:new_message', {
+      conversationId: conversation.id,
+      message: savedMessage,
+      contact: { phone: from, name: profileName },
     })
 
     console.log(`[WhatsApp Webhook] Mensagem persistida (conversa ${conversation.id})`)

@@ -1,4 +1,5 @@
 import { prisma } from '../../../../config/database'
+import { emitToClinic } from '../../../../shared/websocket/socketServer'
 
 export class InternalChatService {
   async listMessages(channelId: string, limit = 50) {
@@ -54,9 +55,14 @@ export class InternalChatService {
         sentById,
       },
     })
-    await prisma.conversation.update({
+    const conversation = await prisma.conversation.update({
       where: { id: conversationId },
       data: { lastMessageAt: new Date() },
+    })
+    // Notifica outros usuários da clínica em tempo real
+    emitToClinic(conversation.clinicId, 'messaging:new_message', {
+      conversationId,
+      message: msg,
     })
     return msg
   }
