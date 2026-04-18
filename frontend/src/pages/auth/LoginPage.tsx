@@ -53,52 +53,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 50%, rgba(45,106,79,0.08) 100%)',
-      padding: 'var(--space-6)',
-    }}>
-      <div style={{
-        background: 'var(--color-overlay-white)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 'var(--space-12)',
-        width: '100%',
-        maxWidth: 440,
-        boxShadow: 'var(--shadow-elevated)',
-        animation: 'scaleIn 400ms ease',
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)' }}>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-header">
+          <div className="login-logo">
             <ClinicLogo />
           </div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)' }}>
-            Clínica Vitalis
-          </h1>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-body)' }}>
-            Acesse o painel de gestão
-          </p>
+          <h1>Clínica Vitalis</h1>
+          <p>Acesse o painel de gestão</p>
         </div>
 
         <form onSubmit={handleLogin}>
           {error && (
-            <div style={{
-              padding: 'var(--space-3) var(--space-4)',
-              background: 'rgba(139,32,32,0.08)',
-              border: '1px solid rgba(139,32,32,0.2)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--color-accent-danger)',
-              fontSize: 'var(--text-sm)',
-              marginBottom: 'var(--space-4)',
-            }}>
-              {error}
-            </div>
+            <div className="login-error">{error}</div>
           )}
 
-          <div className="input-group" style={{ marginBottom: 'var(--space-4)' }}>
+          <div className="input-group login-field">
             <label className="input-label">E-mail</label>
             <input
               className="input-field"
@@ -110,25 +80,20 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="input-group" style={{ marginBottom: 'var(--space-6)' }}>
+          <div className="input-group login-field-password">
             <label className="input-label">Senha</label>
-            <div style={{ position: 'relative' }}>
+            <div className="login-password-wrapper">
               <input
                 className="input-field"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={e => { setPassword(e.target.value); setError('') }}
-                style={{ width: '100%', paddingRight: 40 }}
               />
               <button
                 type="button"
+                className="login-show-password"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--color-text-muted)', padding: 4,
-                }}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -140,19 +105,18 @@ export default function LoginPage() {
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
 
-          <div style={{ textAlign: 'center', marginTop: 'var(--space-4)' }}>
-            <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 13 }}>
+          <div className="login-forgot">
+            <button type="button" className="btn btn-ghost btn-sm">
               Esqueci minha senha
             </button>
           </div>
         </form>
 
-        <div style={{ marginTop: 'var(--space-8)', textAlign: 'center' }}>
-          <Link to="/" className="btn btn-ghost btn-sm" style={{ fontSize: 13 }}>
+        <div className="login-back">
+          <Link to="/" className="btn btn-ghost btn-sm">
             ← Voltar ao Site
           </Link>
         </div>
-
       </div>
     </div>
   )

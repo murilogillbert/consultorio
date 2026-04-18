@@ -88,6 +88,26 @@ export function useProfessionalInsuranceStats() {
   })
 }
 
+// ─── Alertas ───────────────────────────────────────────────────────────────
+export interface AlertMessage {
+  id: string
+  content: string
+  createdAt: string
+  channelId: string
+  sender: { name: string }
+}
+
+export function useProfessionalAlerts() {
+  return useQuery<AlertMessage[]>({
+    queryKey: ['professional-portal', 'alerts'],
+    queryFn: async () => {
+      const { data } = await api.get('/professional-portal/alerts')
+      return data as AlertMessage[]
+    },
+    refetchInterval: 10000,
+  })
+}
+
 // ─── Ganhos ────────────────────────────────────────────────────────────────
 export interface EarningItem {
   id: string

@@ -104,7 +104,7 @@ export default function PublicLayout() {
                   </span>
                 </div>
                 {user.role === 'PROFESSIONAL' && (
-                  <Link to="/profissional" className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: '4px 10px' }}>
+                  <Link to="/profissional" className="btn btn-ghost btn-sm navbar-portal-btn">
                     Meu Portal
                   </Link>
                 )}
@@ -158,9 +158,9 @@ export default function PublicLayout() {
                 }
               </div>
               <div>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>{user.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <CheckCircle size={11} style={{ color: 'var(--color-brand)' }} />
+                <div className="mobile-user-name">{user.name}</div>
+                <div className="mobile-user-role">
+                  <CheckCircle size={11} />
                   {roleLabel[user.role] ?? 'Logado'}
                 </div>
               </div>

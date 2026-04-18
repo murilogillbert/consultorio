@@ -14,7 +14,7 @@ color 0A
 set "DOCKER_DB_CONTAINER=consultorio_sqlserver"
 set "DOTNET_CONNECTION=Server=localhost,1433;Database=Consultorio;User Id=sa;Password=Consultorio@2026;TrustServerCertificate=True;Encrypt=False;"
 set "CLOUDFLARED=C:\Users\Ludimila\AppData\Local\Microsoft\WinGet\Links\cloudflared.exe"
-set "CF_CONFIG=C:\Users\Ludimila\.cloudflared\config.yml"
+set "CF_CONFIG=C:\consultorio\cloudflared-config.yml"
 
 echo ============================================================
 echo     SISTEMA CONSULTORIO - INICIANDO SERVICOS
@@ -85,8 +85,16 @@ if exist "C:\consultorio\frontend\node_modules" (
 ) else (
     start "FRONTEND - Consultorio" cmd /k "cd /d C:\consultorio\frontend && npm install && npm run build && npm run preview -- --host 0.0.0.0 --port 5173"
 )
-timeout /t 5 /nobreak >nul
-echo       OK - Janela do frontend de producao aberta.
+echo       Aguardando frontend responder em 127.0.0.1:5173...
+powershell -Command "$deadline=(Get-Date).AddSeconds(90); do { try { $ok = Test-NetConnection -ComputerName '127.0.0.1' -Port 5173 -WarningAction SilentlyContinue; if($ok.TcpTestSucceeded){ exit 0 } } catch {}; Start-Sleep -Seconds 2 } while((Get-Date) -lt $deadline); exit 1" >nul 2>&1
+if %errorlevel%==0 (
+    echo       OK - Frontend de producao disponivel em 127.0.0.1:5173.
+) else (
+    echo       ERRO - Frontend nao respondeu em 127.0.0.1:5173 dentro do tempo esperado.
+    echo       Verifique a janela FRONTEND para erro de build ou de execucao.
+    pause
+    exit /b 1
+)
 echo.
 
 echo [5/6] Iniciando Cloudflare Tunnel...

@@ -1,35 +1,26 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   CalendarDays, Star, Shield, DollarSign, ChevronLeft, ChevronRight,
-  Clock, User, CheckCircle, XCircle, AlertCircle, TrendingUp, Award
+  Clock, User, CheckCircle, XCircle, AlertCircle, TrendingUp, Award, Bell
 } from 'lucide-react'
 import {
   useProfessionalAgenda,
   useProfessionalReviews,
   useProfessionalInsuranceStats,
   useProfessionalEarnings,
+  useProfessionalAlerts,
+  type AlertMessage,
 } from '../../hooks/useProfessionalPortal'
 import { useAuth } from '../../contexts/AuthContext'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: JSX.Element }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: ReactNode }> = {
   SCHEDULED:   { label: 'Agendada',     color: '#C9A84C', icon: <Clock size={12} /> },
   CONFIRMED:   { label: 'Confirmada',   color: '#2D6A4F', icon: <CheckCircle size={12} /> },
   IN_PROGRESS: { label: 'Em andamento', color: '#1a56db', icon: <AlertCircle size={12} /> },
   COMPLETED:   { label: 'Concluída',    color: '#2D6A4F', icon: <CheckCircle size={12} /> },
   CANCELLED:   { label: 'Cancelada',    color: '#8b2020', icon: <XCircle size={12} /> },
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function formatDay(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })
 }
 
 function formatMoney(v: number) {
@@ -71,10 +62,57 @@ function Stars({ rating }: { rating: number }) {
   )
 }
 
+// ─── Alerts Panel ────────────────────────────────────────────────────────────
+function AlertsPanel({ alerts, isLoading }: { alerts?: AlertMessage[]; isLoading: boolean }) {
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'agora'
+    if (mins < 60) return `${mins}min atrás`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h atrás`
+    return `${Math.floor(hrs / 24)}d atrás`
+  }
+
+  return (
+    <div className="prof-alerts-panel">
+      <div className="prof-alerts-header">
+        <Bell size={15} />
+        <span>Avisos da Recepção</span>
+        {alerts && alerts.length > 0 && (
+          <span className="prof-alerts-badge">{alerts.length}</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="skeleton" style={{ height: 80, borderRadius: 8, margin: '12px 0' }} />
+      ) : !alerts || alerts.length === 0 ? (
+        <div className="prof-alerts-empty">
+          <Bell size={28} style={{ opacity: 0.3 }} />
+          <p>Nenhum aviso recebido</p>
+        </div>
+      ) : (
+        <div className="prof-alerts-list">
+          {alerts.map(alert => (
+            <div key={alert.id} className="prof-alert-item">
+              <div className="prof-alert-content">{alert.content}</div>
+              <div className="prof-alert-meta">
+                <span className="prof-alert-sender">{alert.sender.name}</span>
+                <span className="prof-alert-time">{timeAgo(alert.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Tab: Agenda ─────────────────────────────────────────────────────────────
 function AgendaTab() {
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek())
   const { data, isLoading } = useProfessionalAgenda(weekStart)
+  const { data: alerts, isLoading: alertsLoading } = useProfessionalAlerts()
 
   const prevWeek = () => setWeekStart(addWeeks(weekStart, -1))
   const nextWeek = () => setWeekStart(addWeeks(weekStart, 1))
@@ -85,7 +123,7 @@ function AgendaTab() {
     : '...'
 
   // Group appointments by day
-  const byDay: Record<string, typeof data.appointments> = {}
+  const byDay: Record<string, NonNullable<typeof data>['appointments']> = {}
   if (data) {
     for (const appt of data.appointments) {
       const day = appt.startTime.split('T')[0]
@@ -103,7 +141,8 @@ function AgendaTab() {
     : []
 
   return (
-    <div>
+    <div className="prof-agenda-layout">
+      <div className="prof-agenda-main">
       {/* Navigation */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button className="btn btn-ghost btn-sm" onClick={prevWeek}><ChevronLeft size={16} /></button>
@@ -197,6 +236,8 @@ function AgendaTab() {
           })}
         </div>
       )}
+      </div>
+      <AlertsPanel alerts={alerts} isLoading={alertsLoading} />
     </div>
   )
 }
@@ -548,7 +589,7 @@ function GanhosTab() {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 type Tab = 'agenda' | 'avaliacoes' | 'convenios' | 'ganhos'
 
-const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
+const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: 'agenda',     label: 'Agenda',     icon: <CalendarDays size={16} /> },
   { id: 'avaliacoes', label: 'Avaliações', icon: <Star size={16} /> },
   { id: 'convenios',  label: 'Convênios',  icon: <Shield size={16} /> },
