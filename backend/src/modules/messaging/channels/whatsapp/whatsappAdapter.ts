@@ -2,7 +2,7 @@ import { whatsappConfig } from '../../../../config/whatsapp'
 
 export interface WhatsappMessageResponse {
   messaging_product: string
-  contacts: { input: string, wa_id: string }[]
+  contacts: { input: string; wa_id: string }[]
   messages: { id: string }[]
 }
 
@@ -17,6 +17,10 @@ export class WhatsappAdapter {
     this.phoneId = customPhoneId || whatsappConfig.phoneNumberId || ''
   }
 
+  private normalizePhone(to: string) {
+    return to.replace(/\D/g, '')
+  }
+
   private async fetchApi<T>(endpoint: string, options: RequestInit): Promise<T> {
     if (!this.token || !this.phoneId) {
       throw new Error('WhatsApp configuration missing: Access Token or Phone ID')
@@ -25,7 +29,7 @@ export class WhatsappAdapter {
     const response = await fetch(`${this.baseUrl}/${this.phoneId}/${endpoint}`, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.token}`,
+        Authorization: `Bearer ${this.token}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
@@ -34,8 +38,8 @@ export class WhatsappAdapter {
     const data = await response.json() as any
 
     if (!response.ok) {
-        console.error('WhatsApp API Error:', data)
-        throw new Error(data.error?.message || 'Error communicating with WhatsApp API')
+      console.error('WhatsApp API Error:', data)
+      throw new Error(data.error?.message || 'Error communicating with WhatsApp API')
     }
 
     return data as T
@@ -47,7 +51,7 @@ export class WhatsappAdapter {
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to,
+        to: this.normalizePhone(to),
         type: 'text',
         text: { body: text },
       }),
@@ -55,17 +59,17 @@ export class WhatsappAdapter {
   }
 
   async sendTemplateMessage(
-    to: string, 
-    templateName: string, 
+    to: string,
+    templateName: string,
     languageCode: string = 'pt_BR',
-    components: any[] = []
+    components: any[] = [],
   ): Promise<WhatsappMessageResponse> {
     return this.fetchApi<WhatsappMessageResponse>('messages', {
       method: 'POST',
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to,
+        to: this.normalizePhone(to),
         type: 'template',
         template: {
           name: templateName,
@@ -75,6 +79,4 @@ export class WhatsappAdapter {
       }),
     })
   }
-
-  // Common templates can be abstracted here or in whatsappTemplates.ts
 }

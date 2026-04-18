@@ -1,23 +1,16 @@
 import { prisma } from '../../../config/database'
 import { WhatsappAdapter } from '../channels/whatsapp/whatsappAdapter'
 import { AppError } from '../../../shared/errors/AppError'
+import { resolveWhatsappCredentials } from './resolveWhatsappCredentials'
 
 interface SendMessageInput {
   conversationId: string
   content: string
   sentById?: string
-  /** Credenciais opcionais — usa as globais do .env se omitido */
   waToken?: string
   waPhoneId?: string
 }
 
-/**
- * Envia uma mensagem de texto em uma conversa existente.
- * - Busca o número do contato na conversa
- * - Envia via WhatsApp Business API
- * - Persiste a mensagem enviada (direction: OUT) no banco
- * - Atualiza lastMessageAt da conversa
- */
 export async function sendMessageService(input: SendMessageInput) {
   const conversation = await prisma.conversation.findUnique({
     where: { id: input.conversationId },
@@ -36,25 +29,36 @@ export async function sendMessageService(input: SendMessageInput) {
     throw new AppError(`Canal "${conversation.channel}" não suportado por este serviço`, 400)
   }
 
-  // Envia via API do WhatsApp
-  const wa = new WhatsappAdapter(input.waToken, input.waPhoneId)
-  const response = await wa.sendTextMessage(conversation.contact.phone, input.content)
+  const content = input.content.trim()
+  if (!content) {
+    throw new AppError('Conteúdo da mensagem é obrigatório', 400)
+  }
 
+  const credentials = await resolveWhatsappCredentials({
+    clinicId: conversation.clinicId,
+    waToken: input.waToken,
+    waPhoneId: input.waPhoneId,
+  })
+
+  if (!credentials.accessToken || !credentials.phoneNumberId) {
+    throw new AppError('WhatsApp não configurado para esta clínica', 422)
+  }
+
+  const wa = new WhatsappAdapter(credentials.accessToken, credentials.phoneNumberId)
+  const response = await wa.sendTextMessage(conversation.contact.phone, content)
   const waMessageId = response.messages?.[0]?.id
 
-  // Persiste a mensagem enviada
   const message = await prisma.externalMessage.create({
     data: {
       conversationId: input.conversationId,
       channelMessageId: waMessageId,
       direction: 'OUT',
       type: 'TEXT',
-      content: input.content,
+      content,
       sentById: input.sentById,
     },
   })
 
-  // Atualiza timestamp da conversa
   await prisma.conversation.update({
     where: { id: input.conversationId },
     data: { lastMessageAt: new Date() },

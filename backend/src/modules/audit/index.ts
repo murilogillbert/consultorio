@@ -1,0 +1,5 @@
+export { AuditController } from './controllers/auditController'
+export { AuditRepository } from './repositories/auditRepository'
+export { logEventService } from './services/logEventService'
+export { listEventsService } from './services/listEventsService'
+export { exportEventsService } from './services/exportEventsService'

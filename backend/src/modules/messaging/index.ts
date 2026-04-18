@@ -1,0 +1,7 @@
+export { ConversationsRepository } from './repositories/conversationsRepository'
+export { InternalChatRepository } from './repositories/internalChatRepository'
+export { getConversationService } from './services/getConversationService'
+export { resolveConversationService } from './services/resolveConversationService'
+export { transferConversationService } from './services/transferConversationService'
+export { addInternalNoteService } from './services/addInternalNoteService'
+export { linkPatientToConversationService } from './services/linkPatientToConversationService'

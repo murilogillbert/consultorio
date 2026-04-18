@@ -1,6 +1,7 @@
 import { prisma } from '../../../config/database'
 import { WhatsappAdapter } from '../channels/whatsapp/whatsappAdapter'
 import { AppError } from '../../../shared/errors/AppError'
+import { resolveWhatsappCredentials } from './resolveWhatsappCredentials'
 
 interface SendTemplateInput {
   conversationId: string
@@ -8,15 +9,10 @@ interface SendTemplateInput {
   languageCode?: string
   components?: any[]
   sentById?: string
-  /** Credenciais opcionais — usa as globais do .env se omitido */
   waToken?: string
   waPhoneId?: string
 }
 
-/**
- * Envia uma mensagem de template HSM (WhatsApp Business) em uma conversa.
- * Templates precisam ser aprovados previamente no Meta Business Manager.
- */
 export async function sendTemplateMessageService(input: SendTemplateInput) {
   const conversation = await prisma.conversation.findUnique({
     where: { id: input.conversationId },
@@ -35,7 +31,17 @@ export async function sendTemplateMessageService(input: SendTemplateInput) {
     throw new AppError(`Canal "${conversation.channel}" não suportado por este serviço`, 400)
   }
 
-  const wa = new WhatsappAdapter(input.waToken, input.waPhoneId)
+  const credentials = await resolveWhatsappCredentials({
+    clinicId: conversation.clinicId,
+    waToken: input.waToken,
+    waPhoneId: input.waPhoneId,
+  })
+
+  if (!credentials.accessToken || !credentials.phoneNumberId) {
+    throw new AppError('WhatsApp não configurado para esta clínica', 422)
+  }
+
+  const wa = new WhatsappAdapter(credentials.accessToken, credentials.phoneNumberId)
   const response = await wa.sendTemplateMessage(
     conversation.contact.phone,
     input.templateName,
@@ -45,7 +51,6 @@ export async function sendTemplateMessageService(input: SendTemplateInput) {
 
   const waMessageId = response.messages?.[0]?.id
 
-  // Persiste como mensagem de template (OUT)
   const message = await prisma.externalMessage.create({
     data: {
       conversationId: input.conversationId,

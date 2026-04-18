@@ -1,0 +1,8 @@
+export { PatientsController } from './controllers/PatientsController'
+export { PatientsService } from './services/PatientsService'
+export { PatientsRepository } from './repositories/PatientsRepository'
+export { createPatientService } from './services/createPatientService'
+export { listPatientsService } from './services/listPatientsService'
+export { searchPatientsService } from './services/searchPatientsService'
+export { getPatientService } from './services/getPatientService'
+export { updatePatientService } from './services/updatePatientService'

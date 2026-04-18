@@ -1,6 +1,5 @@
-import { useQuery, useMutation } from '@tanstack/react-query'
-
-// NOTE: backend does not expose clinic integration settings yet. Stubbed.
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api } from '../services/api'
 
 export interface IntegrationSettings {
   id?: string
@@ -33,23 +32,53 @@ export interface IntegrationSettings {
 export function useIntegrations(clinicId?: string) {
   return useQuery<IntegrationSettings | null>({
     queryKey: ['integrations', clinicId],
-    queryFn: async () => null,
+    queryFn: async () => {
+      try {
+        const { data } = await api.get<IntegrationSettings>(`/clinics/${clinicId}/settings/integrations`)
+        return data
+      } catch (error: any) {
+        if (error?.response?.status === 404) {
+          return null
+        }
+
+        throw error
+      }
+    },
     enabled: !!clinicId,
     staleTime: Infinity,
   })
 }
 
 export function useUpdateIntegrations() {
+  const queryClient = useQueryClient()
+
   return useMutation({
-    mutationFn: async (_: { clinicId: string, data: Partial<IntegrationSettings> }) => ({ })
+    mutationFn: async ({ clinicId, data }: { clinicId: string; data: Partial<IntegrationSettings> }) => {
+      const response = await api.put<IntegrationSettings>(`/clinics/${clinicId}/settings/integrations`, data)
+      return response.data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['integrations', variables.clinicId] })
+    },
   })
 }
 
 export function useTestIntegration() {
+  const queryClient = useQueryClient()
+
   return useMutation({
-    mutationFn: async (_: { clinicId: string; type: string }) => ({
-      ok: false,
-      message: 'Integração ainda não implementada no backend.',
-    })
+    mutationFn: async ({ clinicId, type }: { clinicId: string; type: string }) => {
+      const response = await api.post<{ ok: boolean; message: string; detail?: string }>(
+        `/clinics/${clinicId}/settings/integrations/${type}/test`,
+      )
+
+      return {
+        clinicId,
+        ...response.data,
+      }
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['integrations', result.clinicId] })
+    },
   })
 }
