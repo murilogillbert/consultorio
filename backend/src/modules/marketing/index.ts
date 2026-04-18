@@ -1,0 +1,5 @@
+export { MarketingController } from './controllers/marketingController'
+export { OriginRepository } from './repositories/originRepository'
+export { createCampaignService } from './services/createCampaignService'
+export { getCampaignRoiService } from './services/getCampaignRoiService'
+export { exportSegmentedListService } from './services/exportSegmentedListService'

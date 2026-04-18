@@ -6,6 +6,7 @@ import {
   Zap, Shield, Info
 } from 'lucide-react'
 import { useIntegrations, useUpdateIntegrations, useTestIntegration } from '../../hooks/useIntegrations'
+import { api } from '../../services/api'
 
 /* ─── Types ─── */
 type ConnectionStatus = 'connected' | 'disconnected' | 'error'
@@ -133,9 +134,13 @@ function SaveButton({
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const handleClick = async () => {
     setState('saving')
-    await onClick()
-    setState('saved')
-    setTimeout(() => setState('idle'), 2000)
+    try {
+      await onClick()
+      setState('saved')
+      setTimeout(() => setState('idle'), 2000)
+    } catch {
+      setState('idle')
+    }
   }
   const cls = variant === 'danger' ? 'btn btn-danger' : variant === 'secondary' ? 'btn btn-secondary' : 'btn btn-primary'
   return (
@@ -205,6 +210,22 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     setToasts(p => [...p, { id, text, type }])
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000)
   }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const gmailOAuth = params.get('gmail_oauth')
+    if (!gmailOAuth) return
+
+    addToast(
+      params.get('gmail_message') || (gmailOAuth === 'success' ? 'Conta Google conectada com sucesso' : 'Falha ao conectar a conta Google'),
+      gmailOAuth === 'success' ? 'success' : 'error',
+    )
+
+    const url = new URL(window.location.href)
+    url.searchParams.delete('gmail_oauth')
+    url.searchParams.delete('gmail_message')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [addToast])
 
   /* Helper para chamar endpoint de teste */
   const handleTest = useCallback(async (type: string) => {
@@ -321,22 +342,36 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     return Object.keys(e).length === 0
   }
 
-  const baseUrl = 'https://api.clinicavitalis.com.br'
+  const baseUrl = (api.defaults.baseURL || `${window.location.origin}/api`).replace(/\/$/, '')
 
   return (
     <div className="intg-panel">
       {/* Page Title */}
       <h3 className="intg-page-title">Integrações</h3>
       <p className="intg-page-desc">Configure as integrações externas do sistema. Cada canal requer credenciais específicas da plataforma.</p>
+      <div className="intg-info-banner" style={{ marginBottom: 20 }}>
+        <AlertTriangle size={18} />
+        <div>
+          <strong>Estado atual das integrações</strong>
+          <p>Hoje os e-mails automáticos do sistema usam SMTP ou Ethereal no backend. Gmail, Pub/Sub e Instagram ainda estão em etapa parcial de construção neste backend Node.</p>
+        </div>
+      </div>
 
       {/* ═══════ SECTION 1: GMAIL ═══════ */}
       <IntegrationSection
         icon={Mail}
-        title="Gmail"
-        description="Receba e envie e-mails diretamente pelo sistema"
+        title="Gmail OAuth"
+        description="Prepara a futura integração com caixa de entrada Gmail; o envio atual continua por SMTP"
         status={gmailStatus}
         defaultOpen
       >
+        <div className="intg-info-banner">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>O que essa seção faz hoje</strong>
+            <p>O callback OAuth do Google já está ativo para conexão da conta. O recebimento de e-mails por webhook/PubSub ainda continua como etapa futura.</p>
+          </div>
+        </div>
         <InstructionBox steps={[
           'Acesse console.cloud.google.com e crie um projeto',
           'Ative a Gmail API em "APIs e Serviços"',
@@ -391,7 +426,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               clinicId,
               data: { gmailClientId: gmail.clientId, gmailClientSecret: gmail.clientSecret }
             })
-            addToast('Credenciais do Gmail salvas com sucesso', 'success')
+            const response = await api.post<{ authUrl: string }>('/auth/google/start', {
+              clinicId,
+              returnUrl: `${window.location.origin}/admin/configuracoes?tab=integrations`,
+            })
+            window.location.assign(response.data.authUrl)
           }} />
         </div>
       </IntegrationSection>
@@ -496,10 +535,17 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       {/* ═══════ SECTION 3: INSTAGRAM DIRECT ═══════ */}
       <IntegrationSection
         icon={Camera}
-        title="Instagram Direct"
-        description="Responda mensagens do Instagram Direct automaticamente"
+        title="Instagram Direct (Prévia)"
+        description="Salva credenciais e valida token; a mensageria real do Instagram ainda não está ativa"
         status={igStatus}
       >
+        <div className="intg-info-banner">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>Módulo parcial</strong>
+            <p>Hoje esta seção serve para guardar credenciais e testar acesso. O webhook e o fluxo real de entrada e saída de mensagens do Instagram ainda não foram implementados.</p>
+          </div>
+        </div>
         <InstructionBox steps={[
           'Certifique-se de ter uma Conta Instagram Business vinculada a uma Página do Facebook',
           'No Meta Developer Portal, adicione o produto "Messenger" ao seu app',
@@ -666,15 +712,15 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       {/* ═══════ SECTION 5: GOOGLE PUB/SUB ═══════ */}
       <IntegrationSection
         icon={Cloud}
-        title="Google Pub/Sub"
-        description="Recebimento de e-mails em tempo real (necessário para Gmail)"
+        title="Google Pub/Sub (Planejado)"
+        description="Preparação da futura sincronização de Gmail; não está ativo neste backend hoje"
         status="disconnected"
       >
         <div className="intg-info-banner">
           <AlertTriangle size={18} />
           <div>
-            <strong>Por que configurar o Pub/Sub?</strong>
-            <p>O Google Pub/Sub é necessário para o Gmail receber e-mails em tempo real, sem polling. O sistema renova a inscrição automaticamente a cada 6 dias via cron job.</p>
+            <strong>Status atual do Pub/Sub</strong>
+            <p>Esses dados podem ser salvos para preparar a integração futura, mas ainda não existe worker renovando watch do Gmail nem webhook ativo de Pub/Sub nesta API.</p>
           </div>
         </div>
 

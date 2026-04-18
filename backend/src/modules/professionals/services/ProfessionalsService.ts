@@ -88,4 +88,60 @@ export class ProfessionalsService {
 
     return updated
   }
+
+  async executeToggleActive(id: string): Promise<Professional> {
+    const professional = await this.professionalsRepository.findById(id)
+    if (!professional) {
+      throw new AppError('Profissional nÃ£o encontrado', 404)
+    }
+
+    return this.professionalsRepository.update(id, {
+      active: !professional.active,
+    })
+  }
+
+  async executeGetAvailability(professionalId: string, date: Date) {
+    await this.executeGet(professionalId)
+
+    const dayStart = new Date(date)
+    dayStart.setHours(0, 0, 0, 0)
+
+    const dayEnd = new Date(dayStart)
+    dayEnd.setHours(23, 59, 59, 999)
+
+    const [schedules, blocks, appointments] = await Promise.all([
+      prisma.schedule.findMany({
+        where: {
+          professionalId,
+          active: true,
+          dayOfWeek: dayStart.getDay(),
+        },
+        orderBy: { startTime: 'asc' },
+      }),
+      prisma.block.findMany({
+        where: {
+          professionalId,
+          startTime: { lte: dayEnd },
+          endTime: { gte: dayStart },
+        },
+        orderBy: { startTime: 'asc' },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          professionalId,
+          startTime: { gte: dayStart, lte: dayEnd },
+          status: { notIn: ['CANCELED', 'CANCELLED'] },
+        },
+        orderBy: { startTime: 'asc' },
+      }),
+    ])
+
+    return {
+      professionalId,
+      date: dayStart,
+      schedules,
+      blocks,
+      appointments,
+    }
+  }
 }

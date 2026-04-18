@@ -1,0 +1,6 @@
+export { ClinicService } from './services/ClinicService'
+export { ClinicRepository } from './repositories/ClinicRepository'
+export { getClinicSettingsService } from './services/getClinicSettingsService'
+export { updateClinicSettingsService } from './services/updateClinicSettingsService'
+export { updateIntegrationsService } from './services/updateIntegrationsService'
+export { uploadLogoService } from './services/uploadLogoService'

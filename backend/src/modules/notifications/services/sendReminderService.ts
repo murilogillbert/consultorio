@@ -1,16 +1,12 @@
 import { prisma } from '../../../config/database'
 import { emailAdapter } from '../../messaging/channels/email/emailAdapter'
-import { WhatsappAdapter } from '../../messaging/channels/whatsapp/whatsappAdapter'
 import {
   appointmentReminderHtml,
   appointmentReminderText,
   appointmentReminderWhatsApp,
 } from '../templates/appointmentReminder'
+import { buildWhatsappAdapterForClinic, resolveClinicIdFromAppointment } from './notificationDelivery'
 
-/**
- * Envia lembretes para todos os agendamentos que começam
- * entre agora e `withinHours` horas, e que ainda não receberam lembrete.
- */
 export async function sendReminderService(withinHours = 24): Promise<void> {
   const now = new Date()
   const until = new Date(now.getTime() + withinHours * 60 * 60 * 1000)
@@ -23,7 +19,20 @@ export async function sendReminderService(withinHours = 24): Promise<void> {
     },
     include: {
       patient: { include: { user: true } },
-      professional: { include: { user: true } },
+      professional: {
+        include: {
+          user: {
+            include: {
+              systemUsers: {
+                where: { active: true },
+                select: { clinicId: true },
+                take: 1,
+              },
+            },
+          },
+        },
+      },
+      room: { select: { clinicId: true } },
       service: true,
     },
   })
@@ -34,6 +43,7 @@ export async function sendReminderService(withinHours = 24): Promise<void> {
     const patientEmail = appointment.patient.user.email
     const patientPhone = appointment.patient.phone || appointment.patient.user.phone
     const hoursUntil = (new Date(appointment.startTime).getTime() - now.getTime()) / (1000 * 60 * 60)
+    const clinicId = resolveClinicIdFromAppointment(appointment)
 
     const data = {
       patientName: appointment.patient.user.name,
@@ -48,7 +58,6 @@ export async function sendReminderService(withinHours = 24): Promise<void> {
 
     let sent = false
 
-    // E-mail
     try {
       const result = await emailAdapter.send({
         to: patientEmail,
@@ -63,10 +72,9 @@ export async function sendReminderService(withinHours = 24): Promise<void> {
       console.error(`[Lembrete] Erro no e-mail para ${patientEmail}:`, err)
     }
 
-    // WhatsApp
     if (patientPhone) {
       try {
-        const wa = new WhatsappAdapter()
+        const wa = await buildWhatsappAdapterForClinic(clinicId)
         await wa.sendTextMessage(patientPhone, appointmentReminderWhatsApp(data))
         console.log(`[Lembrete] WhatsApp enviado para ${patientPhone}`)
         sent = true

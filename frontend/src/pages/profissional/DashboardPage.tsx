@@ -8,8 +8,12 @@ import {
   useProfessionalReviews,
   useProfessionalInsuranceStats,
   useProfessionalEarnings,
+<<<<<<< HEAD
+  type PortalAppointment,
+=======
   useProfessionalAlerts,
   type AlertMessage,
+>>>>>>> d7793d1f090d3e773123b6abfd146d75425d0881
 } from '../../hooks/useProfessionalPortal'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -123,7 +127,11 @@ function AgendaTab() {
     : '...'
 
   // Group appointments by day
+<<<<<<< HEAD
+  const byDay: Record<string, PortalAppointment[]> = {}
+=======
   const byDay: Record<string, NonNullable<typeof data>['appointments']> = {}
+>>>>>>> d7793d1f090d3e773123b6abfd146d75425d0881
   if (data) {
     for (const appt of data.appointments) {
       const day = appt.startTime.split('T')[0]

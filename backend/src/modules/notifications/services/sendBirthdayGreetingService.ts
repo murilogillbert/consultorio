@@ -1,22 +1,17 @@
 import { prisma } from '../../../config/database'
 import { emailAdapter } from '../../messaging/channels/email/emailAdapter'
-import { WhatsappAdapter } from '../../messaging/channels/whatsapp/whatsappAdapter'
 import {
   birthdayGreetingHtml,
   birthdayGreetingText,
   birthdayGreetingWhatsApp,
 } from '../templates/birthdayGreeting'
+import { buildWhatsappAdapterForClinic, resolveClinicIdForPatient } from './notificationDelivery'
 
-/**
- * Envia parabéns para todos os pacientes que fazem aniversário hoje.
- * Deve ser chamado uma vez por dia (via cron ou endpoint admin).
- */
 export async function sendBirthdayGreetingService(): Promise<void> {
   const now = new Date()
   const todayMonth = now.getMonth() + 1
   const todayDay = now.getDate()
 
-  // Busca pacientes com birthDate no dia e mês de hoje
   const patients = await prisma.patient.findMany({
     where: {
       birthDate: { not: null },
@@ -36,12 +31,12 @@ export async function sendBirthdayGreetingService(): Promise<void> {
   for (const patient of birthdayPatients) {
     const data = { patientName: patient.user.name }
     const patientPhone = patient.phone || patient.user.phone
+    const clinicId = await resolveClinicIdForPatient(patient.id)
 
-    // E-mail
     try {
       const result = await emailAdapter.send({
         to: patient.user.email,
-        subject: `🎂 Feliz Aniversário, ${patient.user.name}!`,
+        subject: `Feliz aniversário, ${patient.user.name}!`,
         html: birthdayGreetingHtml(data),
         text: birthdayGreetingText(data),
       })
@@ -51,10 +46,9 @@ export async function sendBirthdayGreetingService(): Promise<void> {
       console.error(`[Aniversário] Erro no e-mail para ${patient.user.email}:`, err)
     }
 
-    // WhatsApp
     if (patientPhone) {
       try {
-        const wa = new WhatsappAdapter()
+        const wa = await buildWhatsappAdapterForClinic(clinicId)
         await wa.sendTextMessage(patientPhone, birthdayGreetingWhatsApp(data))
         console.log(`[Aniversário] WhatsApp enviado para ${patientPhone}`)
       } catch (err) {

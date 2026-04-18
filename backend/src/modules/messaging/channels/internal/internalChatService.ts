@@ -1,5 +1,7 @@
 import { prisma } from '../../../../config/database'
 import { emitToClinic } from '../../../../shared/websocket/socketServer'
+import { AppError } from '../../../../shared/errors/AppError'
+import { sendMessageService } from '../../services/sendMessageService'
 
 export class InternalChatService {
   async listMessages(channelId: string, limit = 50) {
@@ -31,7 +33,7 @@ export class InternalChatService {
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { content: true, createdAt: true, direction: true },
+          select: { id: true, content: true, createdAt: true, direction: true, readAt: true, sentById: true, type: true, conversationId: true },
         },
       },
       orderBy: { lastMessageAt: 'desc' },
@@ -46,24 +48,44 @@ export class InternalChatService {
   }
 
   async sendConversationMessage(conversationId: string, content: string, sentById?: string) {
-    const msg = await prisma.externalMessage.create({
-      data: {
-        conversationId,
-        direction: 'OUT',
-        type: 'TEXT',
-        content,
-        sentById,
-      },
-    })
-    const conversation = await prisma.conversation.update({
+    const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
-      data: { lastMessageAt: new Date() },
+      select: { id: true, clinicId: true, channel: true },
     })
-    // Notifica outros usuários da clínica em tempo real
+
+    if (!conversation) {
+      throw new AppError('Conversa não encontrada', 404)
+    }
+
+    const normalizedContent = content.trim()
+    if (!normalizedContent) {
+      throw new AppError('Conteúdo da mensagem é obrigatório', 400)
+    }
+
+    const msg = conversation.channel === 'WHATSAPP'
+      ? await sendMessageService({ conversationId, content: normalizedContent, sentById })
+      : await prisma.externalMessage.create({
+          data: {
+            conversationId,
+            direction: 'OUT',
+            type: 'TEXT',
+            content: normalizedContent,
+            sentById,
+          },
+        })
+
+    if (conversation.channel !== 'WHATSAPP') {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { lastMessageAt: new Date() },
+      })
+    }
+
     emitToClinic(conversation.clinicId, 'messaging:new_message', {
       conversationId,
       message: msg,
     })
+
     return msg
   }
 

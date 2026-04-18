@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 export interface InternalMessage {
@@ -14,11 +14,11 @@ export function useChannelMessages(channelId: string | null) {
   return useQuery<InternalMessage[]>({
     queryKey: ['channel-messages', channelId],
     queryFn: async () => {
-      const { data } = await api.get<InternalMessage[]>(`/chatchannels/${channelId}/messages`)
+      const { data } = await api.get<InternalMessage[]>(`/messaging/channels/${channelId}/messages`)
       return data
     },
     enabled: !!channelId,
-    refetchInterval: 10_000, // poll every 10 s
+    refetchInterval: 10_000,
   })
 }
 
@@ -26,7 +26,7 @@ export function useSendChannelMessage() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ channelId, content }: { channelId: string; content: string; replyToId?: string }) => {
-      const { data } = await api.post<InternalMessage>(`/chatchannels/${channelId}/messages`, { content })
+      const { data } = await api.post<InternalMessage>(`/messaging/channels/${channelId}/messages`, { content })
       return data
     },
     onSuccess: (_, vars) => queryClient.invalidateQueries({ queryKey: ['channel-messages', vars.channelId] })

@@ -3,6 +3,7 @@ import { sendConfirmationService } from '../services/sendConfirmationService'
 import { sendReminderService } from '../services/sendReminderService'
 import { sendBirthdayGreetingService } from '../services/sendBirthdayGreetingService'
 import { sendPostAppointmentService } from '../services/sendPostAppointmentService'
+import { requireSingleString } from '../../../shared/utils/requestUtils'
 
 export class NotificationsController {
   /**
@@ -11,7 +12,8 @@ export class NotificationsController {
    */
   async sendConfirmation(req: Request, res: Response, next: NextFunction) {
     try {
-      await sendConfirmationService(req.params.appointmentId)
+      const appointmentId = requireSingleString(req.params.appointmentId, 'appointmentId')
+      await sendConfirmationService(appointmentId)
       res.json({ ok: true, message: 'Confirmação enviada com sucesso' })
     } catch (err) {
       next(err)

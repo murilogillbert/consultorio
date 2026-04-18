@@ -8,6 +8,7 @@ import { MarkAnnouncementReadService } from '../services/markAnnouncementReadSer
 import { GetAnnouncementReadStatsService } from '../services/getAnnouncementReadStatsService'
 import { ResendAnnouncementService } from '../services/resendAnnouncementService'
 import { prisma } from '../../../config/database'
+import { requireSingleString } from '../../../shared/utils/requestUtils'
 
 export class AnnouncementsController {
   async index(req: Request, res: Response, next: NextFunction) {
@@ -54,7 +55,7 @@ export class AnnouncementsController {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = requireSingleString(req.params.id, 'id')
       const repo = new AnnouncementRepository()
       const service = new UpdateAnnouncementService(repo)
       const result = await service.execute({ id, ...req.body })
@@ -66,7 +67,7 @@ export class AnnouncementsController {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = requireSingleString(req.params.id, 'id')
       const repo = new AnnouncementRepository()
       const service = new DeleteAnnouncementService(repo)
       await service.execute(id)
@@ -78,7 +79,7 @@ export class AnnouncementsController {
 
   async markRead(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = requireSingleString(req.params.id, 'id')
       const userId = req.user.id
       const readRepo = new AnnouncementReadRepository()
       const service = new MarkAnnouncementReadService(readRepo)
@@ -91,7 +92,7 @@ export class AnnouncementsController {
 
   async readStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = requireSingleString(req.params.id, 'id')
       const repo = new AnnouncementRepository()
       const service = new GetAnnouncementReadStatsService(repo)
       const result = await service.execute(id)
@@ -103,7 +104,7 @@ export class AnnouncementsController {
 
   async resend(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = requireSingleString(req.params.id, 'id')
       const repo = new AnnouncementRepository()
       const service = new ResendAnnouncementService(repo)
       const result = await service.execute(id)

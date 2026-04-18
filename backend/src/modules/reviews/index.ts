@@ -1,0 +1,5 @@
+export { ReviewsController } from './controllers/reviewsController'
+export { ReviewsRepository } from './repositories/reviewsRepository'
+export { createReviewService } from './services/createReviewService'
+export { getReviewsByProfessionalService } from './services/getReviewsByProfessionalService'
+export { listReviewsService } from './services/listReviewsService'

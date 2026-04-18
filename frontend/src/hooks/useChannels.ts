@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 export interface Channel {
@@ -22,8 +22,11 @@ interface ChannelRaw {
   type: string
   adminOnly: boolean
   active: boolean
-  memberCount: number
-  createdAt: string
+  memberCount?: number
+  _count?: {
+    members?: number
+  }
+  createdAt?: string
 }
 
 function mapChannel(raw: ChannelRaw): Channel {
@@ -35,15 +38,17 @@ function mapChannel(raw: ChannelRaw): Channel {
     type: raw.type,
     adminOnly: raw.adminOnly,
     active: raw.active,
-    _count: { members: raw.memberCount },
+    _count: { members: raw._count?.members ?? raw.memberCount ?? 0 },
   }
 }
 
-export function useChannels(_clinicId?: string) {
+export function useChannels(clinicId?: string) {
   return useQuery<Channel[]>({
-    queryKey: ['channels'],
+    queryKey: ['channels', clinicId],
     queryFn: async () => {
-      const { data } = await api.get<ChannelRaw[]>('/chatchannels')
+      const { data } = await api.get<ChannelRaw[]>('/messaging/channels', {
+        params: clinicId ? { clinicId } : undefined,
+      })
       return data.map(mapChannel)
     },
   })
@@ -61,7 +66,7 @@ export function useCreateChannel() {
         adminOnly: input.adminOnly || false,
         active: input.active ?? true,
       }
-      const { data } = await api.post<ChannelRaw>('/chatchannels', payload)
+      const { data } = await api.post<ChannelRaw>('/messaging/channels', payload)
       return mapChannel(data)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
@@ -72,13 +77,13 @@ export function useUpdateChannel() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<Channel> & { id: string }) => {
-      const payload: any = {}
+      const payload: Record<string, unknown> = {}
       if (input.name !== undefined) payload.name = input.name
       if (input.description !== undefined) payload.description = input.description
       if (input.type !== undefined) payload.type = input.type
       if (input.adminOnly !== undefined) payload.adminOnly = input.adminOnly
       if (input.active !== undefined) payload.active = input.active
-      const { data } = await api.put<ChannelRaw>(`/chatchannels/${id}`, payload)
+      const { data } = await api.put<ChannelRaw>(`/messaging/channels/${id}`, payload)
       return mapChannel(data)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
@@ -89,7 +94,7 @@ export function useDeleteChannel() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/chatchannels/${id}`)
+      await api.delete(`/messaging/channels/${id}`)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
   })

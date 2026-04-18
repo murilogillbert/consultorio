@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { ensureAuthenticated } from '../shared/middlewares/ensureAuthenticated'
 import { InternalChatController } from '../modules/messaging/controllers/internalChatController'
 import { InternalChatService } from '../modules/messaging/channels/internal/internalChatService'
+import { getFirstString, requireSingleString } from '../shared/utils/requestUtils'
 
 const r = Router()
 const internalChatController = new InternalChatController()
@@ -16,7 +17,8 @@ r.delete('/channels/:id', ensureAuthenticated, internalChatController.remove)
 // Internal channel messages
 r.get('/channels/:id/messages', ensureAuthenticated, async (req, res, next) => {
   try {
-    const messages = await internalChatService.listMessages(req.params.id)
+    const channelId = requireSingleString(req.params.id, 'id')
+    const messages = await internalChatService.listMessages(channelId)
     res.json(messages)
   } catch (err) { next(err) }
 })
@@ -24,7 +26,8 @@ r.get('/channels/:id/messages', ensureAuthenticated, async (req, res, next) => {
 r.post('/channels/:id/messages', ensureAuthenticated, async (req, res, next) => {
   try {
     const { content, replyToId } = req.body
-    const msg = await internalChatService.sendMessage(req.params.id, req.user.id, content, replyToId)
+    const channelId = requireSingleString(req.params.id, 'id')
+    const msg = await internalChatService.sendMessage(channelId, req.user.id, content, replyToId)
     res.status(201).json(msg)
   } catch (err) { next(err) }
 })
@@ -32,7 +35,7 @@ r.post('/channels/:id/messages', ensureAuthenticated, async (req, res, next) => 
 // Patient conversations
 r.get('/conversations', ensureAuthenticated, async (req, res, next) => {
   try {
-    const { clinicId } = req.query as { clinicId?: string }
+    const clinicId = getFirstString(req.query.clinicId)
     const convos = await internalChatService.listConversations(clinicId)
     res.json(convos)
   } catch (err) { next(err) }
@@ -40,7 +43,8 @@ r.get('/conversations', ensureAuthenticated, async (req, res, next) => {
 
 r.get('/conversations/:id/messages', ensureAuthenticated, async (req, res, next) => {
   try {
-    const messages = await internalChatService.listConversationMessages(req.params.id)
+    const conversationId = requireSingleString(req.params.id, 'id')
+    const messages = await internalChatService.listConversationMessages(conversationId)
     res.json(messages)
   } catch (err) { next(err) }
 })
@@ -48,14 +52,16 @@ r.get('/conversations/:id/messages', ensureAuthenticated, async (req, res, next)
 r.post('/conversations/:id/messages', ensureAuthenticated, async (req, res, next) => {
   try {
     const { content } = req.body
-    const msg = await internalChatService.sendConversationMessage(req.params.id, content, req.user.id)
+    const conversationId = requireSingleString(req.params.id, 'id')
+    const msg = await internalChatService.sendConversationMessage(conversationId, content, req.user.id)
     res.status(201).json(msg)
   } catch (err) { next(err) }
 })
 
 r.patch('/conversations/:id/read', ensureAuthenticated, async (req, res, next) => {
   try {
-    await internalChatService.markConversationAsRead(req.params.id)
+    const conversationId = requireSingleString(req.params.id, 'id')
+    await internalChatService.markConversationAsRead(conversationId)
     res.status(200).json({ ok: true })
   } catch (err) { next(err) }
 })

@@ -1,6 +1,7 @@
 import { ClinicRepository } from '../repositories/ClinicRepository'
 import { AppError } from '../../../shared/errors/AppError'
 import { Prisma } from '@prisma/client'
+import { GoogleOAuthService } from '../../auth/services/GoogleOAuthService'
 
 export class ClinicService {
   constructor(private clinicRepository: ClinicRepository) { }
@@ -94,7 +95,7 @@ export class ClinicService {
         throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
       }
       await this.clinicRepository.updateIntegrations(clinicId, { igConnected: true })
-      return { ok: true, message: 'Instagram conectado com sucesso', detail: json.name }
+      return { ok: true, message: 'Credenciais do Instagram validadas com sucesso', detail: json.name }
     }
 
     if (type === 'mercadopago') {
@@ -114,12 +115,18 @@ export class ClinicService {
     }
 
     if (type === 'gmail') {
-      // Gmail exige OAuth flow; verificamos se há token salvo
-      const hasToken = !!settings.gmailAccessToken || !!settings.gmailRefreshToken
-      if (!hasToken) {
-        throw new AppError('Gmail ainda não autenticado via OAuth. Salve as credenciais e autorize o acesso.', 422)
+      const googleOAuthService = new GoogleOAuthService()
+      const accessToken = await googleOAuthService.getValidAccessToken(clinicId)
+      const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const json = await resp.json() as any
+      if (!resp.ok || json.error) {
+        await this.clinicRepository.updateIntegrations(clinicId, { gmailConnected: false })
+        throw new AppError(json.error?.message || 'Falha ao validar a conexão com o Gmail', 400)
       }
-      return { ok: true, message: 'Credenciais do Gmail estão salvas. Para validar o acesso complete o fluxo OAuth.' }
+      await this.clinicRepository.updateIntegrations(clinicId, { gmailConnected: true })
+      return { ok: true, message: 'Gmail conectado com sucesso', detail: json.emailAddress }
     }
 
     throw new AppError(`Tipo de integração desconhecido: ${type}`, 400)
