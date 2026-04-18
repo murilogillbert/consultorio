@@ -77,6 +77,14 @@ export default function ConfiguracoesPage() {
   })
   const [notifSaveMsg, setNotifSaveMsg] = useState('')
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    if (tab) {
+      setActiveTab(tab)
+    }
+  }, [])
+
   // Rooms State
   const { data: rooms = [] } = useRooms(clinic?.id)
   const createRoom = useCreateRoom()

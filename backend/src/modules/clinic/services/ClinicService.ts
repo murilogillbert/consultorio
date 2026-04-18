@@ -1,6 +1,7 @@
 import { ClinicRepository } from '../repositories/ClinicRepository'
 import { AppError } from '../../../shared/errors/AppError'
 import { Prisma } from '@prisma/client'
+import { GoogleOAuthService } from '../../auth/services/GoogleOAuthService'
 
 export class ClinicService {
   constructor(private clinicRepository: ClinicRepository) { }
@@ -114,12 +115,18 @@ export class ClinicService {
     }
 
     if (type === 'gmail') {
-      // Gmail exige OAuth flow; por enquanto validamos apenas se já existem tokens salvos
-      const hasToken = !!settings.gmailAccessToken || !!settings.gmailRefreshToken
-      if (!hasToken) {
-        throw new AppError('Gmail ainda não autenticado via OAuth. Hoje esta API apenas salva credenciais; o fluxo completo de callback e inbox ainda não está implementado.', 422)
+      const googleOAuthService = new GoogleOAuthService()
+      const accessToken = await googleOAuthService.getValidAccessToken(clinicId)
+      const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const json = await resp.json() as any
+      if (!resp.ok || json.error) {
+        await this.clinicRepository.updateIntegrations(clinicId, { gmailConnected: false })
+        throw new AppError(json.error?.message || 'Falha ao validar a conexão com o Gmail', 400)
       }
-      return { ok: true, message: 'Tokens do Gmail estão salvos. O fluxo completo de inbox/callback ainda está em construção.' }
+      await this.clinicRepository.updateIntegrations(clinicId, { gmailConnected: true })
+      return { ok: true, message: 'Gmail conectado com sucesso', detail: json.emailAddress }
     }
 
     throw new AppError(`Tipo de integração desconhecido: ${type}`, 400)

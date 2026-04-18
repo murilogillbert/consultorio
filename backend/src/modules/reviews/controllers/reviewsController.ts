@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import { createReviewService } from '../services/createReviewService'
 import { getReviewsByProfessionalService } from '../services/getReviewsByProfessionalService'
 import { listReviewsService } from '../services/listReviewsService'
+import { requireSingleString } from '../../../shared/utils/requestUtils'
 
 export class ReviewsController {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -15,7 +16,7 @@ export class ReviewsController {
 
   async byProfessional(req: Request, res: Response, next: NextFunction) {
     try {
-      const { professionalId } = req.params
+      const professionalId = requireSingleString(req.params.professionalId, 'professionalId')
       const result = await getReviewsByProfessionalService(professionalId)
       res.json(result)
     } catch (err) {

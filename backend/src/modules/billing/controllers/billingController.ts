@@ -5,6 +5,7 @@ import { getBillingReportService } from '../services/getBillingReportService'
 import { getDelinquencyService } from '../services/getDelinquencyService'
 import { getProfessionalPayoutService } from '../services/getProfessionalPayoutService'
 import { validateGenerateCharge } from '../validators/billingValidator'
+import { requireSingleString } from '../../../shared/utils/requestUtils'
 
 export class BillingController {
   async generateCharge(req: Request, res: Response, next: NextFunction) {
@@ -20,7 +21,7 @@ export class BillingController {
 
   async refund(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = requireSingleString(req.params.id, 'id')
       await refundService(id)
       res.json({ message: 'Estorno solicitado com sucesso' })
     } catch (err) {

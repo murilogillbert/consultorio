@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import { createCampaignService } from '../services/createCampaignService'
 import { getCampaignRoiService } from '../services/getCampaignRoiService'
 import { exportSegmentedListService } from '../services/exportSegmentedListService'
+import { getFirstString, requireSingleString } from '../../../shared/utils/requestUtils'
 
 export class MarketingController {
   async createCampaign(req: Request, res: Response, next: NextFunction) {
@@ -15,7 +16,7 @@ export class MarketingController {
 
   async campaignRoi(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = requireSingleString(req.params.id, 'id')
       const result = await getCampaignRoiService(id)
       res.json(result)
     } catch (err) {
@@ -25,7 +26,7 @@ export class MarketingController {
 
   async exportSegment(req: Request, res: Response, next: NextFunction) {
     try {
-      const { segment = 'all' } = req.query as { segment?: string }
+      const segment = getFirstString(req.query.segment) ?? 'all'
       const csv = await exportSegmentedListService(segment)
       res.setHeader('Content-Type', 'text/csv')
       res.setHeader('Content-Disposition', `attachment; filename="patients-${segment}.csv"`)

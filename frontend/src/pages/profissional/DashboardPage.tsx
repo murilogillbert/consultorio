@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   CalendarDays, Star, Shield, DollarSign, ChevronLeft, ChevronRight,
   Clock, User, CheckCircle, XCircle, AlertCircle, TrendingUp, Award
@@ -8,28 +8,18 @@ import {
   useProfessionalReviews,
   useProfessionalInsuranceStats,
   useProfessionalEarnings,
+  type PortalAppointment,
 } from '../../hooks/useProfessionalPortal'
 import { useAuth } from '../../contexts/AuthContext'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: JSX.Element }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: ReactNode }> = {
   SCHEDULED:   { label: 'Agendada',     color: '#C9A84C', icon: <Clock size={12} /> },
   CONFIRMED:   { label: 'Confirmada',   color: '#2D6A4F', icon: <CheckCircle size={12} /> },
   IN_PROGRESS: { label: 'Em andamento', color: '#1a56db', icon: <AlertCircle size={12} /> },
   COMPLETED:   { label: 'Concluída',    color: '#2D6A4F', icon: <CheckCircle size={12} /> },
   CANCELLED:   { label: 'Cancelada',    color: '#8b2020', icon: <XCircle size={12} /> },
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function formatDay(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })
 }
 
 function formatMoney(v: number) {
@@ -85,7 +75,7 @@ function AgendaTab() {
     : '...'
 
   // Group appointments by day
-  const byDay: Record<string, typeof data.appointments> = {}
+  const byDay: Record<string, PortalAppointment[]> = {}
   if (data) {
     for (const appt of data.appointments) {
       const day = appt.startTime.split('T')[0]
@@ -548,7 +538,7 @@ function GanhosTab() {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 type Tab = 'agenda' | 'avaliacoes' | 'convenios' | 'ganhos'
 
-const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
+const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: 'agenda',     label: 'Agenda',     icon: <CalendarDays size={16} /> },
   { id: 'avaliacoes', label: 'Avaliações', icon: <Star size={16} /> },
   { id: 'convenios',  label: 'Convênios',  icon: <Shield size={16} /> },
