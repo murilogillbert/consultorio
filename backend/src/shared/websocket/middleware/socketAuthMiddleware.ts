@@ -1,17 +1,14 @@
 import { Socket } from 'socket.io'
 import { verify } from 'jsonwebtoken'
 import { env } from '../../../config/env'
+import { prisma } from '../../../config/database'
 
 interface JwtPayload {
   sub: string
   role: string
 }
 
-/**
- * Middleware Socket.io: valida o JWT enviado no handshake.
- * O cliente deve enviar: socket = io(url, { auth: { token: 'Bearer <jwt>' } })
- */
-export function socketAuthMiddleware(socket: Socket, next: (err?: Error) => void) {
+export async function socketAuthMiddleware(socket: Socket, next: (err?: Error) => void) {
   try {
     const raw = socket.handshake.auth?.token as string | undefined
       || socket.handshake.headers?.authorization as string | undefined
@@ -21,12 +18,26 @@ export function socketAuthMiddleware(socket: Socket, next: (err?: Error) => void
     }
 
     const token = raw.startsWith('Bearer ') ? raw.slice(7) : raw
-
     const payload = verify(token, env.JWT_SECRET) as JwtPayload
 
-    // Injeta o usuário autenticado nos dados do socket para uso nos handlers
+    const systemUsers = await prisma.systemUser.findMany({
+      where: {
+        userId: payload.sub,
+        active: true,
+      },
+      select: {
+        clinicId: true,
+        role: true,
+      },
+    })
+
+    const clinicIds = Array.from(new Set(systemUsers.map((item) => item.clinicId)))
+
     socket.data.userId = payload.sub
-    socket.data.role   = payload.role
+    socket.data.role = payload.role
+    socket.data.clinicIds = clinicIds
+    socket.data.primaryClinicId = clinicIds[0]
+    socket.data.systemRoles = systemUsers.map((item) => item.role)
 
     next()
   } catch {

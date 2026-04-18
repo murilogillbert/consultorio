@@ -1,59 +1,75 @@
 import { Socket, Namespace } from 'socket.io'
+import { prisma } from '../../../config/database'
 
-// Mapa em memória: userId -> Set de socketIds ativos
 const onlineUsers = new Map<string, Set<string>>()
 
-/**
- * Registra o handler de presença (online/offline).
- * Emite 'presence:online' e 'presence:offline' para a sala da clínica.
- */
-export function registerPresenceHandler(socket: Socket, ns: Namespace) {
-  const userId  = socket.data.userId as string
-  const clinicId = socket.data.clinicId as string | undefined
+async function listOnlineUsersForClinics(clinicIds: string[]) {
+  if (clinicIds.length === 0) {
+    return []
+  }
 
-  // Marca usuário como online
+  const members = await prisma.systemUser.findMany({
+    where: {
+      clinicId: { in: clinicIds },
+      active: true,
+    },
+    select: { userId: true },
+  })
+
+  const allowedUserIds = new Set(members.map((member) => member.userId))
+  return Array.from(onlineUsers.keys()).filter((id) => {
+    return allowedUserIds.has(id) && (onlineUsers.get(id)?.size ?? 0) > 0
+  })
+}
+
+export function registerPresenceHandler(socket: Socket, _ns: Namespace) {
+  const userId = socket.data.userId as string
+  const clinicIds = ((socket.data.clinicIds as string[] | undefined) || []).filter(Boolean)
+
   if (!onlineUsers.has(userId)) {
     onlineUsers.set(userId, new Set())
   }
+
   const sockets = onlineUsers.get(userId)!
   sockets.add(socket.id)
 
-  // Notifica a clínica (se soubermos o clinicId)
-  if (clinicId) {
-    socket.to(`clinic:${clinicId}`).emit('presence:online', { userId })
+  for (const clinicId of clinicIds) {
+    socket.to(`clinic:${clinicId}`).emit('presence:online', { userId, clinicId })
   }
 
-  // Handler: cliente informa sua clínica após conectar
-  socket.on('presence:join', (data: { clinicId: string }) => {
-    if (!data?.clinicId) return
-    socket.data.clinicId = data.clinicId
-    socket.join(`clinic:${data.clinicId}`)
-    // Anuncia presença para os outros membros da clínica
-    socket.to(`clinic:${data.clinicId}`).emit('presence:online', { userId })
-    // Envia a lista atual de online para quem acabou de entrar
-    const currentOnline = Array.from(onlineUsers.keys()).filter(id => (onlineUsers.get(id)?.size ?? 0) > 0)
-    socket.emit('presence:list', { online: currentOnline })
+  socket.on('presence:join', async (data?: { clinicId?: string }) => {
+    const requestedClinicId = data?.clinicId
+    const targetClinicIds = requestedClinicId
+      ? clinicIds.filter((clinicId) => clinicId === requestedClinicId)
+      : clinicIds
+
+    if (requestedClinicId && targetClinicIds.length === 0) {
+      socket.emit('presence:error', { message: 'Você não tem acesso a esta clínica' })
+      return
+    }
+
+    const currentOnline = await listOnlineUsersForClinics(targetClinicIds)
+    socket.emit('presence:list', {
+      clinicIds: targetClinicIds,
+      online: currentOnline,
+    })
   })
 
   socket.on('disconnect', () => {
     sockets.delete(socket.id)
     if (sockets.size === 0) {
       onlineUsers.delete(userId)
-      // Notifica offline para a clínica
-      const cId = socket.data.clinicId as string | undefined
-      if (cId) {
-        socket.to(`clinic:${cId}`).emit('presence:offline', { userId })
+      for (const clinicId of clinicIds) {
+        socket.to(`clinic:${clinicId}`).emit('presence:offline', { userId, clinicId })
       }
     }
   })
 }
 
-/** Utilitário para verificar se um usuário está online (usado por outros handlers) */
 export function isUserOnline(userId: string): boolean {
   return (onlineUsers.get(userId)?.size ?? 0) > 0
 }
 
-/** Retorna todos os userIds online */
 export function getOnlineUsers(): string[] {
   return Array.from(onlineUsers.keys()).filter(id => (onlineUsers.get(id)?.size ?? 0) > 0)
 }

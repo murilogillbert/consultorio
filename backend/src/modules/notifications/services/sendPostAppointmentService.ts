@@ -1,17 +1,12 @@
 import { prisma } from '../../../config/database'
 import { emailAdapter } from '../../messaging/channels/email/emailAdapter'
-import { WhatsappAdapter } from '../../messaging/channels/whatsapp/whatsappAdapter'
 import {
   postAppointmentHtml,
   postAppointmentText,
   postAppointmentWhatsApp,
 } from '../templates/postAppointment'
+import { buildWhatsappAdapterForClinic, resolveClinicIdFromAppointment } from './notificationDelivery'
 
-/**
- * Envia mensagem pós-consulta para agendamentos que terminaram
- * há `hoursAfter` horas e ainda não receberam a mensagem.
- * Ideal para ser chamado via cron a cada hora.
- */
 export async function sendPostAppointmentService(hoursAfter = 1): Promise<void> {
   const now = new Date()
   const from = new Date(now.getTime() - (hoursAfter + 1) * 60 * 60 * 1000)
@@ -24,7 +19,20 @@ export async function sendPostAppointmentService(hoursAfter = 1): Promise<void> 
     },
     include: {
       patient: { include: { user: true } },
-      professional: { include: { user: true } },
+      professional: {
+        include: {
+          user: {
+            include: {
+              systemUsers: {
+                where: { active: true },
+                select: { clinicId: true },
+                take: 1,
+              },
+            },
+          },
+        },
+      },
+      room: { select: { clinicId: true } },
       service: true,
     },
   })
@@ -38,12 +46,12 @@ export async function sendPostAppointmentService(hoursAfter = 1): Promise<void> 
       serviceName: appointment.service.name,
     }
     const patientPhone = appointment.patient.phone || appointment.patient.user.phone
+    const clinicId = resolveClinicIdFromAppointment(appointment)
 
-    // E-mail
     try {
       const result = await emailAdapter.send({
         to: appointment.patient.user.email,
-        subject: 'Como foi sua consulta? — Psicologia e Existir',
+        subject: 'Como foi sua consulta? - Psicologia e Existir',
         html: postAppointmentHtml(data),
         text: postAppointmentText(data),
       })
@@ -53,10 +61,9 @@ export async function sendPostAppointmentService(hoursAfter = 1): Promise<void> 
       console.error('[Pós-consulta] Erro no e-mail:', err)
     }
 
-    // WhatsApp
     if (patientPhone) {
       try {
-        const wa = new WhatsappAdapter()
+        const wa = await buildWhatsappAdapterForClinic(clinicId)
         await wa.sendTextMessage(patientPhone, postAppointmentWhatsApp(data))
         console.log(`[Pós-consulta] WhatsApp enviado para ${patientPhone}`)
       } catch (err) {

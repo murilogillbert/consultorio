@@ -94,7 +94,7 @@ export class ClinicService {
         throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
       }
       await this.clinicRepository.updateIntegrations(clinicId, { igConnected: true })
-      return { ok: true, message: 'Instagram conectado com sucesso', detail: json.name }
+      return { ok: true, message: 'Credenciais do Instagram validadas com sucesso', detail: json.name }
     }
 
     if (type === 'mercadopago') {
@@ -114,12 +114,12 @@ export class ClinicService {
     }
 
     if (type === 'gmail') {
-      // Gmail exige OAuth flow; verificamos se há token salvo
+      // Gmail exige OAuth flow; por enquanto validamos apenas se já existem tokens salvos
       const hasToken = !!settings.gmailAccessToken || !!settings.gmailRefreshToken
       if (!hasToken) {
-        throw new AppError('Gmail ainda não autenticado via OAuth. Salve as credenciais e autorize o acesso.', 422)
+        throw new AppError('Gmail ainda não autenticado via OAuth. Hoje esta API apenas salva credenciais; o fluxo completo de callback e inbox ainda não está implementado.', 422)
       }
-      return { ok: true, message: 'Credenciais do Gmail estão salvas. Para validar o acesso complete o fluxo OAuth.' }
+      return { ok: true, message: 'Tokens do Gmail estão salvos. O fluxo completo de inbox/callback ainda está em construção.' }
     }
 
     throw new AppError(`Tipo de integração desconhecido: ${type}`, 400)
