@@ -39,4 +39,5 @@ public class PatientResponseDto
     public string? Notes { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? GeneratedPassword { get; set; }
 }

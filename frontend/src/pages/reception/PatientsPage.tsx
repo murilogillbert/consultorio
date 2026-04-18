@@ -9,6 +9,7 @@ export default function PatientsPage() {
   const [editingPatient, setEditingPatient] = useState<any | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
   const [deleteError, setDeleteError] = useState('')
+  const [createdPassword, setCreatedPassword] = useState('')
 
   const createPatient = useCreatePatient()
   const updatePatient = useUpdatePatient()
@@ -52,7 +53,7 @@ export default function PatientsPage() {
           notes: formData.notes || undefined,
         })
       } else {
-        await createPatient.mutateAsync({
+        const created = await createPatient.mutateAsync({
           name: formData.name,
           email: formData.email,
           cpf: formData.cpf || '',
@@ -61,6 +62,7 @@ export default function PatientsPage() {
           address: formData.address || undefined,
           notes: formData.notes || undefined,
         })
+        setCreatedPassword(created.generatedPassword || '')
       }
       setShowModal(false)
       setEditingPatient(null)
@@ -85,7 +87,7 @@ export default function PatientsPage() {
     <div className="animate-fade-in">
       <div className="metrics-header" style={{ marginBottom: 'var(--space-6)' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Gestão de Pacientes</h2>
-        <button className="btn btn-primary" onClick={() => { setEditingPatient(null); setShowModal(true) }}>
+        <button className="btn btn-primary" onClick={() => { setEditingPatient(null); setCreatedPassword(''); setShowModal(true) }}>
           <Plus size={18} /> Novo Paciente
         </button>
       </div>
@@ -102,6 +104,15 @@ export default function PatientsPage() {
           />
         </div>
       </div>
+
+      {createdPassword && (
+        <div className="card" style={{ marginBottom: 'var(--space-6)', borderLeft: '4px solid var(--color-accent-emerald)' }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Paciente criado com acesso inicial</div>
+          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            Senha padrão: <code>{createdPassword}</code>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>Carregando pacientes...</div>
@@ -193,11 +204,11 @@ export default function PatientsPage() {
 
       {/* Create/Edit modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowModal(false); setCreatedPassword('') }}>
           <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editingPatient ? 'Editar Paciente' : 'Novo Paciente'}</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}><X size={20} /></button>
+              <button className="modal-close" onClick={() => { setShowModal(false); setCreatedPassword('') }}><X size={20} /></button>
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body">
@@ -240,7 +251,7 @@ export default function PatientsPage() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowModal(false); setCreatedPassword('') }}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={createPatient.isPending || updatePatient.isPending}>
                   {editingPatient ? 'Salvar Alterações' : 'Criar Paciente'}
                 </button>

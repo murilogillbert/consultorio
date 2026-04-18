@@ -38,6 +38,13 @@ export default function FaturamentoPage() {
   const payouts = data?.payouts || []
   const delinquency = data?.delinquency || []
   const monthlyRevenue = data?.monthlyRevenue || []
+  const monthlyTotal = monthlyRevenue.reduce((sum, m) => sum + m.revenue, 0)
+  const monthlyAverage = monthlyRevenue.length > 0 ? monthlyTotal / monthlyRevenue.length : 0
+  const bestMonth = monthlyRevenue.reduce((best, m) => (m.revenue > best.revenue ? m : best), monthlyRevenue[0] || { month: '--', revenue: 0 })
+  const worstMonth = monthlyRevenue.reduce((worst, m) => (m.revenue < worst.revenue ? m : worst), monthlyRevenue[0] || { month: '--', revenue: 0 })
+  const latestMonth = monthlyRevenue[monthlyRevenue.length - 1]
+  const latestVsAverage = monthlyAverage > 0 && latestMonth ? Math.round((latestMonth.revenue / monthlyAverage - 1) * 100) : 0
+  const maxMonthlyRevenue = Math.max(...monthlyRevenue.map(d => d.revenue)) || 1
 
   return (
     <div className="animate-fade-in">
@@ -133,20 +140,78 @@ export default function FaturamentoPage() {
 
         <div className="chart-card">
           <h3>Faturamento Mensal (12 meses)</h3>
-          <div className="chart-placeholder">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, margin: '12px 0 16px' }}>
+            <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
+              <span className="metric-label">Média mensal</span>
+              <span className="metric-value" style={{ fontSize: 20 }}>{fmt(monthlyAverage)}</span>
+            </div>
+            <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
+              <span className="metric-label">Melhor mês</span>
+              <span className="metric-value" style={{ fontSize: 20 }}>{bestMonth.month}</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{fmt(bestMonth.revenue)}</span>
+            </div>
+            <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
+              <span className="metric-label">Pior mês</span>
+              <span className="metric-value" style={{ fontSize: 20 }}>{worstMonth.month}</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{fmt(worstMonth.revenue)}</span>
+            </div>
+            <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
+              <span className="metric-label">Último mês vs média</span>
+              <span className="metric-value" style={{ fontSize: 20, color: latestVsAverage >= 0 ? 'var(--color-accent-emerald)' : 'var(--color-accent-danger)' }}>
+                {latestVsAverage >= 0 ? '+' : ''}{latestVsAverage}%
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{latestMonth ? fmt(latestMonth.revenue) : '—'}</span>
+            </div>
+          </div>
+          <div className="chart-placeholder" style={{ position: 'relative', minHeight: 240, alignItems: 'flex-end' }}>
+            {monthlyRevenue.length > 0 && (
+              <>
+                <div style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: `${100 - (monthlyAverage / maxMonthlyRevenue) * 100}%`,
+                  borderTop: '1px dashed var(--color-text-muted)',
+                  opacity: 0.7,
+                  pointerEvents: 'none'
+                }} />
+                <span style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: `${Math.max(0, 100 - (monthlyAverage / maxMonthlyRevenue) * 100) - 2}%`,
+                  fontSize: 10,
+                  color: 'var(--color-text-muted)',
+                  background: 'var(--color-surface)',
+                  padding: '0 4px'
+                }}>
+                  média {fmt(monthlyAverage)}
+                </span>
+              </>
+            )}
             {monthlyRevenue.map((h: any, i: number) => {
-              const maxRev = Math.max(...monthlyRevenue.map((d: any) => d.revenue)) || 1
-              const hPct = (h.revenue / maxRev) * 100
+              const hPct = (h.revenue / maxMonthlyRevenue) * 100
+              const isLatest = i === monthlyRevenue.length - 1
+              const isAboveAvg = h.revenue >= monthlyAverage
               return (
                 <div key={i} className="bar-wrapper" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', flex: 1, margin: '0 2px' }}>
                   <div
                     title={`${h.month}: ${fmt(h.revenue)}`}
-                    style={{ height: `${Math.max(hPct, 2)}%`, minHeight: 2, background: 'var(--color-accent-brand)', borderRadius: '4px 4px 0 0', opacity: i === monthlyRevenue.length - 1 ? 1 : 0.6 }}
+                    style={{
+                      height: `${Math.max(hPct, 2)}%`,
+                      minHeight: 2,
+                      background: isAboveAvg ? 'var(--color-accent-brand)' : 'var(--color-accent-gold)',
+                      borderRadius: '4px 4px 0 0',
+                      opacity: isLatest ? 1 : 0.7
+                    }}
                   />
                   <span style={{ fontSize: 9, marginTop: 4, color: 'var(--color-text-muted)' }}>{h.month}</span>
                 </div>
               )
             })}
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12, fontSize: 12, color: 'var(--color-text-muted)' }}>
+            <span>Acumulado em 12 meses: {fmt(monthlyTotal)}</span>
+            <span>Amplitude: {fmt(bestMonth.revenue - worstMonth.revenue)}</span>
           </div>
         </div>
       </div>

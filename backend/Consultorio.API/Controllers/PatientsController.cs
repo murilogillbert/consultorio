@@ -86,12 +86,14 @@ public class PatientsController : ControllerBase
         if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
             return Conflict(new { message = "Email já cadastrado." });
 
+        var generatedPassword = GenerateDefaultPassword(dto.Name);
+
         var user = new User
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
             Email = dto.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Temp@123"), // senha temporária
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(generatedPassword),
             Phone = dto.Phone,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
@@ -116,7 +118,9 @@ public class PatientsController : ControllerBase
         await _db.SaveChangesAsync();
 
         patient.User = user;
-        return CreatedAtAction(nameof(GetById), new { id = patient.Id }, ToDto(patient));
+        var response = ToDto(patient);
+        response.GeneratedPassword = generatedPassword;
+        return CreatedAtAction(nameof(GetById), new { id = patient.Id }, response);
     }
 
     // DELETE /api/patients/{id}
@@ -161,5 +165,15 @@ public class PatientsController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(ToDto(patient));
+    }
+
+    private static string GenerateDefaultPassword(string name)
+    {
+        var cleaned = new string((name ?? string.Empty).Where(char.IsLetter).ToArray());
+        var prefix = cleaned.Length > 0
+            ? cleaned[..Math.Min(4, cleaned.Length)]
+            : "pac";
+
+        return $"{prefix.ToLowerInvariant()}123!";
     }
 }

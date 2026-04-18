@@ -17,6 +17,7 @@ interface PatientRaw {
   notes?: string
   isActive: boolean
   createdAt: string
+  generatedPassword?: string
 }
 
 export interface Patient {
@@ -27,6 +28,7 @@ export interface Patient {
   birthDate?: string
   address?: string
   notes?: string
+  generatedPassword?: string
   user?: {
     id: string
     name: string
@@ -43,6 +45,7 @@ function mapPatient(p: PatientRaw): Patient {
     birthDate: p.birthDate,
     address: p.address,
     notes: p.notes,
+    generatedPassword: p.generatedPassword,
     user: {
       id: p.userId,
       name: p.name,
