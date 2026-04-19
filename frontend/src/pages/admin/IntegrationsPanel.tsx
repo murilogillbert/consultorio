@@ -420,12 +420,16 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             addToast('Acesso ao Gmail revogado', 'warning')
           }} />
           <SaveButton label="Salvar e Autenticar" icon={<LogIn size={14} />} onClick={async () => {
-            if (!validateGmail()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
+            const valid = validateGmail()
             if (!clinicId) return
             await updateMutation.mutateAsync({
               clinicId,
               data: { gmailClientId: gmail.clientId, gmailClientSecret: gmail.clientSecret }
             })
+            if (!valid) {
+              addToast('Dados salvos — campos obrigatórios marcados precisam ser preenchidos para autenticar', 'warning')
+              return
+            }
             const response = await api.post<{ authUrl: string }>('/auth/google/start', {
               clinicId,
               returnUrl: `${window.location.origin}/admin/configuracoes?tab=integrations`,
@@ -515,7 +519,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             addToast('WhatsApp desconectado', 'warning')
           }} />
           <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
-            if (!validateWhatsApp()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
+            const valid = validateWhatsApp()
             if (!clinicId) return
             await updateMutation.mutateAsync({
               clinicId,
@@ -527,7 +531,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
                 waAppSecret: whatsapp.appSecret
               }
             })
-            addToast('Configurações do WhatsApp salvas com sucesso', 'success')
+            addToast(
+              valid
+                ? 'Configurações do WhatsApp salvas com sucesso'
+                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+              valid ? 'success' : 'warning'
+            )
           }} />
         </div>
       </IntegrationSection>
@@ -609,7 +618,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             addToast('Acesso ao Instagram revogado', 'warning')
           }} />
           <SaveButton label="Reconectar" icon={<RefreshCw size={14} />} onClick={async () => {
-            if (!validateInstagram()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
+            const valid = validateInstagram()
             if (!clinicId) return
             await updateMutation.mutateAsync({
               clinicId,
@@ -619,7 +628,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
                 igAccessToken: instagram.pageToken
               }
             })
-            addToast('Instagram reconectado with sucesso', 'success')
+            addToast(
+              valid
+                ? 'Instagram reconectado com sucesso'
+                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+              valid ? 'success' : 'warning'
+            )
           }} />
         </div>
       </IntegrationSection>
@@ -693,7 +707,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             addToast('Mercado Pago desconectado', 'warning')
           }} />
           <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
-            if (!validateMercadoPago()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
+            const valid = validateMercadoPago()
             if (!clinicId) return
             await updateMutation.mutateAsync({
               clinicId,
@@ -704,7 +718,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
                 mpWebhookSecret: mp.webhookSecret
               }
             })
-            addToast('Configurações do Mercado Pago salvas', 'success')
+            addToast(
+              valid
+                ? 'Configurações do Mercado Pago salvas'
+                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+              valid ? 'success' : 'warning'
+            )
           }} />
         </div>
       </IntegrationSection>
@@ -773,38 +792,35 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   "private_key_id": "key-id",
   "private_key": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n",
   "client_email": "clinic@meu-projeto.iam.gserviceaccount.com",
-  "client_id": "000000000000000000000",
-  ...
+  "client_id": "0000000000000000  "client_id": "0000000000000000"
 }`}
+              rows={12}
               value={pubsub.serviceKey}
               onChange={e => { setPubsub(p => ({ ...p, serviceKey: e.target.value })); setPsErrors(p => ({ ...p, serviceKey: '' })) }}
             />
             {psErrors.serviceKey && <span className="intg-field-error">{psErrors.serviceKey}</span>}
-            <span className="intg-field-hint">
-              Cole o conteúdo completo do JSON. A service account precisa das permissões <code>pubsub.subscriber</code> e <code>gmail.readonly</code>.
-            </span>
+            <span className="intg-field-hint">Cole o conteúdo completo do arquivo JSON exportado pelo Google Cloud</span>
           </div>
         </div>
 
         <div className="intg-actions">
-          <SaveButton label="Verificar Configuração" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            if (!validatePubSub()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
-            // TODO: Implement actual connectivity test endpoint
-            await new Promise(r => setTimeout(r, 1000))
-            addToast('Configuração do Pub/Sub verificada com sucesso', 'success')
-          }} />
-          <SaveButton label="Salvar e Ativar" icon={<Shield size={14} />} onClick={async () => {
-            if (!validatePubSub()) { addToast('Preencha todos os campos obrigatórios', 'error'); return }
+          <SaveButton label="Salvar Configurações" icon={<Shield size={14} />} onClick={async () => {
+            const valid = validatePubSub()
             if (!clinicId) return
             await updateMutation.mutateAsync({
               clinicId,
               data: {
                 pubsubProjectId: pubsub.projectId,
                 pubsubTopicName: pubsub.topicName,
-                pubsubServiceAccount: pubsub.serviceKey
+                pubsubServiceAccount: pubsub.serviceKey,
               }
             })
-            addToast('Google Pub/Sub ativado — inscrição criada', 'success')
+            addToast(
+              valid
+                ? 'Configurações do Pub/Sub salvas'
+                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+              valid ? 'success' : 'warning'
+            )
           }} />
         </div>
       </IntegrationSection>
@@ -813,8 +829,8 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       <div className="intg-toast-container">
         {toasts.map(t => (
           <div key={t.id} className={`intg-toast intg-toast-${t.type}`}>
-            {t.type === 'success' && <Check size={16} />}
             {t.type === 'error' && <AlertTriangle size={16} />}
+            {t.type === 'success' && <Check size={16} />}
             {t.type === 'warning' && <AlertTriangle size={16} />}
             <span>{t.text}</span>
           </div>

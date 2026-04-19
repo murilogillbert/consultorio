@@ -1,0 +1,6 @@
+export { NotificationsController } from './controllers/notificationsController'
+export { sendConfirmationService } from './services/sendConfirmationService'
+export { sendReminderService } from './services/sendReminderService'
+export { sendBirthdayGreetingService } from './services/sendBirthdayGreetingService'
+export { sendPostAppointmentService } from './services/sendPostAppointmentService'
+export { sendPushNotificationService } from './services/sendPushNotificationService'

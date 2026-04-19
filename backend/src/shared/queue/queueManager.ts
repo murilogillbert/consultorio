@@ -2,6 +2,7 @@ import { startReminderWorker,      stopReminderWorker      } from './workers/rem
 import { startNotificationWorker,  stopNotificationWorker  } from './workers/notificationWorker'
 import { startAuditWorker,         stopAuditWorker         } from './workers/auditWorker'
 import { startBillingWorker,       stopBillingWorker       } from './workers/billingWorker'
+import { startGmailWatchWorker,    stopGmailWatchWorker    } from './workers/gmailWatchWorker'
 
 /**
  * Inicia todos os workers da fila in-memory.
@@ -13,6 +14,7 @@ export function startQueueManager() {
   startNotificationWorker()
   startAuditWorker()
   startBillingWorker()
+  startGmailWatchWorker()
   console.log('[Queue] Todos os workers ativos')
 }
 
@@ -24,6 +26,7 @@ export function stopQueueManager() {
   stopNotificationWorker()
   stopAuditWorker()
   stopBillingWorker()
+  stopGmailWatchWorker()
   console.log('[Queue] Todos os workers parados')
 }
 

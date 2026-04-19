@@ -54,31 +54,23 @@ export function useUpdateIntegrations() {
 
   return useMutation({
     mutationFn: async ({ clinicId, data }: { clinicId: string; data: Partial<IntegrationSettings> }) => {
-      const response = await api.put<IntegrationSettings>(`/clinics/${clinicId}/settings/integrations`, data)
-      return response.data
+      const { data: result } = await api.put(`/clinics/${clinicId}/settings/integrations`, data)
+      return result
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['integrations', variables.clinicId] })
     },
   })
 }
 
 export function useTestIntegration() {
-  const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async ({ clinicId, type }: { clinicId: string; type: string }) => {
-      const response = await api.post<{ ok: boolean; message: string; detail?: string }>(
+      const { data } = await api.post<{ ok: boolean; message: string; detail?: string }>(
         `/clinics/${clinicId}/settings/integrations/${type}/test`,
+        {}
       )
-
-      return {
-        clinicId,
-        ...response.data,
-      }
-    },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['integrations', result.clinicId] })
+      return data
     },
   })
 }

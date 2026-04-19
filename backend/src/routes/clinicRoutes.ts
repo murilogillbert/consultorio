@@ -19,4 +19,8 @@ r.get('/:clinicId/settings/integrations', ensureAuthenticated, ensureRole(['ADMI
 r.put('/:clinicId/settings/integrations', ensureAuthenticated, ensureRole(['ADMIN']), clinicController.updateIntegrations)
 r.post('/:clinicId/settings/integrations/:type/test', ensureAuthenticated, ensureRole(['ADMIN']), clinicController.testIntegration)
 
+// Gmail Pub/Sub watch management
+r.post('/:clinicId/settings/integrations/gmail/watch', ensureAuthenticated, ensureRole(['ADMIN']), clinicController.setupGmailWatch)
+r.delete('/:clinicId/settings/integrations/gmail/watch', ensureAuthenticated, ensureRole(['ADMIN']), clinicController.stopGmailWatch)
+
 export default r

@@ -611,6 +611,7 @@ model IntegrationSettings {
   pubsubTopicName      String?
   pubsubServiceAccount String?
   pubsubWatchExpiresAt DateTime?
+  gmailHistoryId       String?
   waPhoneNumberId      String?
   waWabaId             String?
   waAccessToken        String?

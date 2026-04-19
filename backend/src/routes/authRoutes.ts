@@ -7,10 +7,21 @@ const authController = new AuthController()
 
 // Login JWT exchange
 r.post('/login', authController.login)
-r.post('/google/start', ensureAuthenticated, authController.startGoogleOAuth)
-r.get('/google/callback', authController.googleCallback)
 
-// Endpoint to refresh token (future)
-// r.post('/refresh', authController.refresh)
+// Gmail OAuth — start (requires auth: user must be logged in to link their clinic)
+r.get('/google/start', ensureAuthenticated, authController.googleOAuthStart)
+
+// Gmail OAuth — callback from Google (no auth; state JWT carries identity)
+r.get('/google/callback', authController.googleOAuthCallback)
+
+// Password recovery
+r.post('/forgot-password', authController.forgotPassword)
+r.post('/reset-password', authController.resetPassword)
+
+// Token refresh
+r.post('/refresh', authController.refreshToken)
+
+// Logout
+r.post('/logout', ensureAuthenticated, authController.logout)
 
 export default r

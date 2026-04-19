@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { ClinicService } from '../services/ClinicService'
 import { ClinicRepository } from '../repositories/ClinicRepository'
+import { setupGmailWatch, stopGmailWatch } from '../../messaging/channels/gmail/gmailWatchService'
 
 export class ClinicController {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -114,6 +115,31 @@ export class ClinicController {
 
       const result = await clinicService.testIntegration(clinicId, type)
       res.status(200).json(result)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async setupGmailWatch(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { clinicId } = req.params as { clinicId: string }
+      const result = await setupGmailWatch(clinicId)
+      res.status(200).json({
+        ok: true,
+        message: 'Gmail watch ativado com sucesso.',
+        historyId: result.historyId,
+        expiresAt: result.expiresAt,
+      })
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async stopGmailWatch(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { clinicId } = req.params as { clinicId: string }
+      await stopGmailWatch(clinicId)
+      res.status(200).json({ ok: true, message: 'Gmail watch cancelado.' })
     } catch (err) {
       next(err)
     }

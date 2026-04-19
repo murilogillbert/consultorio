@@ -1,0 +1,7 @@
+export const PAYMENT_STATUSES = {
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+  OVERDUE: 'OVERDUE',
+  REFUNDED: 'REFUNDED',
+  FAILED: 'FAILED',
+} as const
