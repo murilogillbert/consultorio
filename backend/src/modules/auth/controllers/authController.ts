@@ -21,8 +21,9 @@ export class AuthController {
 
   async googleOAuthStart(req: Request, res: Response, next: NextFunction) {
     try {
-      const clinicId = req.query.clinicId as string
-      const returnUrl = req.query.returnUrl as string | undefined
+      // Frontend sends clinicId and returnUrl in the POST body (not query string)
+      const clinicId = (req.body.clinicId || req.query.clinicId) as string
+      const returnUrl = (req.body.returnUrl || req.query.returnUrl) as string | undefined
       const userId = (req as any).user?.id
 
       if (!userId) {
@@ -37,7 +38,9 @@ export class AuthController {
         returnUrl,
       })
 
-      res.redirect(authUrl)
+      // Return the URL as JSON so the frontend can call window.location.assign()
+      // (res.redirect() wouldn't work for XHR/axios requests)
+      res.status(200).json({ authUrl })
     } catch (err) {
       next(err)
     }

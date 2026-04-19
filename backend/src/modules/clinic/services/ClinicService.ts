@@ -115,6 +115,17 @@ export class ClinicService {
     }
 
     if (type === 'gmail') {
+      // First check if credentials are saved at all
+      if (!settings.gmailClientId || !settings.gmailClientSecret) {
+        throw new AppError('Salve o Client ID e Client Secret antes de testar', 422)
+      }
+      // If not yet authenticated via OAuth, give a clear actionable message
+      if (!settings.gmailAccessToken && !settings.gmailRefreshToken) {
+        throw new AppError(
+          'Gmail salvo mas ainda não autenticado. Clique em "Salvar e Autenticar" para concluir o OAuth.',
+          422,
+        )
+      }
       const googleOAuthService = new GoogleOAuthService()
       const accessToken = await googleOAuthService.getValidAccessToken(clinicId)
       const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {

@@ -9,7 +9,8 @@ const authController = new AuthController()
 r.post('/login', authController.login)
 
 // Gmail OAuth — start (requires auth: user must be logged in to link their clinic)
-r.get('/google/start', ensureAuthenticated, authController.googleOAuthStart)
+// Frontend sends clinicId + returnUrl in the POST body and expects JSON { authUrl }
+r.post('/google/start', ensureAuthenticated, authController.googleOAuthStart)
 
 // Gmail OAuth — callback from Google (no auth; state JWT carries identity)
 r.get('/google/callback', authController.googleOAuthCallback)
