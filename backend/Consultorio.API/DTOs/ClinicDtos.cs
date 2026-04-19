@@ -4,8 +4,11 @@ namespace Consultorio.API.DTOs;
 
 // ─── Mercado Pago integration DTOs ───────────────────────────────────────────
 
-public class MpIntegrationResponseDto
+public class IntegrationSettingsResponseDto
 {
+    public string? GmailClientId            { get; set; }
+    public string? GmailClientSecret        { get; set; }
+    public bool    GmailConnected           { get; set; }
     public string? AccessTokenProdMasked    { get; set; }  // last 6 chars only
     public string? AccessTokenSandboxMasked { get; set; }
     public string? PublicKey                { get; set; }  // public — no masking needed
@@ -13,8 +16,13 @@ public class MpIntegrationResponseDto
     public bool    Connected                { get; set; }
 }
 
-public class UpdateMpIntegrationDto
+public class UpdateIntegrationSettingsDto
 {
+    public string? GmailClientId     { get; set; }
+    public string? GmailClientSecret { get; set; }
+    public string? GmailAccessToken  { get; set; }
+    public string? GmailRefreshToken { get; set; }
+    public bool?   GmailConnected    { get; set; }
     public string? AccessTokenProd    { get; set; }
     public string? AccessTokenSandbox { get; set; }
     public string? PublicKey          { get; set; }

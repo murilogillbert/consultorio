@@ -27,6 +27,14 @@ public class Clinic
     public string? GalleryUrls { get; set; }  // JSON array
     public string? ThemeColors { get; set; }  // JSON object { "--color-accent-gold": "#C9A84C", ... }
 
+    // Gmail OAuth credentials/tokens per clinic
+    public string? GmailClientId { get; set; }
+    public string? GmailClientSecret { get; set; }
+    public string? GmailAccessToken { get; set; }
+    public string? GmailRefreshToken { get; set; }
+    public DateTime? GmailTokenExpiresAt { get; set; }
+    public bool GmailConnected { get; set; } = false;
+
     // ── Mercado Pago credentials (stored encrypted-at-rest by SQL Server TDE) ──
     public string? MpAccessTokenProd    { get; set; }
     public string? MpAccessTokenSandbox { get; set; }

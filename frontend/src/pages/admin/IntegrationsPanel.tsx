@@ -35,13 +35,13 @@ function StatusBadge({ status }: { status: ConnectionStatus }) {
 /* ─── Sensitive Field (password toggle) ─── */
 function SensitiveField({
   label, required, placeholder, hint, mono,
-  value, onChange, error,
+  value, onChange, error, saved,
 }: {
   label: string; required?: boolean; placeholder?: string; hint?: string;
-  mono?: boolean; value: string; onChange: (v: string) => void; error?: string;
+  mono?: boolean; value: string; onChange: (v: string) => void; error?: string; saved?: boolean;
 }) {
   const [visible, setVisible] = useState(false)
-  const hasSavedValue = value.length > 0
+  const hasSavedValue = saved ?? value.length > 0
   return (
     <div className="input-group">
       <label className="input-label">
@@ -397,6 +397,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             hint="Encontrado em APIs e Serviços → Credenciais no Google Cloud Console"
             mono
             value={gmail.clientId}
+            saved={Boolean(existingSettings?.gmailClientId) && gmail.clientId === (existingSettings?.gmailClientId || '')}
             onChange={v => { setGmail(p => ({ ...p, clientId: v })); setGmailErrors(p => ({ ...p, clientId: '' })) }}
             error={gmailErrors.clientId}
           />
@@ -407,6 +408,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             hint="Gerado junto com o Client ID na mesma tela de credenciais"
             mono
             value={gmail.clientSecret}
+            saved={Boolean(existingSettings?.gmailClientSecret) && gmail.clientSecret === (existingSettings?.gmailClientSecret || '')}
             onChange={v => { setGmail(p => ({ ...p, clientSecret: v })); setGmailErrors(p => ({ ...p, clientSecret: '' })) }}
             error={gmailErrors.clientSecret}
           />

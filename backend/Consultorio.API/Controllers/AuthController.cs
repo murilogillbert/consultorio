@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Consultorio.API.DTOs;
@@ -13,14 +15,22 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly TokenService _tokenService;
+    private readonly GoogleOAuthService _googleOAuth;
 
-    public AuthController(AppDbContext db, TokenService tokenService)
+    public AuthController(AppDbContext db, TokenService tokenService, GoogleOAuthService googleOAuth)
     {
         _db = db;
         _tokenService = tokenService;
+        _googleOAuth = googleOAuth;
     }
 
     // ─── POST /api/auth/login ──────────────────────────────────────────
+    private Guid GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier);
+        return claim != null && Guid.TryParse(claim.Value, out var userId) ? userId : Guid.Empty;
+    }
+
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto dto)
     {
@@ -124,6 +134,44 @@ public class AuthController : ControllerBase
 
     // ─── POST /api/auth/register ───────────────────────────────────────
     // Cria um novo usuário do sistema (admin ou recepcionista)
+    [HttpPost("google/start")]
+    [Authorize]
+    public async Task<ActionResult<GoogleOAuthStartResponseDto>> StartGoogleOAuth([FromBody] GoogleOAuthStartRequestDto dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(new { message = "Usuário não autenticado." });
+
+        try
+        {
+            var result = await _googleOAuth.CreateAuthorizationUrlAsync(Request, dto.ClinicId, userId, dto.ReturnUrl);
+            return Ok(new GoogleOAuthStartResponseDto
+            {
+                AuthUrl = result.AuthUrl,
+                RedirectUri = result.RedirectUri,
+            });
+        }
+        catch (GoogleOAuthException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("google/callback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GoogleCallback()
+    {
+        try
+        {
+            var redirectUrl = await _googleOAuth.HandleCallbackAsync(Request);
+            return Redirect(redirectUrl);
+        }
+        catch (GoogleOAuthException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto dto)
     {

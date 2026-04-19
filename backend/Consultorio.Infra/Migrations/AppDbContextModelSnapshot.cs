@@ -389,6 +389,24 @@ namespace Consultorio.Infra.Migrations
                     b.Property<string>("GalleryUrls")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("GmailAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GmailClientId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GmailClientSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("GmailConnected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("GmailRefreshToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("GmailTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Instagram")
                         .HasColumnType("nvarchar(max)");
 

@@ -15,17 +15,31 @@ public class ClinicsController : ControllerBase
 {
     private readonly AppDbContext        _db;
     private readonly MercadoPagoService  _mp;
+    private readonly GoogleOAuthService  _googleOAuth;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public ClinicsController(AppDbContext db, MercadoPagoService mp)
+    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth)
     {
         _db = db;
         _mp = mp;
+        _googleOAuth = googleOAuth;
     }
 
     private static string? Mask(string? token) =>
         string.IsNullOrEmpty(token) ? null
             : "••••••••••••••••••" + token[^Math.Min(6, token.Length)..];
+
+    private static IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic) => new()
+    {
+        GmailClientId = clinic.GmailClientId,
+        GmailClientSecret = clinic.GmailClientSecret,
+        GmailConnected = clinic.GmailConnected,
+        AccessTokenProdMasked = Mask(clinic.MpAccessTokenProd),
+        AccessTokenSandboxMasked = Mask(clinic.MpAccessTokenSandbox),
+        PublicKey = clinic.MpPublicKey,
+        SandboxMode = clinic.MpSandboxMode,
+        Connected = clinic.MpConnected,
+    };
 
     // GET /api/clinics
     [HttpGet]
@@ -123,33 +137,37 @@ public class ClinicsController : ControllerBase
     // ─── GET /api/clinics/{id}/settings/integrations ──────────────────────────
     [HttpGet("{id}/settings/integrations")]
     [Authorize]
-    public async Task<ActionResult<MpIntegrationResponseDto>> GetIntegrations(Guid id)
+    public async Task<ActionResult<IntegrationSettingsResponseDto>> GetIntegrations(Guid id)
     {
         var clinic = await _db.Clinics.FindAsync(id);
         if (clinic == null)
             return NotFound(new { message = "Clínica não encontrada." });
 
-        return Ok(new MpIntegrationResponseDto
-        {
-            AccessTokenProdMasked    = Mask(clinic.MpAccessTokenProd),
-            AccessTokenSandboxMasked = Mask(clinic.MpAccessTokenSandbox),
-            PublicKey                = clinic.MpPublicKey,
-            SandboxMode              = clinic.MpSandboxMode,
-            Connected                = clinic.MpConnected,
-        });
+        return Ok(ToIntegrationSettingsDto(clinic));
     }
 
     // ─── PUT /api/clinics/{id}/settings/integrations ──────────────────────────
     [HttpPut("{id}/settings/integrations")]
     [Authorize]
-    public async Task<ActionResult<MpIntegrationResponseDto>> UpdateIntegrations(
-        Guid id, [FromBody] UpdateMpIntegrationDto dto)
+    public async Task<ActionResult<IntegrationSettingsResponseDto>> UpdateIntegrations(
+        Guid id, [FromBody] UpdateIntegrationSettingsDto dto)
     {
         var clinic = await _db.Clinics.FindAsync(id);
         if (clinic == null)
             return NotFound(new { message = "Clínica não encontrada." });
 
-        // Only overwrite if the client sent a non-null, non-empty value.
+        if (dto.GmailClientId     != null) clinic.GmailClientId     = dto.GmailClientId     == "" ? null : dto.GmailClientId;
+        if (dto.GmailClientSecret != null) clinic.GmailClientSecret = dto.GmailClientSecret == "" ? null : dto.GmailClientSecret;
+        if (dto.GmailAccessToken  != null)
+        {
+            clinic.GmailAccessToken = dto.GmailAccessToken == "" ? null : dto.GmailAccessToken;
+            if (dto.GmailAccessToken == "")
+                clinic.GmailTokenExpiresAt = null;
+        }
+        if (dto.GmailRefreshToken != null) clinic.GmailRefreshToken = dto.GmailRefreshToken == "" ? null : dto.GmailRefreshToken;
+        if (dto.GmailConnected.HasValue)   clinic.GmailConnected    = dto.GmailConnected.Value;
+
+        // Only overwrite if the client sent a non-null value.
         // Sending "" explicitly clears the field.
         if (dto.AccessTokenProd    != null) clinic.MpAccessTokenProd    = dto.AccessTokenProd    == "" ? null : dto.AccessTokenProd;
         if (dto.AccessTokenSandbox != null) clinic.MpAccessTokenSandbox = dto.AccessTokenSandbox == "" ? null : dto.AccessTokenSandbox;
@@ -161,17 +179,30 @@ public class ClinicsController : ControllerBase
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(new MpIntegrationResponseDto
-        {
-            AccessTokenProdMasked    = Mask(clinic.MpAccessTokenProd),
-            AccessTokenSandboxMasked = Mask(clinic.MpAccessTokenSandbox),
-            PublicKey                = clinic.MpPublicKey,
-            SandboxMode              = clinic.MpSandboxMode,
-            Connected                = clinic.MpConnected,
-        });
+        return Ok(ToIntegrationSettingsDto(clinic));
     }
 
     // ─── POST /api/clinics/{id}/settings/integrations/mercadopago/test ────────
+    [HttpPost("{id}/settings/integrations/gmail/test")]
+    [Authorize]
+    public async Task<ActionResult> TestGmail(Guid id)
+    {
+        try
+        {
+            var email = await _googleOAuth.TestConnectionAsync(id);
+            return Ok(new
+            {
+                ok = true,
+                message = "Gmail conectado com sucesso",
+                detail = email,
+            });
+        }
+        catch (GoogleOAuthException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
     [HttpPost("{id}/settings/integrations/mercadopago/test")]
     [Authorize]
     public async Task<ActionResult> TestMercadoPago(Guid id)

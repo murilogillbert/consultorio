@@ -75,6 +75,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddHttpClient<GoogleOAuthService>();
 builder.Services.AddHttpClient<MercadoPagoService>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();

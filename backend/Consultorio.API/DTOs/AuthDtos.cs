@@ -24,6 +24,18 @@ public class AuthResponseDto
     public UserInfoDto User { get; set; } = null!;
 }
 
+public class GoogleOAuthStartRequestDto
+{
+    public Guid ClinicId { get; set; }
+    public string? ReturnUrl { get; set; }
+}
+
+public class GoogleOAuthStartResponseDto
+{
+    public string AuthUrl { get; set; } = null!;
+    public string RedirectUri { get; set; } = null!;
+}
+
 // Informações do usuário retornadas junto com o token
 public class UserInfoDto
 {
