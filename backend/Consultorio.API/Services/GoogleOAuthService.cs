@@ -360,7 +360,8 @@ public class GoogleOAuthService
         var protocol = (string.IsNullOrWhiteSpace(forwardedProto) ? request.Scheme : forwardedProto)
             .Split(',')[0]
             .Trim();
-        var host = (string.IsNullOrWhiteSpace(forwardedHost) ? request.Host.Value : forwardedHost)
+        var hostValue = string.IsNullOrWhiteSpace(forwardedHost) ? request.Host.Value : forwardedHost;
+        var host = (hostValue ?? string.Empty)
             .Split(',')[0]
             .Trim();
 
@@ -409,7 +410,9 @@ public class GoogleOAuthService
     private static string AppendRedirectParams(string targetUrl, Dictionary<string, string> parameters)
     {
         var isAbsolute = Uri.TryCreate(targetUrl, UriKind.Absolute, out var absoluteUri);
-        var uri = absoluteUri ? absoluteUri! : new Uri(new Uri("http://local"), targetUrl);
+        var uri = isAbsolute && absoluteUri != null
+            ? absoluteUri
+            : new Uri(new Uri("http://local"), targetUrl);
 
         var builder = new UriBuilder(uri);
         var queryValues = ParseQuery(builder.Query);
