@@ -8,6 +8,14 @@ using Consultorio.Infra.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Allow non-ASCII (e.g. UTF-8) bytes in HTTP request headers.
+// Required for Mercado Pago and other external webhook senders
+// that may include non-ASCII characters in headers like X-Signature.
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.RequestHeaderEncodingSelector = _ => Encoding.UTF8;
+});
+
 // ───── SERVICES ─────
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -35,6 +43,16 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
+    });
+
+    // Webhooks are called by external servers (Mercado Pago, etc.)
+    // They must not be restricted by origin.
+    options.AddPolicy("AllowWebhooks", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .WithMethods("GET", "POST");
     });
 });
 

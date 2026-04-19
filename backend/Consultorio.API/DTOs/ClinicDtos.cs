@@ -2,6 +2,28 @@ using System.Text.Json;
 
 namespace Consultorio.API.DTOs;
 
+// ─── Mercado Pago integration DTOs ───────────────────────────────────────────
+
+public class MpIntegrationResponseDto
+{
+    public string? AccessTokenProdMasked    { get; set; }  // last 6 chars only
+    public string? AccessTokenSandboxMasked { get; set; }
+    public string? PublicKey                { get; set; }  // public — no masking needed
+    public bool    SandboxMode              { get; set; }
+    public bool    Connected                { get; set; }
+}
+
+public class UpdateMpIntegrationDto
+{
+    public string? AccessTokenProd    { get; set; }
+    public string? AccessTokenSandbox { get; set; }
+    public string? PublicKey          { get; set; }
+    public string? WebhookSecret      { get; set; }
+    public bool?   SandboxMode        { get; set; }
+    public bool?   Connected          { get; set; }
+}
+
+
 public class MilestoneDto
 {
     public string Year { get; set; } = "";

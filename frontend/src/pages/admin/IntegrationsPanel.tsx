@@ -208,7 +208,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     : existingSettings?.igAccessToken
       ? 'error'
       : 'disconnected'
-  const mpStatus: ConnectionStatus = existingSettings?.mpConnected ? 'connected' : 'disconnected'
+  const mpStatus: ConnectionStatus = (existingSettings?.mpConnected ?? existingSettings?.connected) ? 'connected' : 'disconnected'
 
   /* Toast system */
   const [toasts, setToasts] = useState<ToastMsg[]>([])
@@ -259,7 +259,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [igErrors, setIgErrors] = useState<Record<string, string>>({})
 
   /* Mercado Pago state */
-  const [mp, setMp] = useState({ accessToken: '', sandboxToken: '', publicKey: '', webhookSecret: '' })
+  const [mp, setMp] = useState({ accessToken: '', sandboxToken: '', publicKey: '', webhookSecret: '', sandboxMode: true })
   const [mpErrors, setMpErrors] = useState<Record<string, string>>({})
 
   /* Pub/Sub state */
@@ -286,10 +286,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         pageToken: existingSettings.igAccessToken || '',
       })
       setMp({
-        accessToken: existingSettings.mpAccessTokenProd || '',
-        sandboxToken: existingSettings.mpAccessTokenSandbox || '',
-        publicKey: existingSettings.mpPublicKeyProd || '',
-        webhookSecret: existingSettings.mpWebhookSecret || '',
+        // Node.js backend sends full token; .NET sends masked — show as-is for display
+        accessToken:  existingSettings.mpAccessTokenProd     || existingSettings.accessTokenProdMasked    || '',
+        sandboxToken: existingSettings.mpAccessTokenSandbox  || existingSettings.accessTokenSandboxMasked || '',
+        publicKey:    existingSettings.mpPublicKeyProd        || existingSettings.publicKey               || '',
+        webhookSecret: existingSettings.mpWebhookSecret      || '',
+        sandboxMode:  existingSettings.sandboxMode           ?? true,
       })
       setPubsub({
         projectId: existingSettings.pubsubProjectId || '',
@@ -653,33 +655,68 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           'Configure a URL de webhook IPN abaixo em Configurações → Notificações IPN',
         ]} />
 
+        {/* ── Modo sandbox / produção ── */}
+        <div className="intg-mp-mode-toggle">
+          <span className="intg-mp-mode-label">Modo ativo:</span>
+          <button
+            type="button"
+            className={`intg-mode-btn${mp.sandboxMode ? ' active' : ''}`}
+            onClick={() => setMp(p => ({ ...p, sandboxMode: true }))}
+          >
+            🧪 Sandbox / Testes
+          </button>
+          <button
+            type="button"
+            className={`intg-mode-btn${!mp.sandboxMode ? ' active' : ''}`}
+            onClick={() => setMp(p => ({ ...p, sandboxMode: false }))}
+          >
+            🚀 Produção
+          </button>
+          <span className="intg-mp-mode-hint">
+            {mp.sandboxMode
+              ? 'Cobranças NÃO são reais. Use para testes.'
+              : '⚠️ Cobranças REAIS serão processadas.'}
+          </span>
+        </div>
+
         <div className="form-2col">
           <div className="input-group full-span">
             <SensitiveField
-              label="Access Token (Produção)"
-              required
-              placeholder="APP_USR-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000"
-              hint="Credencial de produção — nunca exponha publicamente. Encontrado em Credenciais de Produção."
+              label={`Access Token (${mp.sandboxMode ? 'Sandbox/Testes' : 'Produção'})`}
+              required={!mp.sandboxMode}
+              placeholder={mp.sandboxMode
+                ? 'TEST-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000'
+                : 'APP_USR-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000'}
+              hint={mp.sandboxMode
+                ? 'Credencial de teste. Encontrado em Credenciais de Teste no painel do MP.'
+                : '⚠️ Credencial de produção — nunca exponha publicamente.'}
               mono
-              value={mp.accessToken}
-              onChange={v => { setMp(p => ({ ...p, accessToken: v })); setMpErrors(p => ({ ...p, accessToken: '' })) }}
-              error={mpErrors.accessToken}
+              value={mp.sandboxMode ? mp.sandboxToken : mp.accessToken}
+              onChange={v => mp.sandboxMode
+                ? setMp(p => ({ ...p, sandboxToken: v }))
+                : setMp(p => ({ ...p, accessToken: v, ...(mpErrors.accessToken ? {} : {}) }))
+              }
+              error={!mp.sandboxMode ? mpErrors.accessToken : undefined}
             />
           </div>
-          <div className="input-group full-span">
-            <SensitiveField
-              label="Access Token (Sandbox/Testes)"
-              placeholder="TEST-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000"
-              hint="⚠️ Usado apenas em ambiente de desenvolvimento. Nunca entra em produção."
-              mono
-              value={mp.sandboxToken}
-              onChange={v => setMp(p => ({ ...p, sandboxToken: v }))}
-            />
-          </div>
+          {!mp.sandboxMode && (
+            <div className="input-group full-span">
+              <SensitiveField
+                label="Access Token (Sandbox) — guarda para alternância rápida"
+                placeholder="TEST-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000"
+                hint="Opcional. Permite alternar entre prod e sandbox sem redigitar."
+                mono
+                value={mp.sandboxToken}
+                onChange={v => setMp(p => ({ ...p, sandboxToken: v }))}
+              />
+            </div>
+          )}
           <SensitiveField
-            label="Public Key (Produção)"
+            label="Public Key"
             required
-            placeholder="APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            placeholder={mp.sandboxMode
+              ? 'TEST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+              : 'APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
             hint="Usada no frontend para tokenização de cartão. Encontrado junto ao Access Token."
             mono
             value={mp.publicKey}
@@ -689,7 +726,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           <SensitiveField
             label="Webhook Secret IPN"
             placeholder="Gerado automaticamente pelo Mercado Pago"
-            hint="Gerado automaticamente ao configurar o webhook no painel. Usado para validar a origem das notificações."
+            hint="Gerado ao configurar o webhook no painel do MP. Valida a autenticidade das notificações."
             mono
             value={mp.webhookSecret}
             onChange={v => setMp(p => ({ ...p, webhookSecret: v }))}
@@ -703,7 +740,8 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
             if (!clinicId) return
-            await updateMutation.mutateAsync({ clinicId, data: { mpConnected: false } })
+            // send both naming conventions so both backends accept it
+            await updateMutation.mutateAsync({ clinicId, data: { mpConnected: false, connected: false } as any })
             addToast('Mercado Pago desconectado', 'warning')
           }} />
           <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
@@ -712,16 +750,23 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             await updateMutation.mutateAsync({
               clinicId,
               data: {
-                mpAccessTokenProd: mp.accessToken,
-                mpAccessTokenSandbox: mp.sandboxToken,
-                mpPublicKeyProd: mp.publicKey,
-                mpWebhookSecret: mp.webhookSecret
-              }
+                // Node.js field names
+                mpAccessTokenProd:     mp.accessToken,
+                mpAccessTokenSandbox:  mp.sandboxToken,
+                mpPublicKeyProd:       mp.publicKey,
+                mpWebhookSecret:       mp.webhookSecret,
+                // .NET field names
+                accessTokenProd:       mp.accessToken,
+                accessTokenSandbox:    mp.sandboxToken,
+                publicKey:             mp.publicKey,
+                webhookSecret:         mp.webhookSecret,
+                sandboxMode:           mp.sandboxMode,
+              } as any
             })
             addToast(
               valid
-                ? 'Configurações do Mercado Pago salvas'
-                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+                ? `Configurações do Mercado Pago salvas · Modo: ${mp.sandboxMode ? 'Sandbox' : 'Produção'}`
+                : 'Dados salvos — campos obrigatórios ainda precisam ser preenchidos',
               valid ? 'success' : 'warning'
             )
           }} />

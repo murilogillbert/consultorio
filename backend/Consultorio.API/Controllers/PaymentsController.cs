@@ -34,6 +34,21 @@ public class PaymentsController : ControllerBase
         return claim != null && Guid.TryParse(claim.Value, out var id) ? id : Guid.Empty;
     }
 
+    /// <summary>
+    /// Returns the active Mercado Pago access token for the clinic:
+    ///   - Sandbox token when MpSandboxMode = true
+    ///   - Production token when MpSandboxMode = false
+    ///   - null when none configured (service falls back to appsettings)
+    /// </summary>
+    private async Task<string?> GetClinicMpTokenAsync(Guid clinicId)
+    {
+        var clinic = await _db.Clinics.FindAsync(clinicId);
+        if (clinic == null) return null;
+        return clinic.MpSandboxMode
+            ? clinic.MpAccessTokenSandbox
+            : clinic.MpAccessTokenProd;
+    }
+
     private static string FormatMoney(decimal amount) =>
         amount.ToString("C", CultureInfo.GetCultureInfo("pt-BR"));
 
@@ -297,6 +312,7 @@ public class PaymentsController : ControllerBase
         var amount = dto.Amount ?? appt.Service?.Price ?? 0;
         var description = appt.Service?.Name ?? "Consulta";
         var paidBefore = appt.Status != "COMPLETED";
+        var mpToken = await GetClinicMpTokenAsync(appt.ClinicId);
 
         // Se já existe um pagamento pendente, reutiliza; senão cria novo
         var payment = appt.Payment;
@@ -346,7 +362,8 @@ public class PaymentsController : ControllerBase
                 {
                     var pix = await _mp.CreatePixAsync(
                         amount, description,
-                        dto.PayerEmail ?? "", dto.PayerFirstName, dto.PayerLastName, dto.PayerCpf);
+                        dto.PayerEmail ?? "", dto.PayerFirstName, dto.PayerLastName, dto.PayerCpf,
+                        mpToken);
                     payment.Status = "PENDING";
                     payment.ExternalPaymentId = pix.ExternalId;
                     payment.ExternalQrCode = pix.QrCode;
@@ -367,7 +384,7 @@ public class PaymentsController : ControllerBase
             case "DEBIT_CARD":
                 try
                 {
-                    var pref = await _mp.CreatePreferenceAsync(amount, description, dto.PayerEmail ?? "");
+                    var pref = await _mp.CreatePreferenceAsync(amount, description, dto.PayerEmail ?? "", mpToken);
                     payment.Status = "PENDING";
                     payment.ExternalPaymentId = pref.ExternalId;
                     payment.ExternalCheckoutUrl = pref.CheckoutUrl;
@@ -410,7 +427,9 @@ public class PaymentsController : ControllerBase
 
         try
         {
-            var mpStatus = await _mp.GetPaymentStatusAsync(p.ExternalPaymentId);
+            var clinicMpToken = await GetClinicMpTokenAsync(
+                (await _db.Appointments.FindAsync(p.AppointmentId))?.ClinicId ?? Guid.Empty);
+            var mpStatus = await _mp.GetPaymentStatusAsync(p.ExternalPaymentId, clinicMpToken);
             if (mpStatus.Status == "approved")
             {
                 p.Status = "PAID";
