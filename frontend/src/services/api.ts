@@ -1,5 +1,12 @@
 import axios from 'axios'
 
+const PATIENT_AUTH_EVENT = 'patient-auth-changed'
+const APP_AUTH_EVENT = 'app-auth-changed'
+
+function notifyAuthChange(eventName: string) {
+  window.dispatchEvent(new CustomEvent(eventName))
+}
+
 export const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
@@ -25,14 +32,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isPatientRequest = error.config.url?.includes('/public/patient')
+      const isPatientRequest = error.config.url?.includes('/public/patients')
       
       if (isPatientRequest) {
         localStorage.removeItem('patient_token')
         localStorage.removeItem('patient_user')
+        notifyAuthChange(PATIENT_AUTH_EVENT)
       } else {
         localStorage.removeItem('@Consultorio:token')
         localStorage.removeItem('@Consultorio:user')
+        notifyAuthChange(APP_AUTH_EVENT)
       }
       
       const publicPaths = ['/', '/servicos', '/profissionais', '/sobre', '/trabalhe-conosco', '/agendar', '/minhas-consultas', '/login']
