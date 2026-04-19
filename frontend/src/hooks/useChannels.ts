@@ -46,7 +46,7 @@ export function useChannels(clinicId?: string) {
   return useQuery<Channel[]>({
     queryKey: ['channels', clinicId],
     queryFn: async () => {
-      const { data } = await api.get<ChannelRaw[]>('/messaging/channels', {
+      const { data } = await api.get<ChannelRaw[]>('/chatchannels', {
         params: clinicId ? { clinicId } : undefined,
       })
       return data.map(mapChannel)
@@ -66,7 +66,7 @@ export function useCreateChannel() {
         adminOnly: input.adminOnly || false,
         active: input.active ?? true,
       }
-      const { data } = await api.post<ChannelRaw>('/messaging/channels', payload)
+      const { data } = await api.post<ChannelRaw>('/chatchannels', payload)
       return mapChannel(data)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
@@ -83,7 +83,7 @@ export function useUpdateChannel() {
       if (input.type !== undefined) payload.type = input.type
       if (input.adminOnly !== undefined) payload.adminOnly = input.adminOnly
       if (input.active !== undefined) payload.active = input.active
-      const { data } = await api.put<ChannelRaw>(`/messaging/channels/${id}`, payload)
+      const { data } = await api.put<ChannelRaw>(`/chatchannels/${id}`, payload)
       return mapChannel(data)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
@@ -94,7 +94,7 @@ export function useDeleteChannel() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/messaging/channels/${id}`)
+      await api.delete(`/chatchannels/${id}`)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
   })

@@ -14,7 +14,7 @@ export function useChannelMessages(channelId: string | null) {
   return useQuery<InternalMessage[]>({
     queryKey: ['channel-messages', channelId],
     queryFn: async () => {
-      const { data } = await api.get<InternalMessage[]>(`/messaging/channels/${channelId}/messages`)
+      const { data } = await api.get<InternalMessage[]>(`/chatchannels/${channelId}/messages`)
       return data
     },
     enabled: !!channelId,
@@ -26,7 +26,7 @@ export function useSendChannelMessage() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ channelId, content }: { channelId: string; content: string; replyToId?: string }) => {
-      const { data } = await api.post<InternalMessage>(`/messaging/channels/${channelId}/messages`, { content })
+      const { data } = await api.post<InternalMessage>(`/chatchannels/${channelId}/messages`, { content })
       return data
     },
     onSuccess: (_, vars) => queryClient.invalidateQueries({ queryKey: ['channel-messages', vars.channelId] })
