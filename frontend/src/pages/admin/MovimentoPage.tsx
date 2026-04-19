@@ -40,7 +40,7 @@ export default function MovimentoPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [proFilter, setProFilter] = useState('all')
   const { user } = useAuth()
-  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const clinicId = user?.clinicId
   const { data, isLoading } = useMovementData(clinicId, selectedDate)
 
   const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)

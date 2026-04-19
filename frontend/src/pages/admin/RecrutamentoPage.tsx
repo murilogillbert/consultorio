@@ -46,7 +46,7 @@ export default function RecrutamentoPage() {
         </div>
       </header>
 
-      <div className="admin-content" style={{ display: 'grid', gridTemplateColumns: selectedCandidacyId ? '1fr 400px' : '1fr', gap: 'var(--space-6)', transition: 'all 0.3s ease' }}>
+      <div className={`admin-content recrutamento-layout${selectedCandidacyId ? ' has-detail' : ''}`}>
         <div className="card">
           {/* Filters */}
           <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-6)', flexWrap: 'wrap' }}>
@@ -115,9 +115,11 @@ export default function RecrutamentoPage() {
           </div>
         </div>
 
-        {/* Details Sidebar */}
+        {/* Details Sidebar / Mobile Bottom-sheet */}
         {selectedCandidacyId && selectedCandidacy && (
-          <div className="card animate-fade-in-right" style={{ position: 'sticky', top: 'var(--navbar-height)', height: 'fit-content' }}>
+          <>
+          <div className="recrutamento-backdrop" onClick={() => setSelectedCandidacyId(null)} />
+          <div className="card animate-fade-in-right recrutamento-detail-panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-6)' }}>
                 <h3 style={{ fontSize: 18, fontWeight: 600 }}>Detalhes do Candidato</h3>
                 <button className="btn btn-icon btn-sm" onClick={() => setSelectedCandidacyId(null)}><XCircle size={18} /></button>
@@ -189,6 +191,7 @@ export default function RecrutamentoPage() {
                 </div>
             </div>
           </div>
+          </>
         )}
       </div>
     </div>

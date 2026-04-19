@@ -216,56 +216,94 @@ export default function ProfissionaisPage() {
               <p>Carregando profissionais...</p>
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Profissional</th>
-                    <th>Registro</th>
-                    <th>Especialidade</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((pro) => {
-                    const name = pro.user?.name || 'Sem nome'
-                    const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2)
-                    return (
-                      <tr key={pro.id}>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div className="avatar avatar-sm avatar-placeholder" style={{ overflow: 'hidden' }}>
-                              {pro.user?.avatarUrl ? (
-                                <img src={pro.user.avatarUrl} alt={name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                              ) : initials}
+            <>
+              {/* Desktop: tabela */}
+              <div className="admin-prof-table-wrapper card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Profissional</th>
+                      <th>Registro</th>
+                      <th>Especialidade</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right' }}>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((pro) => {
+                      const name = pro.user?.name || 'Sem nome'
+                      const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2)
+                      return (
+                        <tr key={pro.id}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <div className="avatar avatar-sm avatar-placeholder" style={{ overflow: 'hidden' }}>
+                                {pro.user?.avatarUrl ? (
+                                  <img src={pro.user.avatarUrl} alt={name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                ) : initials}
+                              </div>
+                              <span style={{ fontWeight: 500 }}>{name}</span>
                             </div>
-                            <span style={{ fontWeight: 500 }}>{name}</span>
-                          </div>
-                        </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{pro.crm}</td>
-                        <td><span className="badge badge-emerald">{pro.specialty}</span></td>
-                        <td>
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{pro.crm}</td>
+                          <td><span className="badge badge-emerald">{pro.specialty}</span></td>
+                          <td>
+                            <span className={`badge ${pro.active ? 'badge-emerald' : 'badge-muted'}`}>
+                              {pro.active ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="row-actions">
+                              <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(pro)}>
+                                <Edit size={14} color="var(--color-accent-emerald)" />
+                              </button>
+                              <button className="btn btn-icon btn-sm" title={pro.active ? 'Desativar' : 'Ativar'} onClick={() => handleToggleActive(pro)} disabled={updateMutation.isPending}>
+                                <Power size={14} color={pro.active ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)'} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile: cards */}
+              <div className="admin-prof-card-list card" style={{ padding: 0, overflow: 'hidden' }}>
+                {filtered.map((pro) => {
+                  const name = pro.user?.name || 'Sem nome'
+                  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2)
+                  return (
+                    <div key={pro.id} className="admin-prof-card">
+                      <div className="avatar avatar-sm avatar-placeholder" style={{ overflow: 'hidden', flexShrink: 0 }}>
+                        {pro.user?.avatarUrl
+                          ? <img src={pro.user.avatarUrl} alt={name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          : initials}
+                      </div>
+                      <div className="admin-prof-card-info">
+                        <div className="admin-prof-card-name">{name}</div>
+                        <div className="admin-prof-card-sub">{pro.crm}</div>
+                        <div className="admin-prof-card-badges">
+                          <span className="badge badge-emerald">{pro.specialty}</span>
                           <span className={`badge ${pro.active ? 'badge-emerald' : 'badge-muted'}`}>
                             {pro.active ? 'Ativo' : 'Inativo'}
                           </span>
-                        </td>
-                        <td>
-                          <div className="row-actions">
-                            <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(pro)}>
-                              <Edit size={14} color="var(--color-accent-emerald)" />
-                            </button>
-                            <button className="btn btn-icon btn-sm" title={pro.active ? 'Desativar' : 'Ativar'} onClick={() => handleToggleActive(pro)} disabled={updateMutation.isPending}>
-                              <Power size={14} color={pro.active ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)'} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </div>
+                      <div className="admin-prof-card-actions">
+                        <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(pro)}>
+                          <Edit size={14} color="var(--color-accent-emerald)" />
+                        </button>
+                        <button className="btn btn-icon btn-sm" title={pro.active ? 'Desativar' : 'Ativar'} onClick={() => handleToggleActive(pro)} disabled={updateMutation.isPending}>
+                          <Power size={14} color={pro.active ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)'} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </>
       ) : (
@@ -444,6 +482,7 @@ export default function ProfissionaisPage() {
             {/* Schedule Grid */}
             <div style={{ marginTop: 'var(--space-8)' }}>
               <label className="input-label" style={{ marginBottom: 12 }}>Grade de Horários</label>
+              <div className="schedule-grid-wrapper">
               <div className="schedule-grid">
                 <div />
                 {days.map(d => <div key={d} className="day-header">{d}</div>)}
@@ -460,6 +499,7 @@ export default function ProfissionaisPage() {
                   </Fragment>
                 ))}
               </div>
+              </div>{/* end schedule-grid-wrapper */}
               <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8 }}>
                 Clique nos slots para definir disponibilidade (verde = disponível)
               </p>

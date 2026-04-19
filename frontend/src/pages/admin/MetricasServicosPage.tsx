@@ -30,7 +30,7 @@ function StatusBadge({ status }: { status: ServiceMetric['status'] }) {
 export default function MetricasServicosPage() {
   const [period, setPeriod] = useState('30 dias')
   const { user } = useAuth()
-  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const clinicId = user?.clinicId
   const { data, isLoading } = useServiceMetrics(clinicId, undefined, undefined, period)
   const services = data?.services || []
   const peakHours = data?.peakHours || []

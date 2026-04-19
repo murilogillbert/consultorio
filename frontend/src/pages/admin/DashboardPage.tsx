@@ -42,7 +42,7 @@ export default function DashboardPage() {
   const [publishError, setPublishError] = useState('')
 
   const { user } = useAuth()
-  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const clinicId = user?.clinicId
 
   // Fetch this month's appointments and dash KPIs
   const now = new Date()

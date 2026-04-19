@@ -1141,6 +1141,81 @@
   background: var(--color-accent-emerald);
 }
 
+/* ---- Admin: Mobile Cards — Profissionais ---- */
+.admin-prof-table-wrapper { /* visible by default, hidden via media query */ }
+.admin-prof-card-list {
+  display: none;
+  flex-direction: column;
+}
+.admin-prof-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.admin-prof-card-info { flex: 1; min-width: 0; }
+.admin-prof-card-name { font-weight: 600; font-size: 14px; color: var(--color-text-primary); }
+.admin-prof-card-sub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+.admin-prof-card-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.admin-prof-card-actions { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+
+/* ---- Admin: Mobile Cards — Serviços ---- */
+.admin-svc-table-wrapper { /* visible by default */ }
+.admin-svc-card-list {
+  display: none;
+  flex-direction: column;
+}
+.admin-svc-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.admin-svc-card-info { flex: 1; min-width: 0; }
+.admin-svc-card-name { font-weight: 600; font-size: 14px; color: var(--color-text-primary); }
+.admin-svc-card-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-svc-card-footer { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+.admin-svc-card-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; align-items: center; }
+
+/* ---- Admin: Schedule grid scroll wrapper ---- */
+.schedule-grid-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+.schedule-grid-wrapper .schedule-grid { min-width: 540px; }
+
+/* ---- Admin: Recrutamento layout ---- */
+.recrutamento-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  transition: grid-template-columns 0.3s ease;
+}
+.recrutamento-layout.has-detail { grid-template-columns: 1fr 400px; }
+.recrutamento-backdrop { display: none; }
+.recrutamento-detail-panel {
+  position: sticky;
+  top: 80px;
+  height: fit-content;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .reception-dashboard-page .announcement-feed,
@@ -1423,6 +1498,50 @@
     width: 100%;
     justify-content: center;
   }
+
+  /* ---- Admin CRUD: tables → mobile cards ---- */
+  .admin-prof-table-wrapper { display: none; }
+  .admin-prof-card-list { display: flex; }
+  .admin-svc-table-wrapper { display: none; }
+  .admin-svc-card-list { display: flex; }
+
+  /* ---- Settings: tabs → horizontal scroll bar ---- */
+  .settings-tabs-vertical .settings-tab {
+    width: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .settings-content { padding: var(--space-5); min-width: 0; }
+
+  /* ---- Recrutamento: detail panel → bottom-sheet ---- */
+  .recrutamento-layout.has-detail { grid-template-columns: 1fr; }
+  .recrutamento-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: calc(var(--z-modal) + 1);
+  }
+  .recrutamento-detail-panel {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    top: auto !important;
+    max-height: 72vh;
+    overflow-y: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.25);
+    z-index: calc(var(--z-modal) + 2);
+    padding: var(--space-6);
+  }
+  .recrutamento-detail-panel::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--color-border-default);
+    border-radius: var(--radius-full);
+    margin: 0 auto var(--space-5);
+  }
 }
 
 @media (max-width: 480px) {
@@ -1509,6 +1628,27 @@
   .admin-dashboard-page .chart-placeholder .bar-wrapper {
     min-width: 24px;
   }
+
+  /* ---- Metrics: 1-col cards at 480px ---- */
+  .metrics-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* ---- Date presets: wrap + smaller pills ---- */
+  .date-presets { flex-wrap: wrap; }
+  .date-preset {
+    font-size: 11px;
+    padding: var(--space-1) var(--space-2);
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  /* ---- Export buttons: icon only ---- */
+  .export-btns .btn-label { display: none; }
+  .export-btns .btn { min-width: 36px; }
+
+  /* ---- Recrutamento: narrower bottom sheet ---- */
+  .recrutamento-detail-panel { max-height: 80vh; }
 }
 
 /* ── Professional Dashboard: Agenda + Alerts side-by-side ── */
