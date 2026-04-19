@@ -35,6 +35,12 @@ public class WebhooksController : ControllerBase
         _mp = mp;
     }
 
+    // ─── GET /api/webhooks/mercadopago ────────────────────────────────────────
+    // MP sends a GET with ?topic=payment&id=xxx to validate the URL during setup.
+    // Just return 200 so the test passes.
+    [HttpGet("mercadopago")]
+    public IActionResult MercadoPagoValidate() => Ok("OK");
+
     // ─── POST /api/webhooks/mercadopago ───────────────────────────────────────
     [HttpPost("mercadopago")]
     public async Task<IActionResult> MercadoPago()
