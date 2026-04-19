@@ -37,17 +37,20 @@ export function useIntegrations(clinicId?: string) {
         const { data } = await api.get<IntegrationSettings>(`/clinics/${clinicId}/settings/integrations`)
         return data
       } catch (error: any) {
-        // Endpoint not yet available in production (.NET backend).
-        // Return null gracefully so the UI degrades without crashing.
-        if (error?.response?.status === 404 || error?.response?.status === 405) {
+        // Return null gracefully for any client error (4xx) so the UI
+        // degrades without crashing — the endpoint may not exist yet or
+        // the record may not have been created.
+        const status = error?.response?.status
+        if (status && status >= 400 && status < 500) {
           return null
         }
         throw error
       }
     },
     enabled: !!clinicId,
-    staleTime: Infinity,
-    retry: false, // don't retry — endpoint may not exist in current backend
+    staleTime: 0,       // always fetch fresh data when component mounts
+    gcTime: 1000 * 60 * 10, // keep in cache for 10 min between mounts
+    retry: false,       // don't retry — endpoint may not exist in current backend
   })
 }
 
@@ -57,10 +60,13 @@ export function useUpdateIntegrations() {
   return useMutation({
     mutationFn: async ({ clinicId, data }: { clinicId: string; data: Partial<IntegrationSettings> }) => {
       const { data: result } = await api.put(`/clinics/${clinicId}/settings/integrations`, data)
-      return result
+      return result as IntegrationSettings
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['integrations', variables.clinicId] })
+    onSuccess: (savedData, variables) => {
+      // Immediately update the cache with the full record returned by the
+      // server (Prisma upsert returns all fields). This updates the form
+      // right away without waiting for an extra refetch.
+      queryClient.setQueryData(['integrations', variables.clinicId], savedData)
     },
   })
 }

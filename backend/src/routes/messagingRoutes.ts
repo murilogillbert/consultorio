@@ -3,6 +3,7 @@ import { ensureAuthenticated } from '../shared/middlewares/ensureAuthenticated'
 import { InternalChatController } from '../modules/messaging/controllers/internalChatController'
 import { InternalChatService } from '../modules/messaging/channels/internal/internalChatService'
 import { getFirstString, requireSingleString } from '../shared/utils/requestUtils'
+import { sendOutboundMessageService } from '../modules/messaging/services/sendOutboundMessageService'
 
 const r = Router()
 const internalChatController = new InternalChatController()
@@ -55,6 +56,20 @@ r.post('/conversations/:id/messages', ensureAuthenticated, async (req, res, next
     const conversationId = requireSingleString(req.params.id, 'id')
     const msg = await internalChatService.sendConversationMessage(conversationId, req.user.id, content)
     res.status(201).json(msg)
+  } catch (err) { next(err) }
+})
+
+/**
+ * POST /messaging/conversations/:id/send
+ * Send an outbound message to a patient/contact via the conversation's channel
+ * (WhatsApp, Instagram, Gmail). The system routes to the correct adapter.
+ */
+r.post('/conversations/:id/send', ensureAuthenticated, async (req, res, next) => {
+  try {
+    const { content } = req.body
+    const conversationId = requireSingleString(req.params.id, 'id')
+    await sendOutboundMessageService(conversationId, content, req.user.id)
+    res.status(201).json({ ok: true })
   } catch (err) { next(err) }
 })
 

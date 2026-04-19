@@ -41,10 +41,16 @@ function SensitiveField({
   mono?: boolean; value: string; onChange: (v: string) => void; error?: string;
 }) {
   const [visible, setVisible] = useState(false)
+  const hasSavedValue = value.length > 0
   return (
     <div className="input-group">
       <label className="input-label">
         {label} {required && <span className="intg-required">*</span>}
+        {hasSavedValue && !visible && (
+          <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--color-accent-emerald, #2D6A4F)', fontWeight: 500 }}>
+            ✓ salvo
+          </span>
+        )}
       </label>
       <div className={`intg-sensitive-wrap${error ? ' has-error' : ''}`}>
         <input
@@ -53,6 +59,7 @@ function SensitiveField({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          autoComplete="new-password"
         />
         <button
           type="button"
@@ -544,17 +551,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       {/* ═══════ SECTION 3: INSTAGRAM DIRECT ═══════ */}
       <IntegrationSection
         icon={Camera}
-        title="Instagram Direct (Prévia)"
-        description="Salva credenciais e valida token; a mensageria real do Instagram ainda não está ativa"
+        title="Instagram Direct"
+        description="Receba e responda DMs do Instagram diretamente na plataforma"
         status={igStatus}
       >
-        <div className="intg-info-banner">
-          <AlertTriangle size={18} />
-          <div>
-            <strong>Módulo parcial</strong>
-            <p>Hoje esta seção serve para guardar credenciais e testar acesso. O webhook e o fluxo real de entrada e saída de mensagens do Instagram ainda não foram implementados.</p>
-          </div>
-        </div>
         <InstructionBox steps={[
           'Certifique-se de ter uma Conta Instagram Business vinculada a uma Página do Facebook',
           'No Meta Developer Portal, adicione o produto "Messenger" ao seu app',
@@ -731,17 +731,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       {/* ═══════ SECTION 5: GOOGLE PUB/SUB ═══════ */}
       <IntegrationSection
         icon={Cloud}
-        title="Google Pub/Sub (Planejado)"
-        description="Preparação da futura sincronização de Gmail; não está ativo neste backend hoje"
+        title="Google Pub/Sub"
+        description="Notificações em tempo real do Gmail via Google Cloud Pub/Sub"
         status="disconnected"
       >
-        <div className="intg-info-banner">
-          <AlertTriangle size={18} />
-          <div>
-            <strong>Status atual do Pub/Sub</strong>
-            <p>Esses dados podem ser salvos para preparar a integração futura, mas ainda não existe worker renovando watch do Gmail nem webhook ativo de Pub/Sub nesta API.</p>
-          </div>
-        </div>
 
         <InstructionBox steps={[
           'No Google Cloud Console, acesse o mesmo projeto da Gmail API',
