@@ -732,6 +732,9 @@ body.mobile-menu-open {
   .mobile-bottombar {
     display: none;
   }
+  .internal-mobile-menu-overlay {
+    display: none;
+  }
 }
 
 /* ---- Mobile Bottom Bar ---- */
@@ -742,7 +745,6 @@ body.mobile-menu-open {
   right: 0;
   height: 56px;
   background: var(--color-bg-dark);
-  display: none;
   align-items: center;
   justify-content: space-around;
   z-index: var(--z-sidebar);
@@ -782,7 +784,6 @@ body.mobile-menu-open {
   background: var(--color-overlay-dark);
   backdrop-filter: blur(6px);
   z-index: calc(var(--z-modal) + 10);
-  display: none;
 }
 
 .internal-mobile-menu {
