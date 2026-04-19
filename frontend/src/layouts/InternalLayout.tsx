@@ -316,7 +316,7 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
         <div
           className="internal-mobile-menu-overlay"
           onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
+          role="presentation"
         >
           <div
             id="internal-mobile-menu"

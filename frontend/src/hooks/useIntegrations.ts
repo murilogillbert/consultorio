@@ -37,15 +37,17 @@ export function useIntegrations(clinicId?: string) {
         const { data } = await api.get<IntegrationSettings>(`/clinics/${clinicId}/settings/integrations`)
         return data
       } catch (error: any) {
-        if (error?.response?.status === 404) {
+        // Endpoint not yet available in production (.NET backend).
+        // Return null gracefully so the UI degrades without crashing.
+        if (error?.response?.status === 404 || error?.response?.status === 405) {
           return null
         }
-
         throw error
       }
     },
     enabled: !!clinicId,
     staleTime: Infinity,
+    retry: false, // don't retry — endpoint may not exist in current backend
   })
 }
 
