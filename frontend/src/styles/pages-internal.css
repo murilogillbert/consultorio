@@ -541,6 +541,7 @@
   color: white;
   align-self: flex-end;
   border-bottom-right-radius: var(--radius-sm);
+  max-width: none;
 }
 
 .message-bubble .time {
@@ -1340,6 +1341,9 @@
   }
   .message-bubble {
     max-width: 92%;
+  }
+  .message-bubble.outgoing {
+    max-width: none;
   }
   .availability-grid {
     grid-template-columns: 1fr;
