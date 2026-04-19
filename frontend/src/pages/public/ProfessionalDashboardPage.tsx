@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-import { Navigate } from 'react-router-dom'
-
-export default function ProfessionalDashboardPage() {
-  return <Navigate to="/profissional" replace />
-=======
 import { Navigate, Link } from 'react-router-dom'
 import { ArrowLeft, LogIn, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -84,5 +78,4 @@ export default function ProfessionalDashboardPage() {
       </div>
     </div>
   )
->>>>>>> d7793d1f090d3e773123b6abfd146d75425d0881
 }

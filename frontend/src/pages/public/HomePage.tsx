@@ -4,11 +4,10 @@ import {
   ChevronLeft, ChevronRight, Clock, MapPin, Phone,
   MessageCircle, Camera, Globe, Video, Share2,
   Heart, Activity, Stethoscope, Brain, Eye, Bone, Baby,
-  CalendarDays, MessageSquare, ShieldCheck
+  CalendarDays, MessageSquare, ShieldCheck,
 } from 'lucide-react'
 import { useServices } from '../../hooks/useServices'
 import { useProfessionals } from '../../hooks/useProfessionals'
-
 import { usePublicClinic } from '../../hooks/useClinics'
 import { useBanners } from '../../hooks/useBanners'
 
@@ -35,6 +34,10 @@ function formatPrice(cents: number): string {
   return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`
 }
 
+function hasDisplayPrice(cents: number): boolean {
+  return cents > 0
+}
+
 export default function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [activeCategory, setActiveCategory] = useState('Todos')
@@ -42,12 +45,14 @@ export default function HomePage() {
   const { data: banners = [], isLoading: loadingBanners } = useBanners(clinic?.id)
   const { data: services = [], isLoading: loadingServices } = useServices()
   const { data: professionals = [], isLoading: loadingProfessionals } = useProfessionals()
+
   const categories = [
     'Todos',
     ...Array.from(new Set(services.map(s => s.category).filter(Boolean) as string[])),
   ]
-  const mockupPrimaryService = services[0]?.name || 'Consulta de avaliacao bariatrica'
-  const mockupSecondaryService = services[1]?.name || 'Consulta neuropsicologica'
+
+  const mockupPrimaryService = services[0]?.name || 'Atendimento principal'
+  const mockupSecondaryService = services[1]?.name || 'Acompanhamento agendado'
 
   const nextSlide = useCallback(() => {
     if (banners.length === 0) return
@@ -70,21 +75,24 @@ export default function HomePage() {
     ? services
     : services.filter(s => s.category === activeCategory)
 
-  // Default slide if no banners exist
+  const mapQuery = clinic?.address?.trim()
+  const mapEmbedUrl = mapQuery
+    ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed`
+    : null
+
   const displayBanners = banners.length > 0 ? banners : [
     {
       id: 'default',
-      title: 'Cuidado Médico de Excelência',
-      subtitle: 'Tecnologia de ponta aliada a um atendimento humanizado para você e sua família.',
+      title: 'Cuidado de Excelência',
+      subtitle: 'Aqui, você encontra acolhimento, atenção aos detalhes e uma equipe pronta para cuidar de você.',
       ctaLabel: 'Agendar Consulta',
       ctaUrl: '/agendar',
-      imageUrl: 'linear-gradient(135deg, #2D6A4F 0%, #1A1A1A 100%)', // Using gradient as fallback
-    }
+      imageUrl: 'linear-gradient(135deg, #2D6A4F 0%, #1A1A1A 100%)',
+    },
   ]
 
   return (
     <>
-      {/* Hero Slider */}
       <section className="hero-slider">
         {loadingBanners ? (
           <div className="hero-slide active">
@@ -93,12 +101,12 @@ export default function HomePage() {
           </div>
         ) : displayBanners.map((slide, i) => (
           <div key={slide.id} className={`hero-slide${i === currentSlide ? ' active' : ''}`}>
-            <div 
-              className="hero-slide-bg" 
-              style={{ 
+            <div
+              className="hero-slide-bg"
+              style={{
                 background: slide.imageUrl?.startsWith('linear-gradient') ? slide.imageUrl : `url(${slide.imageUrl}) center/cover no-repeat`,
-                backgroundColor: slide.imageUrl?.startsWith('http') ? 'transparent' : 'var(--color-primary-dark)'
-              }} 
+                backgroundColor: slide.imageUrl?.startsWith('http') ? 'transparent' : 'var(--color-primary-dark)',
+              }}
             />
             <div className="hero-slide-overlay" />
             <div className="hero-slide-content">
@@ -134,7 +142,6 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* Services */}
       <section className="section">
         <div className="container">
           <div className="section-header">
@@ -166,7 +173,9 @@ export default function HomePage() {
                     <Clock size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
                     {formatDuration(service.duration)}
                   </div>
-                  <div className="price">{formatPrice(service.price)}</div>
+                  {hasDisplayPrice(service.price) && (
+                    <div className="price">{formatPrice(service.price)}</div>
+                  )}
                   {service.category && (
                     <span className="badge badge-gold" style={{ marginTop: 8 }}>
                       {normalizeCategoryLabel(service.category)}
@@ -182,7 +191,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Professionals */}
       <section className="section" style={{ background: 'var(--color-bg-secondary)' }}>
         <div className="container">
           <div className="section-header">
@@ -212,7 +220,7 @@ export default function HomePage() {
                     <span className="badge badge-emerald">{prof.specialty}</span>
                   </div>
                   <div className="actions">
-                    <Link to={`/profissionais`} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
+                    <Link to="/profissionais" className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
                       Ver perfil
                     </Link>
                     <Link to="/agendar" className="btn btn-primary btn-sm" style={{ flex: 1 }}>
@@ -226,7 +234,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Minhas Consultas CTA */}
       <section className="patient-portal-cta-section">
         <div className="container">
           <div className="patient-portal-cta-grid">
@@ -234,7 +241,7 @@ export default function HomePage() {
               <h2>Acesse suas consultas de qualquer lugar</h2>
               <p>
                 Veja seus agendamentos, histórico de consultas e converse diretamente
-                com nossa equipe — tudo em um só lugar, sem precisar ligar.
+                com nossa equipe, tudo em um só lugar, sem precisar ligar.
               </p>
               <div className="patient-portal-cta-features">
                 <div className="patient-portal-cta-feature">
@@ -266,12 +273,12 @@ export default function HomePage() {
                 <div className="mockup-appointment">
                   <span className="badge badge-emerald" style={{ fontSize: 11 }}>Confirmada</span>
                   <div className="mockup-appointment-name">{mockupPrimaryService}</div>
-                  <div className="mockup-appointment-date">Seg, 14 Abr — 09:00</div>
+                  <div className="mockup-appointment-date">Seg, 14 Abr - 09:00</div>
                 </div>
                 <div className="mockup-appointment" style={{ opacity: 0.5 }}>
                   <span className="badge badge-gold" style={{ fontSize: 11 }}>Agendada</span>
                   <div className="mockup-appointment-name">{mockupSecondaryService}</div>
-                  <div className="mockup-appointment-date">Sex, 18 Abr — 14:30</div>
+                  <div className="mockup-appointment-date">Sex, 18 Abr - 14:30</div>
                 </div>
                 <div className="mockup-chat-preview">
                   <MessageSquare size={12} />
@@ -283,26 +290,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Map & Location */}
       <section className="section">
         <div className="container">
           <div className="map-section">
-            <div className="map-placeholder">
-              <div style={{ textAlign: 'center' }}>
-                <MapPin size={48} />
-                <p style={{ marginTop: 12 }}>Google Maps</p>
+            {mapEmbedUrl ? (
+              <div className="map-placeholder">
+                <iframe
+                  title={`Mapa de ${clinic?.name || 'localização da clínica'}`}
+                  src={mapEmbedUrl}
+                  className="map-embed"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
               </div>
-            </div>
+            ) : (
+              <div className="map-placeholder">
+                <div style={{ textAlign: 'center' }}>
+                  <MapPin size={48} />
+                  <p style={{ marginTop: 12 }}>Endereço da clínica não configurado</p>
+                </div>
+              </div>
+            )}
             <div className="map-info">
               <h3>Nossa Localização</h3>
               <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-6)' }}>
-                {clinic?.address || 'Carregando endereço...'}<br />
-                São Paulo, SP
+                {clinic?.address || 'Endereço ainda não informado.'}
               </p>
               <table className="hours-table">
                 <tbody>
-                  <tr><td>Segunda a Sexta</td><td>07:00 — 20:00</td></tr>
-                  <tr><td>Sábado</td><td>08:00 — 14:00</td></tr>
+                  <tr><td>Segunda a Sexta</td><td>07:00 - 20:00</td></tr>
+                  <tr><td>Sábado</td><td>08:00 - 14:00</td></tr>
                   <tr><td>Domingo</td><td>Fechado</td></tr>
                 </tbody>
               </table>
@@ -320,7 +337,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Contact Dark Section */}
       <section className="contact-section-dark">
         <div className="container">
           <div className="contact-grid">

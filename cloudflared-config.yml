@@ -1,0 +1,15 @@
+tunnel: 69dbba7e-fce8-45c0-bafa-7293b8022d9c
+credentials-file: C:\Users\Ludimila\.cloudflared\69dbba7e-fce8-45c0-bafa-7293b8022d9c.json
+origincert: C:\Users\Ludimila\.cloudflared\cert.pem
+
+ingress:
+  - hostname: psicologiaeexistir.com.br
+    service: http://127.0.0.1:5173
+
+  - hostname: front.psicologiaeexistir.com.br
+    service: http://127.0.0.1:5173
+
+  - hostname: api.psicologiaeexistir.com.br
+    service: http://127.0.0.1:5205
+
+  - service: http_status:404

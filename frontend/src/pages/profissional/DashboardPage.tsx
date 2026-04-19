@@ -8,12 +8,8 @@ import {
   useProfessionalReviews,
   useProfessionalInsuranceStats,
   useProfessionalEarnings,
-<<<<<<< HEAD
-  type PortalAppointment,
-=======
   useProfessionalAlerts,
   type AlertMessage,
->>>>>>> d7793d1f090d3e773123b6abfd146d75425d0881
 } from '../../hooks/useProfessionalPortal'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -29,6 +25,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: ReactN
 
 function formatMoney(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function hasDisplayPrice(value: number) {
+  return value > 0
 }
 
 function formatMonthLabel(year: number, month: number) {
@@ -127,11 +127,7 @@ function AgendaTab() {
     : '...'
 
   // Group appointments by day
-<<<<<<< HEAD
-  const byDay: Record<string, PortalAppointment[]> = {}
-=======
   const byDay: Record<string, NonNullable<typeof data>['appointments']> = {}
->>>>>>> d7793d1f090d3e773123b6abfd146d75425d0881
   if (data) {
     for (const appt of data.appointments) {
       const day = appt.startTime.split('T')[0]
@@ -231,9 +227,11 @@ function AgendaTab() {
                           }}>
                             {cfg.icon} {cfg.label}
                           </span>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-accent-emerald)' }}>
-                            {formatMoney(appt.service.price)}
-                          </div>
+                          {hasDisplayPrice(appt.service.price) && (
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-accent-emerald)' }}>
+                              {formatMoney(appt.service.price)}
+                            </div>
+                          )}
                         </div>
                       )
                     })}

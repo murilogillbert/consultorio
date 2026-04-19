@@ -29,6 +29,10 @@ function formatPrice(cents: number): string {
   return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`
 }
 
+function hasDisplayPrice(cents: number): boolean {
+  return cents > 0
+}
+
 export default function ServicosPage() {
   const [activeCategory, setActiveCategory] = useState('Todos')
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
@@ -79,7 +83,9 @@ export default function ServicosPage() {
                       <h3>{service.name}</h3>
                       <div className="service-list-meta">
                         <span><Clock size={14} /> {formatDuration(service.duration)}</span>
-                        <span><CreditCard size={14} /> {formatPrice(service.price)}</span>
+                        {hasDisplayPrice(service.price) && (
+                          <span><CreditCard size={14} /> {formatPrice(service.price)}</span>
+                        )}
                         <span><Users size={14} /> {professionalsForService.length} profissionais</span>
                       </div>
                     </div>
