@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Consultorio.API.Services;
 using Consultorio.Infra.Context;
 
@@ -45,36 +46,56 @@ public class WebhooksController : ControllerBase
     [HttpGet("mercadopago")]
     public IActionResult MercadoPagoValidate() => Ok("OK");
 
+    [HttpHead("mercadopago")]
+    public IActionResult MercadoPagoValidateHead() => Ok();
+
     // ─── POST /api/webhooks/mercadopago ───────────────────────────────────────
     [HttpPost("mercadopago")]
     public async Task<IActionResult> MercadoPago()
     {
-        // Always respond 200 immediately — MP retries on non-200
-        Response.Headers["Content-Type"] = "text/plain";
-        await Response.WriteAsync("OK");
-        await Response.Body.FlushAsync();
-
         try
         {
+            string? topic = Request.Query["topic"].FirstOrDefault();
+            string? gatewayId = Request.Query["id"].FirstOrDefault();
+            string? type = null;
+            string? action = null;
+
             using var reader = new System.IO.StreamReader(Request.Body);
             var bodyText = await reader.ReadToEndAsync();
-            using var doc = System.Text.Json.JsonDocument.Parse(bodyText);
-            var root = doc.RootElement;
 
-            // MP sends either type:"payment" (IPN) or action:"payment.*" (new webhooks)
-            var type   = root.TryGetProperty("type",   out var t) ? t.GetString() : null;
-            var action = root.TryGetProperty("action", out var a) ? a.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(bodyText))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(bodyText);
+                    var root = doc.RootElement;
 
-            bool isPaymentEvent = type == "payment" ||
-                                  (action != null && action.StartsWith("payment.", StringComparison.OrdinalIgnoreCase));
-            if (!isPaymentEvent) return new EmptyResult();
+                    type   = root.TryGetProperty("type", out var t) ? t.GetString() : null;
+                    action = root.TryGetProperty("action", out var a) ? a.GetString() : null;
+                    topic ??= type;
 
-            var gatewayId = root.TryGetProperty("data", out var dataEl) &&
-                            dataEl.TryGetProperty("id",  out var idEl)
-                ? idEl.GetRawText().Trim('"')
-                : null;
+                    if (string.IsNullOrWhiteSpace(gatewayId) &&
+                        root.TryGetProperty("data", out var dataEl) &&
+                        dataEl.TryGetProperty("id", out var idEl))
+                    {
+                        gatewayId = idEl.ValueKind == JsonValueKind.String
+                            ? idEl.GetString()
+                            : idEl.GetRawText().Trim('"');
+                    }
+                }
+                catch (JsonException)
+                {
+                    Console.WriteLine("[MP Webhook] Non-JSON body received during validation/test.");
+                }
+            }
 
-            if (string.IsNullOrEmpty(gatewayId)) return new EmptyResult();
+            var isPaymentEvent =
+                string.Equals(topic, "payment", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(type, "payment", StringComparison.OrdinalIgnoreCase) ||
+                (action != null && action.StartsWith("payment.", StringComparison.OrdinalIgnoreCase));
+
+            if (!isPaymentEvent || string.IsNullOrWhiteSpace(gatewayId))
+                return Ok("OK");
 
             // Find the matching Payment in our DB
             var payment = await _db.Payments
@@ -84,7 +105,7 @@ public class WebhooksController : ControllerBase
             if (payment == null)
             {
                 Console.WriteLine($"[MP Webhook] Payment not found for gatewayId {gatewayId}");
-                return new EmptyResult();
+                return Ok("OK");
             }
 
             // Validate X-Signature if the clinic has a webhook secret configured
@@ -96,7 +117,7 @@ public class WebhooksController : ControllerBase
                 if (xSig != null && !MercadoPagoService.ValidateWebhookSignature(xSig, xReq, gatewayId, secret))
                 {
                     Console.WriteLine("[MP Webhook] Invalid signature — event ignored");
-                    return new EmptyResult();
+                    return Ok("OK");
                 }
             }
 
@@ -124,6 +145,6 @@ public class WebhooksController : ControllerBase
             Console.Error.WriteLine($"[MP Webhook] Error: {ex.Message}");
         }
 
-        return new EmptyResult();
+        return Ok("OK");
     }
 }
