@@ -53,63 +53,87 @@ export default function ServicosPage() {
         <div className="empty-state" style={{ padding: '48px 16px' }}>
           <p>Carregando serviços...</p>
         </div>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Serviço</th>
-                <th>Duração</th>
-                <th>Sala / Categoria</th>
-                <th>Agend. Online</th>
-                <th>Preço</th>
-                <th>Convênios</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(svc => {
-                const insuranceCount = svc.insurances?.length || 0
-                const isToggling = togglingId === svc.id
-                return (
-                  <tr key={svc.id}>
-                    <td style={{ fontWeight: 500 }}>{svc.name}</td>
-                    <td>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)' }}>
-                        <Clock size={13} /> {formatDuration(svc.duration)}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--color-text-secondary)' }}>{svc.category || '—'}</td>
-                    <td>
-                      {isToggling ? (
-                        <Loader2 size={16} className="animate-spin" color="var(--color-accent-emerald)" />
-                      ) : (
-                        <div
-                          className={`toggle${svc.onlineBooking ? ' active' : ''}`}
-                          style={{ cursor: 'pointer' }}
-                          title={svc.onlineBooking ? 'Disponível online — clique para desativar' : 'Indisponível online — clique para ativar'}
-                          onClick={() => handleToggleOnline(svc.id, svc.onlineBooking)}
-                        />
-                      )}
-                    </td>
-                    <td style={{ color: 'var(--color-accent-gold)', fontWeight: 500 }}>{formatPrice(svc.price)}</td>
-                    <td>
-                      <span className="badge badge-emerald">
-                        <Shield size={10} /> {insuranceCount}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '32px 16px' }}>
-                    Nenhum serviço encontrado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      ) : filtered.length === 0 ? (
+        <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+          Nenhum serviço encontrado.
         </div>
+      ) : (
+        <>
+          {/* Desktop: tabela */}
+          <div className="service-table-wrapper card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Serviço</th>
+                  <th>Duração</th>
+                  <th>Sala / Categoria</th>
+                  <th>Agend. Online</th>
+                  <th>Preço</th>
+                  <th>Convênios</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(svc => {
+                  const insuranceCount = svc.insurances?.length || 0
+                  const isToggling = togglingId === svc.id
+                  return (
+                    <tr key={svc.id}>
+                      <td style={{ fontWeight: 500 }}>{svc.name}</td>
+                      <td>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)' }}>
+                          <Clock size={13} /> {formatDuration(svc.duration)}
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--color-text-secondary)' }}>{svc.category || '—'}</td>
+                      <td>
+                        {isToggling ? (
+                          <Loader2 size={16} className="animate-spin" color="var(--color-accent-emerald)" />
+                        ) : (
+                          <div className={`toggle${svc.onlineBooking ? ' active' : ''}`} style={{ cursor: 'pointer' }}
+                            title={svc.onlineBooking ? 'Desativar agendamento online' : 'Ativar agendamento online'}
+                            onClick={() => handleToggleOnline(svc.id, svc.onlineBooking)} />
+                        )}
+                      </td>
+                      <td style={{ color: 'var(--color-accent-gold)', fontWeight: 500 }}>{formatPrice(svc.price)}</td>
+                      <td><span className="badge badge-emerald"><Shield size={10} /> {insuranceCount}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: cards */}
+          <div className="service-card-list card" style={{ padding: 0, overflow: 'hidden' }}>
+            {filtered.map(svc => {
+              const insuranceCount = svc.insurances?.length || 0
+              const isToggling = togglingId === svc.id
+              return (
+                <div key={svc.id} className="service-card-mobile">
+                  <div className="service-card-row">
+                    <span className="service-card-name">{svc.name}</span>
+                    {isToggling ? (
+                      <Loader2 size={16} className="animate-spin" color="var(--color-accent-emerald)" />
+                    ) : (
+                      <div className={`toggle${svc.onlineBooking ? ' active' : ''}`} style={{ cursor: 'pointer', flexShrink: 0 }}
+                        title={svc.onlineBooking ? 'Desativar online' : 'Ativar online'}
+                        onClick={() => handleToggleOnline(svc.id, svc.onlineBooking)} />
+                    )}
+                  </div>
+                  <div className="service-card-meta">
+                    <Clock size={12} />
+                    <span>{formatDuration(svc.duration)}</span>
+                    {svc.category && <><span>·</span><span>{svc.category}</span></>}
+                  </div>
+                  <div className="service-card-footer">
+                    <span className="service-card-price">{formatPrice(svc.price)}</span>
+                    <span className="badge badge-emerald"><Shield size={10} /> {insuranceCount} convênio{insuranceCount !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )

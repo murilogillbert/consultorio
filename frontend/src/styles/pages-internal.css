@@ -1169,7 +1169,7 @@
 
   .reception-dashboard-page .metrics-row,
   .admin-dashboard-page .metrics-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .reception-dashboard-page .metric-card,
@@ -1414,6 +1414,11 @@
   .booking-summary-grid {
     grid-template-columns: 1fr !important;
   }
+  /* alert-row: button full width on small tablets */
+  .reception-dashboard-page .alert-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1615,5 +1620,313 @@
 
   .prof-alerts-list {
     max-height: 300px;
+  }
+}
+
+/* ================================================================
+   RESPONSIVE — Recepcao pages
+   New classes & mobile-specific components
+   ================================================================ */
+
+/* ── Mensagens: back button (hidden on desktop) ── */
+.msgs-back-btn {
+  display: none;
+}
+
+/* ── Agenda: FAB (Floating Action Button) ── */
+.agenda-fab {
+  display: none;
+  position: fixed;
+  bottom: calc(56px + var(--space-5));
+  right: var(--space-5);
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-emerald);
+  color: var(--color-text-white);
+  border: none;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(45, 106, 79, 0.45);
+  z-index: var(--z-dropdown);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.agenda-fab:hover {
+  transform: scale(1.07);
+  box-shadow: 0 6px 24px rgba(45, 106, 79, 0.55);
+}
+
+/* ── Agenda: drawer backdrop on mobile ── */
+.agenda-drawer-backdrop {
+  display: none;
+}
+
+/* ── Patient mobile card list ── */
+.patient-table-wrapper {
+  /* wraps the desktop table — hidden on mobile via media query */
+}
+.patient-card-list {
+  display: none;
+  flex-direction: column;
+}
+.patient-card-mobile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+  transition: background var(--transition-fast);
+}
+.patient-card-mobile:last-child {
+  border-bottom: none;
+}
+.patient-card-mobile:active {
+  background: var(--color-bg-secondary);
+}
+.patient-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.patient-card-name {
+  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-primary);
+}
+.patient-card-email {
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.patient-card-details {
+  font-size: var(--text-caption);
+  color: var(--color-text-secondary);
+  margin-top: 3px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.patient-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ── Service mobile card list ── */
+.service-table-wrapper {
+  /* wraps the desktop table */
+}
+.service-card-list {
+  display: none;
+  flex-direction: column;
+}
+.service-card-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+}
+.service-card-mobile:last-child {
+  border-bottom: none;
+}
+.service-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.service-card-name {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  flex: 1;
+}
+.service-card-meta {
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.service-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.service-card-price {
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent-gold);
+  font-size: var(--text-sm);
+}
+
+/* ── Agenda filter rows ── */
+.agenda-filter-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 100%;
+}
+.agenda-filter-bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+}
+.agenda-new-desktop {
+  /* shown on desktop, hidden on mobile */
+  margin-left: auto;
+}
+.agenda-cancelled-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* ================================================================
+   @media (max-width: 640px) — intermediate mobile breakpoint
+   ================================================================ */
+@media (max-width: 640px) {
+  /* Dashboard: 2-col metrics on medium phones */
+  .reception-dashboard-page .metrics-row,
+  .admin-dashboard-page .metrics-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Profissionais: 2-col grid on medium phones */
+  .availability-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Agenda: show FAB, hide desktop "Novo Agendamento" button */
+  .agenda-fab {
+    display: flex;
+  }
+  .agenda-new-desktop {
+    display: none;
+  }
+
+  /* Agenda: drawer becomes bottom sheet */
+  .agenda-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: calc(var(--z-modal) + 4);
+    backdrop-filter: blur(2px);
+  }
+  .appointment-drawer {
+    position: fixed !important;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    height: 72vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-top: none !important;
+    border-left: none !important;
+    overflow-y: auto;
+    z-index: calc(var(--z-modal) + 5);
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.2);
+    padding: var(--space-6) var(--space-5) calc(env(safe-area-inset-bottom) + var(--space-5));
+  }
+  /* drag handle */
+  .appointment-drawer::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--color-border-default);
+    border-radius: var(--radius-full);
+    margin: 0 auto var(--space-5);
+  }
+
+  /* Agenda filters: 2-row layout */
+  .agenda-filter-top {
+    width: 100%;
+  }
+  .agenda-filter-bottom {
+    width: 100%;
+  }
+  .agenda-filter-bottom .search-input-wrapper {
+    flex: 1;
+    max-width: none !important;
+  }
+
+  /* Patients: show cards, hide table */
+  .patient-table-wrapper {
+    display: none;
+  }
+  .patient-card-list {
+    display: flex;
+  }
+
+  /* Services: show cards, hide table */
+  .service-table-wrapper {
+    display: none;
+  }
+  .service-card-list {
+    display: flex;
+  }
+
+  /* Messages: single-panel navigation */
+  .msgs-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: var(--space-2);
+    flex-shrink: 0;
+  }
+  .messages-layout[data-mobile-view="list"] .chat-panel {
+    display: none;
+  }
+  .messages-layout[data-mobile-view="chat"] .messages-list-panel {
+    display: none;
+  }
+  .messages-layout[data-mobile-view="chat"] .chat-panel {
+    min-height: calc(100dvh - 120px);
+  }
+  .messages-layout {
+    min-height: calc(100dvh - var(--topbar-height));
+  }
+
+  /* Profissionais: search full width */
+  .profissionais-search-wrapper {
+    max-width: none !important;
+    width: 100%;
+  }
+}
+
+/* ================================================================
+   @media (max-width: 480px) — small phones
+   ================================================================ */
+@media (max-width: 480px) {
+  /* Dashboard: back to 1-col on very small screens */
+  .reception-dashboard-page .metrics-row,
+  .admin-dashboard-page .metrics-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Profissionais: 1-col on very small phones */
+  .availability-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Agenda FAB: lower to account for bottom bar */
+  .agenda-fab {
+    bottom: calc(56px + var(--space-4));
+    right: var(--space-4);
   }
 }

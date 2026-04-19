@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, Loader2, MessageCircle, User } from 'lucide-react'
+import { Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical, Hash, Lock, Loader2, MessageCircle, User, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChannels } from '../../hooks/useChannels'
 import { useChannelMessages, useSendChannelMessage } from '../../hooks/useInternalMessages'
@@ -18,6 +18,7 @@ export default function MensagensPage() {
   const [activeTab, setActiveTab] = useState<'patients' | 'internal'>('patients')
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const [patientChannelFilter, setPatientChannelFilter] = useState<'ALL' | 'APP' | 'WHATSAPP' | 'INSTAGRAM' | 'EMAIL'>('ALL')
   const [message, setMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -82,7 +83,7 @@ export default function MensagensPage() {
   }
 
   return (
-    <div className="messages-layout messages-layout-shell">
+    <div className="messages-layout messages-layout-shell" data-mobile-view={mobileView}>
       {/* ── Left Panel ── */}
       <div className="messages-list-panel">
         <div className="messages-list-header">
@@ -135,6 +136,7 @@ export default function MensagensPage() {
                   onClick={() => {
                     setSelectedPatientId(c.patientId)
                     if (c.unreadCount > 0) markRead.mutate(c.patientId)
+                    setMobileView('chat')
                   }}
                 >
                   <div className="avatar avatar-sm avatar-placeholder">{initials}</div>
@@ -171,7 +173,7 @@ export default function MensagensPage() {
               <div
                 key={ch.id}
                 className={`channel-item${selectedChannelId === ch.id ? ' active' : ''}`}
-                onClick={() => setSelectedChannelId(ch.id)}
+                onClick={() => { setSelectedChannelId(ch.id); setMobileView('chat') }}
               >
                 {ch.adminOnly ? <Lock size={12} style={{ opacity: 0.5 }} /> : <span style={{ width: 12 }} />}
                 <Hash size={14} />
@@ -192,6 +194,9 @@ export default function MensagensPage() {
       <div className="chat-panel">
         {/* Header */}
         <div className="chat-header">
+          <button className="msgs-back-btn btn btn-ghost btn-sm" onClick={() => setMobileView('list')}>
+            <ChevronLeft size={16} /> Voltar
+          </button>
           <div className="chat-header-info">
             <div className="avatar avatar-sm avatar-placeholder">
               {activeTab === 'patients'
