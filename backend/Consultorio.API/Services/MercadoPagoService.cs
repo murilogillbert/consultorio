@@ -30,11 +30,13 @@ public class MercadoPagoService
 {
     private readonly HttpClient _http;
     private readonly string _accessToken;
+    public string PublicKey { get; }
     private static readonly JsonSerializerOptions _json = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 
     public MercadoPagoService(IConfiguration config, HttpClient http)
     {
         _accessToken = config["MercadoPago:AccessToken"]!;
+        PublicKey = config["MercadoPago:PublicKey"] ?? "";
         _http = http;
         _http.BaseAddress = new Uri(config["MercadoPago:BaseUrl"] ?? "https://api.mercadopago.com");
     }
