@@ -39,6 +39,7 @@ public class Clinic
     public string? MpAccessTokenProd    { get; set; }
     public string? MpAccessTokenSandbox { get; set; }
     public string? MpPublicKey          { get; set; }
+    // Legacy field kept only for database compatibility. The active .NET flow no longer uses MP webhooks.
     public string? MpWebhookSecret      { get; set; }
     public bool    MpSandboxMode        { get; set; } = true;
     public bool    MpConnected          { get; set; } = false;

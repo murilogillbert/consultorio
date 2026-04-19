@@ -1,7 +1,7 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Globalization;
 using Consultorio.API.DTOs;
 using Consultorio.API.Services;
 using Consultorio.Domain.Models;
@@ -16,6 +16,19 @@ public class PaymentsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly MercadoPagoService _mp;
+
+    private static readonly Dictionary<string, string> MercadoPagoStatusMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["approved"] = "PAID",
+        ["rejected"] = "FAILED",
+        ["cancelled"] = "FAILED",
+        ["refunded"] = "REFUNDED",
+        ["charged_back"] = "REFUNDED",
+        ["pending"] = "PENDING",
+        ["in_process"] = "PENDING",
+        ["authorized"] = "PENDING",
+    };
+
     public PaymentsController(AppDbContext db, MercadoPagoService mp)
     {
         _db = db;
@@ -34,16 +47,12 @@ public class PaymentsController : ControllerBase
         return claim != null && Guid.TryParse(claim.Value, out var id) ? id : Guid.Empty;
     }
 
-    /// <summary>
-    /// Returns the active Mercado Pago access token for the clinic:
-    ///   - Sandbox token when MpSandboxMode = true
-    ///   - Production token when MpSandboxMode = false
-    ///   - null when none configured (service falls back to appsettings)
-    /// </summary>
     private async Task<string?> GetClinicMpTokenAsync(Guid clinicId)
     {
         var clinic = await _db.Clinics.FindAsync(clinicId);
-        if (clinic == null) return null;
+        if (clinic == null)
+            return null;
+
         return clinic.MpSandboxMode
             ? clinic.MpAccessTokenSandbox
             : clinic.MpAccessTokenProd;
@@ -61,6 +70,32 @@ public class PaymentsController : ControllerBase
         "INSURANCE" => "convenio",
         _ => "outro metodo"
     };
+
+    private static string GetPaymentReference(Payment payment) =>
+        payment.Id.ToString("D");
+
+    private static string MapMercadoPagoStatus(string gatewayStatus) =>
+        MercadoPagoStatusMap.TryGetValue(gatewayStatus, out var internalStatus)
+            ? internalStatus
+            : "PENDING";
+
+    private async Task<MpPaymentStatus?> ResolveMercadoPagoStatusAsync(Payment payment, string? accessToken)
+    {
+        if (!string.IsNullOrWhiteSpace(payment.ExternalPaymentId))
+        {
+            try
+            {
+                return await _mp.GetPaymentStatusAsync(payment.ExternalPaymentId, accessToken);
+            }
+            catch
+            {
+                // Checkout preference ids are not payment ids. Fall back to the
+                // external reference we send when creating the charge.
+            }
+        }
+
+        return await _mp.FindPaymentByExternalReferenceAsync(GetPaymentReference(payment), accessToken);
+    }
 
     private static string BuildChargeMessage(Appointment appt, Payment payment, string method)
     {
@@ -97,7 +132,10 @@ public class PaymentsController : ControllerBase
 
     private async Task SendChargeNotificationAsync(Appointment appt, Payment payment, string method)
     {
-        var patient = await _db.Patients.Include(p => p.User).FirstOrDefaultAsync(p => p.Id == appt.PatientId);
+        var patient = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == appt.PatientId);
+
         if (patient == null || patient.User == null)
             return;
 
@@ -116,9 +154,6 @@ public class PaymentsController : ControllerBase
         _db.PatientMessages.Add(msg);
     }
 
-    // ─── GET /api/payments ────────────────────────────────────────────
-    // Lista pagamentos da clínica do usuário, com filtros opcionais
-    // Query params: status, from, to
     [HttpGet]
     public async Task<ActionResult<List<PaymentResponseDto>>> GetAll(
         [FromQuery] string? status,
@@ -127,7 +162,6 @@ public class PaymentsController : ControllerBase
     {
         var clinicId = GetClinicId();
 
-        // Join com Appointment para filtrar por clínica
         IQueryable<Payment> query = _db.Payments
             .Include(p => p.Appointment)
             .Where(p => p.Appointment.ClinicId == clinicId);
@@ -160,35 +194,35 @@ public class PaymentsController : ControllerBase
         return Ok(list);
     }
 
-    // ─── GET /api/payments/{id} ───────────────────────────────────────
     [HttpGet("{id}")]
     public async Task<ActionResult<PaymentResponseDto>> GetById(Guid id)
     {
-        var p = await _db.Payments.FindAsync(id);
-        if (p == null) return NotFound(new { message = "Pagamento não encontrado." });
+        var payment = await _db.Payments.FindAsync(id);
+        if (payment == null)
+            return NotFound(new { message = "Pagamento nao encontrado." });
 
         return Ok(new PaymentResponseDto
         {
-            Id = p.Id,
-            AppointmentId = p.AppointmentId,
-            Amount = p.Amount,
-            Status = p.Status,
-            PaymentMethod = p.PaymentMethod,
-            TransactionId = p.TransactionId,
-            PaymentDate = p.PaymentDate,
-            Notes = p.Notes,
-            CreatedAt = p.CreatedAt
+            Id = payment.Id,
+            AppointmentId = payment.AppointmentId,
+            Amount = payment.Amount,
+            Status = payment.Status,
+            PaymentMethod = payment.PaymentMethod,
+            TransactionId = payment.TransactionId,
+            PaymentDate = payment.PaymentDate,
+            Notes = payment.Notes,
+            CreatedAt = payment.CreatedAt
         });
     }
 
-    // ─── POST /api/payments ───────────────────────────────────────────
     [HttpPost]
     public async Task<ActionResult<PaymentResponseDto>> Create([FromBody] CreatePaymentDto dto)
     {
         var appt = await _db.Appointments.FindAsync(dto.AppointmentId);
-        if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
+        if (appt == null)
+            return NotFound(new { message = "Consulta nao encontrada." });
 
-        var p = new Payment
+        var payment = new Payment
         {
             Id = Guid.NewGuid(),
             AppointmentId = dto.AppointmentId,
@@ -200,100 +234,95 @@ public class PaymentsController : ControllerBase
             CreatedAt = DateTime.UtcNow
         };
 
-        _db.Payments.Add(p);
+        _db.Payments.Add(payment);
         await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = p.Id }, new PaymentResponseDto
+        return CreatedAtAction(nameof(GetById), new { id = payment.Id }, new PaymentResponseDto
         {
-            Id = p.Id,
-            AppointmentId = p.AppointmentId,
-            Amount = p.Amount,
-            Status = p.Status,
-            PaymentMethod = p.PaymentMethod,
-            TransactionId = p.TransactionId,
-            PaymentDate = p.PaymentDate,
-            Notes = p.Notes,
-            CreatedAt = p.CreatedAt
+            Id = payment.Id,
+            AppointmentId = payment.AppointmentId,
+            Amount = payment.Amount,
+            Status = payment.Status,
+            PaymentMethod = payment.PaymentMethod,
+            TransactionId = payment.TransactionId,
+            PaymentDate = payment.PaymentDate,
+            Notes = payment.Notes,
+            CreatedAt = payment.CreatedAt
         });
     }
 
-    // ─── PUT /api/payments/{id} ───────────────────────────────────────
     [HttpPut("{id}")]
     public async Task<ActionResult<PaymentResponseDto>> Update(Guid id, [FromBody] UpdatePaymentDto dto)
     {
-        var p = await _db.Payments.FindAsync(id);
-        if (p == null) return NotFound(new { message = "Pagamento não encontrado." });
+        var payment = await _db.Payments.FindAsync(id);
+        if (payment == null)
+            return NotFound(new { message = "Pagamento nao encontrado." });
 
-        if (dto.Amount.HasValue) p.Amount = dto.Amount.Value;
-        if (dto.Status != null) p.Status = dto.Status;
-        if (dto.PaymentMethod != null) p.PaymentMethod = dto.PaymentMethod;
-        if (dto.TransactionId != null) p.TransactionId = dto.TransactionId;
-        if (dto.PaymentDate.HasValue) p.PaymentDate = dto.PaymentDate.Value;
-        if (dto.Notes != null) p.Notes = dto.Notes;
-        p.UpdatedAt = DateTime.UtcNow;
+        if (dto.Amount.HasValue) payment.Amount = dto.Amount.Value;
+        if (dto.Status != null) payment.Status = dto.Status;
+        if (dto.PaymentMethod != null) payment.PaymentMethod = dto.PaymentMethod;
+        if (dto.TransactionId != null) payment.TransactionId = dto.TransactionId;
+        if (dto.PaymentDate.HasValue) payment.PaymentDate = dto.PaymentDate.Value;
+        if (dto.Notes != null) payment.Notes = dto.Notes;
+        payment.UpdatedAt = DateTime.UtcNow;
 
-        // Se virou PAID e não tem PaymentDate, marca agora
-        if (dto.Status == "PAID" && !p.PaymentDate.HasValue)
-            p.PaymentDate = DateTime.UtcNow;
+        if (dto.Status == "PAID" && !payment.PaymentDate.HasValue)
+            payment.PaymentDate = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
 
         return Ok(new PaymentResponseDto
         {
-            Id = p.Id,
-            AppointmentId = p.AppointmentId,
-            Amount = p.Amount,
-            Status = p.Status,
-            PaymentMethod = p.PaymentMethod,
-            TransactionId = p.TransactionId,
-            PaymentDate = p.PaymentDate,
-            Notes = p.Notes,
-            CreatedAt = p.CreatedAt
+            Id = payment.Id,
+            AppointmentId = payment.AppointmentId,
+            Amount = payment.Amount,
+            Status = payment.Status,
+            PaymentMethod = payment.PaymentMethod,
+            TransactionId = payment.TransactionId,
+            PaymentDate = payment.PaymentDate,
+            Notes = payment.Notes,
+            CreatedAt = payment.CreatedAt
         });
     }
 
-    // ─── POST /api/payments/{id}/pay ──────────────────────────────────
-    // Marca o pagamento como pago
     [HttpPost("{id}/pay")]
     public async Task<ActionResult<PaymentResponseDto>> MarkAsPaid(Guid id)
     {
-        var p = await _db.Payments.FindAsync(id);
-        if (p == null) return NotFound(new { message = "Pagamento não encontrado." });
+        var payment = await _db.Payments.FindAsync(id);
+        if (payment == null)
+            return NotFound(new { message = "Pagamento nao encontrado." });
 
-        p.Status = "PAID";
-        p.PaymentDate = DateTime.UtcNow;
-        p.UpdatedAt = DateTime.UtcNow;
+        payment.Status = "PAID";
+        payment.PaymentDate = DateTime.UtcNow;
+        payment.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
         return Ok(new PaymentResponseDto
         {
-            Id = p.Id,
-            AppointmentId = p.AppointmentId,
-            Amount = p.Amount,
-            Status = p.Status,
-            PaymentMethod = p.PaymentMethod,
-            TransactionId = p.TransactionId,
-            PaymentDate = p.PaymentDate,
-            Notes = p.Notes,
-            CreatedAt = p.CreatedAt
+            Id = payment.Id,
+            AppointmentId = payment.AppointmentId,
+            Amount = payment.Amount,
+            Status = payment.Status,
+            PaymentMethod = payment.PaymentMethod,
+            TransactionId = payment.TransactionId,
+            PaymentDate = payment.PaymentDate,
+            Notes = payment.Notes,
+            CreatedAt = payment.CreatedAt
         });
     }
 
-    // ─── DELETE /api/payments/{id} ────────────────────────────────────
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(Guid id)
     {
-        var p = await _db.Payments.FindAsync(id);
-        if (p == null) return NotFound(new { message = "Pagamento não encontrado." });
+        var payment = await _db.Payments.FindAsync(id);
+        if (payment == null)
+            return NotFound(new { message = "Pagamento nao encontrado." });
 
-        _db.Payments.Remove(p);
+        _db.Payments.Remove(payment);
         await _db.SaveChangesAsync();
         return NoContent();
     }
 
-    // ─── POST /api/payments/charge ─────────────────────────────────────
-    // Endpoint único da recepção para registrar cobrança em qualquer método.
-    // Cria ou substitui o Payment do agendamento.
     [HttpPost("charge")]
     public async Task<ActionResult<ChargeResponseDto>> Charge([FromBody] ChargeRequestDto dto)
     {
@@ -304,17 +333,21 @@ public class PaymentsController : ControllerBase
             .FirstOrDefaultAsync(a => a.Id == dto.AppointmentId);
 
         if (appt == null)
-            return NotFound(new { message = "Agendamento não encontrado." });
+            return NotFound(new { message = "Agendamento nao encontrado." });
 
         if (appt.Payment?.Status == "PAID")
-            return Conflict(new { message = "Este atendimento já possui cobrança paga. Não é permitido registrar uma nova cobrança." });
+        {
+            return Conflict(new
+            {
+                message = "Este atendimento ja possui cobranca paga. Nao e permitido registrar uma nova cobranca."
+            });
+        }
 
-        var amount = dto.Amount ?? appt.Service?.Price ?? 0;
+        var amount = dto.Amount ?? appt.Service?.Price ?? 0m;
         var description = appt.Service?.Name ?? "Consulta";
         var paidBefore = appt.Status != "COMPLETED";
         var mpToken = await GetClinicMpTokenAsync(appt.ClinicId);
 
-        // Se já existe um pagamento pendente, reutiliza; senão cria novo
         var payment = appt.Payment;
         if (payment == null)
         {
@@ -337,6 +370,8 @@ public class PaymentsController : ControllerBase
         payment.ExternalCheckoutUrl = null;
         payment.UpdatedAt = DateTime.UtcNow;
 
+        var paymentReference = GetPaymentReference(payment);
+
         var resp = new ChargeResponseDto
         {
             PaymentId = payment.Id,
@@ -347,7 +382,6 @@ public class PaymentsController : ControllerBase
 
         switch (dto.Method)
         {
-            // ── Métodos manuais: marcar como PAGO imediatamente ──────────
             case "CASH":
             case "INSURANCE":
             case "OTHER":
@@ -356,14 +390,19 @@ public class PaymentsController : ControllerBase
                 resp.Status = "PAID";
                 break;
 
-            // ── PIX: gerar QR via Mercado Pago ───────────────────────────
             case "PIX":
                 try
                 {
                     var pix = await _mp.CreatePixAsync(
-                        amount, description,
-                        dto.PayerEmail ?? "", dto.PayerFirstName, dto.PayerLastName, dto.PayerCpf,
+                        amount,
+                        description,
+                        dto.PayerEmail ?? "",
+                        dto.PayerFirstName,
+                        dto.PayerLastName,
+                        dto.PayerCpf,
+                        paymentReference,
                         mpToken);
+
                     payment.Status = "PENDING";
                     payment.ExternalPaymentId = pix.ExternalId;
                     payment.ExternalQrCode = pix.QrCode;
@@ -379,12 +418,17 @@ public class PaymentsController : ControllerBase
                 }
                 break;
 
-            // ── Cartão crédito / débito: gerar link de checkout ───────────
             case "CREDIT_CARD":
             case "DEBIT_CARD":
                 try
                 {
-                    var pref = await _mp.CreatePreferenceAsync(amount, description, dto.PayerEmail ?? "", mpToken);
+                    var pref = await _mp.CreatePreferenceAsync(
+                        amount,
+                        description,
+                        dto.PayerEmail ?? "",
+                        paymentReference,
+                        mpToken);
+
                     payment.Status = "PENDING";
                     payment.ExternalPaymentId = pref.ExternalId;
                     payment.ExternalCheckoutUrl = pref.CheckoutUrl;
@@ -411,37 +455,59 @@ public class PaymentsController : ControllerBase
         return Ok(resp);
     }
 
-    // ─── GET /api/payments/charge/{paymentId}/status ───────────────────
-    // Consulta status no Mercado Pago e atualiza o banco se aprovado.
     [HttpGet("charge/{paymentId}/status")]
     public async Task<ActionResult> CheckChargeStatus(Guid paymentId)
     {
-        var p = await _db.Payments.FindAsync(paymentId);
-        if (p == null) return NotFound(new { message = "Pagamento não encontrado." });
+        var payment = await _db.Payments
+            .Include(p => p.Appointment)
+            .FirstOrDefaultAsync(p => p.Id == paymentId);
 
-        if (p.Status == "PAID")
+        if (payment == null)
+            return NotFound(new { message = "Pagamento nao encontrado." });
+
+        if (payment.Status == "PAID")
             return Ok(new { status = "PAID", paymentId });
-
-        if (string.IsNullOrEmpty(p.ExternalPaymentId))
-            return Ok(new { status = p.Status, paymentId });
 
         try
         {
-            var clinicMpToken = await GetClinicMpTokenAsync(
-                (await _db.Appointments.FindAsync(p.AppointmentId))?.ClinicId ?? Guid.Empty);
-            var mpStatus = await _mp.GetPaymentStatusAsync(p.ExternalPaymentId, clinicMpToken);
-            if (mpStatus.Status == "approved")
+            var clinicMpToken = await GetClinicMpTokenAsync(payment.Appointment.ClinicId);
+            var mpStatus = await ResolveMercadoPagoStatusAsync(payment, clinicMpToken);
+
+            if (mpStatus == null)
+                return Ok(new { status = payment.Status, paymentId });
+
+            var internalStatus = MapMercadoPagoStatus(mpStatus.Status);
+            var changed = false;
+
+            if (!string.Equals(payment.ExternalPaymentId, mpStatus.ExternalId, StringComparison.Ordinal))
             {
-                p.Status = "PAID";
-                p.PaymentDate = DateTime.UtcNow;
-                p.UpdatedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync();
+                payment.ExternalPaymentId = mpStatus.ExternalId;
+                changed = true;
             }
-            return Ok(new { status = p.Status == "PAID" ? "PAID" : mpStatus.Status, paymentId });
+
+            if (!string.Equals(payment.Status, internalStatus, StringComparison.Ordinal))
+            {
+                payment.Status = internalStatus;
+                payment.UpdatedAt = DateTime.UtcNow;
+                if (internalStatus == "PAID" && !payment.PaymentDate.HasValue)
+                    payment.PaymentDate = DateTime.UtcNow;
+                changed = true;
+            }
+
+            if (changed)
+                await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                status = payment.Status,
+                gatewayStatus = mpStatus.Status,
+                paymentId,
+                externalPaymentId = payment.ExternalPaymentId,
+            });
         }
         catch (Exception ex)
         {
-            return Ok(new { status = p.Status, paymentId, warning = ex.Message });
+            return Ok(new { status = payment.Status, paymentId, warning = ex.Message });
         }
     }
 }

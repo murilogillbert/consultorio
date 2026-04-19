@@ -26,7 +26,6 @@ public class UpdateIntegrationSettingsDto
     public string? AccessTokenProd    { get; set; }
     public string? AccessTokenSandbox { get; set; }
     public string? PublicKey          { get; set; }
-    public string? WebhookSecret      { get; set; }
     public bool?   SandboxMode        { get; set; }
     public bool?   Connected          { get; set; }
 }

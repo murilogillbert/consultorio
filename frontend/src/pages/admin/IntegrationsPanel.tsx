@@ -8,7 +8,7 @@ import {
 import { useIntegrations, useUpdateIntegrations, useTestIntegration } from '../../hooks/useIntegrations'
 import { api } from '../../services/api'
 
-/* ─── Types ─── */
+/* â”€â”€â”€ Types â”€â”€â”€ */
 type ConnectionStatus = 'connected' | 'disconnected' | 'error'
 
 interface ToastMsg {
@@ -16,12 +16,11 @@ interface ToastMsg {
   text: string
   type: 'success' | 'error' | 'warning'
 }
-
-/* ─── Status Badge Component ─── */
+/* â”€â”€â”€ Status Badge Component â”€â”€â”€ */
 function StatusBadge({ status }: { status: ConnectionStatus }) {
   const labels: Record<ConnectionStatus, string> = {
     connected: 'Conectado',
-    disconnected: 'Não conectado',
+    disconnected: 'NÃ£o conectado',
     error: 'Erro de token',
   }
   return (
@@ -32,7 +31,7 @@ function StatusBadge({ status }: { status: ConnectionStatus }) {
   )
 }
 
-/* ─── Sensitive Field (password toggle) ─── */
+/* â”€â”€â”€ Sensitive Field (password toggle) â”€â”€â”€ */
 function SensitiveField({
   label, required, placeholder, hint, mono,
   value, onChange, error, saved,
@@ -48,7 +47,7 @@ function SensitiveField({
         {label} {required && <span className="intg-required">*</span>}
         {hasSavedValue && !visible && (
           <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--color-accent-emerald, #2D6A4F)', fontWeight: 500 }}>
-            ✓ salvo
+            âœ“ salvo
           </span>
         )}
       </label>
@@ -76,7 +75,7 @@ function SensitiveField({
   )
 }
 
-/* ─── Read-only Webhook URL field ─── */
+/* â”€â”€â”€ Read-only Webhook URL field â”€â”€â”€ */
 function WebhookField({ label, url }: { label: string; url: string }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = () => {
@@ -101,7 +100,7 @@ function WebhookField({ label, url }: { label: string; url: string }) {
   )
 }
 
-/* ─── Scope Tags ─── */
+/* â”€â”€â”€ Scope Tags â”€â”€â”€ */
 function ScopeTags({ scopes }: { scopes: string[] }) {
   return (
     <div className="intg-scope-tags">
@@ -115,7 +114,7 @@ function ScopeTags({ scopes }: { scopes: string[] }) {
   )
 }
 
-/* ─── Instruction Box ─── */
+/* â”€â”€â”€ Instruction Box â”€â”€â”€ */
 function InstructionBox({ steps }: { steps: string[] }) {
   return (
     <div className="intg-instructions">
@@ -132,7 +131,7 @@ function InstructionBox({ steps }: { steps: string[] }) {
   )
 }
 
-/* ─── Save Button with loading states ─── */
+/* â”€â”€â”€ Save Button with loading states â”€â”€â”€ */
 function SaveButton({
   label, icon, onClick, variant = 'primary',
 }: {
@@ -159,7 +158,7 @@ function SaveButton({
   )
 }
 
-/* ─── Accordion Section Wrapper ─── */
+/* â”€â”€â”€ Accordion Section Wrapper â”€â”€â”€ */
 function IntegrationSection({
   icon: Icon, title, description, status, children, defaultOpen,
 }: {
@@ -191,9 +190,9 @@ function IntegrationSection({
   )
 }
 
-/* ═══════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /*              MAIN COMPONENT                */
-/* ═══════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const { data: existingSettings, isLoading } = useIntegrations(clinicId)
@@ -239,9 +238,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!clinicId) return
     try {
       const result = await testMutation.mutateAsync({ clinicId, type })
-      addToast(result.message + ((result as any).detail ? ` — ${(result as any).detail}` : ''), 'success')
+      addToast(result.message + ((result as any).detail ? ` â€” ${(result as any).detail}` : ''), 'success')
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Falha no teste de conexão'
+      const msg = err?.response?.data?.message || err?.message || 'Falha no teste de conexÃ£o'
       addToast(msg, 'error')
     }
   }, [clinicId, testMutation, addToast])
@@ -259,7 +258,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [igErrors, setIgErrors] = useState<Record<string, string>>({})
 
   /* Mercado Pago state */
-  const [mp, setMp] = useState({ accessToken: '', sandboxToken: '', publicKey: '', webhookSecret: '', sandboxMode: true })
+  const [mp, setMp] = useState({ accessToken: '', sandboxToken: '', publicKey: '', sandboxMode: true })
   const [mpErrors, setMpErrors] = useState<Record<string, string>>({})
 
   /* Pub/Sub state */
@@ -286,11 +285,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         pageToken: existingSettings.igAccessToken || '',
       })
       setMp({
-        // Node.js backend sends full token; .NET sends masked — show as-is for display
+        // Node.js backend sends full token; .NET sends masked â€” show as-is for display
         accessToken:  existingSettings.mpAccessTokenProd     || existingSettings.accessTokenProdMasked    || '',
         sandboxToken: existingSettings.mpAccessTokenSandbox  || existingSettings.accessTokenSandboxMasked || '',
         publicKey:    existingSettings.mpPublicKeyProd        || existingSettings.publicKey               || '',
-        webhookSecret: existingSettings.mpWebhookSecret      || '',
         sandboxMode:  existingSettings.sandboxMode           ?? true,
       })
       setPubsub({
@@ -305,48 +303,51 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     return <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" /></div>
   }
 
-  /* ─── Validation helpers ─── */
+  /* â”€â”€â”€ Validation helpers â”€â”€â”€ */
   const validateGmail = () => {
     const e: Record<string, string> = {}
-    if (!gmail.clientId) e.clientId = 'Client ID é obrigatório'
-    if (!gmail.clientSecret) e.clientSecret = 'Client Secret é obrigatório'
+    if (!gmail.clientId) e.clientId = 'Client ID Ã© obrigatÃ³rio'
+    if (!gmail.clientSecret) e.clientSecret = 'Client Secret Ã© obrigatÃ³rio'
     setGmailErrors(e)
     return Object.keys(e).length === 0
   }
 
   const validateWhatsApp = () => {
     const e: Record<string, string> = {}
-    if (!whatsapp.phoneId) e.phoneId = 'Phone Number ID é obrigatório'
-    if (!whatsapp.wabaId) e.wabaId = 'WABA ID é obrigatório'
-    if (!whatsapp.accessToken) e.accessToken = 'Access Token é obrigatório'
-    if (!whatsapp.verifyToken) e.verifyToken = 'Verify Token é obrigatório'
-    if (!whatsapp.appSecret) e.appSecret = 'App Secret é obrigatório'
+    if (!whatsapp.phoneId) e.phoneId = 'Phone Number ID Ã© obrigatÃ³rio'
+    if (!whatsapp.wabaId) e.wabaId = 'WABA ID Ã© obrigatÃ³rio'
+    if (!whatsapp.accessToken) e.accessToken = 'Access Token Ã© obrigatÃ³rio'
+    if (!whatsapp.verifyToken) e.verifyToken = 'Verify Token Ã© obrigatÃ³rio'
+    if (!whatsapp.appSecret) e.appSecret = 'App Secret Ã© obrigatÃ³rio'
     setWaErrors(e)
     return Object.keys(e).length === 0
   }
 
   const validateInstagram = () => {
     const e: Record<string, string> = {}
-    if (!instagram.accountId) e.accountId = 'Account ID é obrigatório'
-    if (!instagram.pageId) e.pageId = 'Page ID é obrigatório'
-    if (!instagram.pageToken) e.pageToken = 'Page Access Token é obrigatório'
+    if (!instagram.accountId) e.accountId = 'Account ID Ã© obrigatÃ³rio'
+    if (!instagram.pageId) e.pageId = 'Page ID Ã© obrigatÃ³rio'
+    if (!instagram.pageToken) e.pageToken = 'Page Access Token Ã© obrigatÃ³rio'
     setIgErrors(e)
     return Object.keys(e).length === 0
   }
 
   const validateMercadoPago = () => {
     const e: Record<string, string> = {}
-    if (!mp.accessToken) e.accessToken = 'Access Token é obrigatório'
-    if (!mp.publicKey) e.publicKey = 'Public Key é obrigatória'
+    if (mp.sandboxMode) {
+      if (!mp.sandboxToken) e.sandboxToken = 'Access Token de sandbox e obrigatorio no modo de testes'
+    } else if (!mp.accessToken) {
+      e.accessToken = 'Access Token de producao e obrigatorio'
+    }
     setMpErrors(e)
     return Object.keys(e).length === 0
   }
 
   const validatePubSub = () => {
     const e: Record<string, string> = {}
-    if (!pubsub.projectId) e.projectId = 'Project ID é obrigatório'
-    if (!pubsub.topicName) e.topicName = 'Nome do tópico é obrigatório'
-    if (!pubsub.serviceKey) e.serviceKey = 'Service Account Key é obrigatória'
+    if (!pubsub.projectId) e.projectId = 'Project ID Ã© obrigatÃ³rio'
+    if (!pubsub.topicName) e.topicName = 'Nome do tÃ³pico Ã© obrigatÃ³rio'
+    if (!pubsub.serviceKey) e.serviceKey = 'Service Account Key Ã© obrigatÃ³ria'
     setPsErrors(e)
     return Object.keys(e).length === 0
   }
@@ -356,34 +357,34 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   return (
     <div className="intg-panel">
       {/* Page Title */}
-      <h3 className="intg-page-title">Integrações</h3>
-      <p className="intg-page-desc">Configure as integrações externas do sistema. Cada canal requer credenciais específicas da plataforma.</p>
+      <h3 className="intg-page-title">IntegraÃ§Ãµes</h3>
+      <p className="intg-page-desc">Configure as integraÃ§Ãµes externas do sistema. Cada canal requer credenciais especÃ­ficas da plataforma.</p>
       <div className="intg-info-banner" style={{ marginBottom: 20 }}>
         <AlertTriangle size={18} />
         <div>
-          <strong>Estado atual das integrações</strong>
-          <p>Hoje os e-mails automáticos do sistema usam SMTP ou Ethereal no backend. Gmail, Pub/Sub e Instagram ainda estão em etapa parcial de construção neste backend Node.</p>
+          <strong>Estado atual das integraÃ§Ãµes</strong>
+          <p>Hoje os e-mails automÃ¡ticos do sistema usam SMTP ou Ethereal no backend. Gmail, Pub/Sub e Instagram ainda estÃ£o em etapa parcial de construÃ§Ã£o neste backend Node.</p>
         </div>
       </div>
 
-      {/* ═══════ SECTION 1: GMAIL ═══════ */}
+      {/* â•â•â•â•â•â•â• SECTION 1: GMAIL â•â•â•â•â•â•â• */}
       <IntegrationSection
         icon={Mail}
         title="Gmail OAuth"
-        description="Prepara a futura integração com caixa de entrada Gmail; o envio atual continua por SMTP"
+        description="Prepara a futura integraÃ§Ã£o com caixa de entrada Gmail; o envio atual continua por SMTP"
         status={gmailStatus}
         defaultOpen
       >
         <div className="intg-info-banner">
           <AlertTriangle size={18} />
           <div>
-            <strong>O que essa seção faz hoje</strong>
-            <p>O callback OAuth do Google já está ativo para conexão da conta. O recebimento de e-mails por webhook/PubSub ainda continua como etapa futura.</p>
+            <strong>O que essa seÃ§Ã£o faz hoje</strong>
+            <p>O callback OAuth do Google jÃ¡ estÃ¡ ativo para conexÃ£o da conta. O recebimento de e-mails por webhook/PubSub ainda continua como etapa futura.</p>
           </div>
         </div>
         <InstructionBox steps={[
           'Acesse console.cloud.google.com e crie um projeto',
-          'Ative a Gmail API em "APIs e Serviços"',
+          'Ative a Gmail API em "APIs e ServiÃ§os"',
           'Crie credenciais OAuth 2.0 (tipo "Aplicativo Web")',
           'Adicione a Redirect URI abaixo nas URIs autorizadas',
           'Copie o Client ID e o Client Secret para os campos abaixo',
@@ -394,7 +395,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="Client ID"
             required
             placeholder="123456789.apps.googleusercontent.com"
-            hint="Encontrado em APIs e Serviços → Credenciais no Google Cloud Console"
+            hint="Encontrado em APIs e ServiÃ§os â†’ Credenciais no Google Cloud Console"
             mono
             value={gmail.clientId}
             saved={Boolean(existingSettings?.gmailClientId) && gmail.clientId === (existingSettings?.gmailClientId || '')}
@@ -419,7 +420,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <ScopeTags scopes={['gmail.readonly', 'gmail.send', 'gmail.modify']} />
 
         <div className="intg-actions">
-          <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+          <SaveButton label="Testar ConexÃ£o" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
             await handleTest('gmail')
           }} />
           <SaveButton label="Revogar Acesso" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
@@ -438,7 +439,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               data: { gmailClientId: gmail.clientId, gmailClientSecret: gmail.clientSecret }
             })
             if (!valid) {
-              addToast('Dados salvos — campos obrigatórios marcados precisam ser preenchidos para autenticar', 'warning')
+              addToast('Dados salvos â€” campos obrigatÃ³rios marcados precisam ser preenchidos para autenticar', 'warning')
               return
             }
             const response = await api.post<{ authUrl: string }>('/auth/google/start', {
@@ -450,18 +451,18 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         </div>
       </IntegrationSection>
 
-      {/* ═══════ SECTION 2: WHATSAPP ═══════ */}
+      {/* â•â•â•â•â•â•â• SECTION 2: WHATSAPP â•â•â•â•â•â•â• */}
       <IntegrationSection
         icon={MessageCircle}
         title="WhatsApp Business"
-        description="Envie mensagens, confirmações e notificações via WhatsApp"
+        description="Envie mensagens, confirmaÃ§Ãµes e notificaÃ§Ãµes via WhatsApp"
         status={waStatus}
       >
         <InstructionBox steps={[
           'Acesse developers.facebook.com e crie um App do tipo "Business"',
           'Adicione o produto "WhatsApp" ao app',
-          'Em Configurações do WhatsApp, copie o Phone Number ID e o WABA ID',
-          'Crie um System User com permissões de WhatsApp e gere um token permanente',
+          'Em ConfiguraÃ§Ãµes do WhatsApp, copie o Phone Number ID e o WABA ID',
+          'Crie um System User com permissÃµes de WhatsApp e gere um token permanente',
           'Configure a URL do webhook abaixo no painel Meta com o Verify Token definido aqui',
         ]} />
 
@@ -470,7 +471,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="Phone Number ID"
             required
             placeholder="1234567890123456"
-            hint="Encontrado em WhatsApp → Configuração da API → Número de telefone"
+            hint="Encontrado em WhatsApp â†’ ConfiguraÃ§Ã£o da API â†’ NÃºmero de telefone"
             mono
             value={whatsapp.phoneId}
             onChange={v => { setWhatsapp(p => ({ ...p, phoneId: v })); setWaErrors(p => ({ ...p, phoneId: '' })) }}
@@ -480,7 +481,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="WABA ID (WhatsApp Business Account)"
             required
             placeholder="9876543210123456"
-            hint="Encontrado em Configurações da Conta Business no Meta Business Suite"
+            hint="Encontrado em ConfiguraÃ§Ãµes da Conta Business no Meta Business Suite"
             mono
             value={whatsapp.wabaId}
             onChange={v => { setWhatsapp(p => ({ ...p, wabaId: v })); setWaErrors(p => ({ ...p, wabaId: '' })) }}
@@ -491,7 +492,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               label="System User Access Token"
               required
               placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              hint="⚠️ Use um token de System User (permanente). Tokens de usuário comum expiram em 60 dias."
+              hint="âš ï¸ Use um token de System User (permanente). Tokens de usuÃ¡rio comum expiram em 60 dias."
               mono
               value={whatsapp.accessToken}
               onChange={v => { setWhatsapp(p => ({ ...p, accessToken: v })); setWaErrors(p => ({ ...p, accessToken: '' })) }}
@@ -502,7 +503,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="Verify Token"
             required
             placeholder="meu_token_seguro_123"
-            hint="Defina uma string qualquer — deve ser idêntica ao valor no painel Meta"
+            hint="Defina uma string qualquer â€” deve ser idÃªntica ao valor no painel Meta"
             value={whatsapp.verifyToken}
             onChange={v => { setWhatsapp(p => ({ ...p, verifyToken: v })); setWaErrors(p => ({ ...p, verifyToken: '' })) }}
             error={waErrors.verifyToken}
@@ -511,7 +512,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="App Secret"
             required
             placeholder="a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
-            hint="Usado para validar assinatura HMAC-SHA256 dos webhooks. Encontrado em Configurações → Básico."
+            hint="Usado para validar assinatura HMAC-SHA256 dos webhooks. Encontrado em ConfiguraÃ§Ãµes â†’ BÃ¡sico."
             mono
             value={whatsapp.appSecret}
             onChange={v => { setWhatsapp(p => ({ ...p, appSecret: v })); setWaErrors(p => ({ ...p, appSecret: '' })) }}
@@ -521,7 +522,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         </div>
 
         <div className="intg-actions">
-          <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+          <SaveButton label="Testar ConexÃ£o" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
             await handleTest('whatsapp')
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
@@ -529,7 +530,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             await updateMutation.mutateAsync({ clinicId, data: { waConnected: false } })
             addToast('WhatsApp desconectado', 'warning')
           }} />
-          <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
+          <SaveButton label="Salvar AlteraÃ§Ãµes" icon={<Shield size={14} />} onClick={async () => {
             const valid = validateWhatsApp()
             if (!clinicId) return
             await updateMutation.mutateAsync({
@@ -544,15 +545,15 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             })
             addToast(
               valid
-                ? 'Configurações do WhatsApp salvas com sucesso'
-                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+                ? 'ConfiguraÃ§Ãµes do WhatsApp salvas com sucesso'
+                : 'Dados salvos â€” campos obrigatÃ³rios destacados em vermelho ainda precisam ser preenchidos',
               valid ? 'success' : 'warning'
             )
           }} />
         </div>
       </IntegrationSection>
 
-      {/* ═══════ SECTION 3: INSTAGRAM DIRECT ═══════ */}
+      {/* â•â•â•â•â•â•â• SECTION 3: INSTAGRAM DIRECT â•â•â•â•â•â•â• */}
       <IntegrationSection
         icon={Camera}
         title="Instagram Direct"
@@ -560,11 +561,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         status={igStatus}
       >
         <InstructionBox steps={[
-          'Certifique-se de ter uma Conta Instagram Business vinculada a uma Página do Facebook',
+          'Certifique-se de ter uma Conta Instagram Business vinculada a uma PÃ¡gina do Facebook',
           'No Meta Developer Portal, adicione o produto "Messenger" ao seu app',
-          'Em Graph API Explorer, gere um Page Access Token de longa duração',
+          'Em Graph API Explorer, gere um Page Access Token de longa duraÃ§Ã£o',
           'Configure a URL do webhook abaixo para o Instagram no painel do app',
-          'Selecione os campos de inscrição desejados (listados abaixo)',
+          'Selecione os campos de inscriÃ§Ã£o desejados (listados abaixo)',
         ]} />
 
         <div className="form-2col">
@@ -572,7 +573,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="Instagram Business Account ID"
             required
             placeholder="17841400000000000"
-            hint="Encontrado via Graph API: GET /me/accounts → instagram_business_account"
+            hint="Encontrado via Graph API: GET /me/accounts â†’ instagram_business_account"
             mono
             value={instagram.accountId}
             onChange={v => { setInstagram(p => ({ ...p, accountId: v })); setIgErrors(p => ({ ...p, accountId: '' })) }}
@@ -582,7 +583,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="Facebook Page ID"
             required
             placeholder="100000000000000"
-            hint="Deve ser a Página do Facebook vinculada à conta Instagram Business"
+            hint="Deve ser a PÃ¡gina do Facebook vinculada Ã  conta Instagram Business"
             mono
             value={instagram.pageId}
             onChange={v => { setInstagram(p => ({ ...p, pageId: v })); setIgErrors(p => ({ ...p, pageId: '' })) }}
@@ -590,10 +591,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           />
           <div className="input-group full-span">
             <SensitiveField
-              label="Page Access Token (longa duração)"
+              label="Page Access Token (longa duraÃ§Ã£o)"
               required
               placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              hint="⚠️ Tokens de curta duração expiram em 1 hora. Use o Graph API para trocar por um de longa duração (60 dias) e depois por um permanente."
+              hint="âš ï¸ Tokens de curta duraÃ§Ã£o expiram em 1 hora. Use o Graph API para trocar por um de longa duraÃ§Ã£o (60 dias) e depois por um permanente."
               mono
               value={instagram.pageToken}
               onChange={v => { setInstagram(p => ({ ...p, pageToken: v })); setIgErrors(p => ({ ...p, pageToken: '' })) }}
@@ -613,7 +614,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         </div>
 
         <div className="intg-actions">
-          <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+          <SaveButton label="Testar ConexÃ£o" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
             await handleTest('instagram')
           }} />
           <SaveButton label="Revogar Acesso" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
@@ -635,29 +636,30 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             addToast(
               valid
                 ? 'Instagram reconectado com sucesso'
-                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+                : 'Dados salvos â€” campos obrigatÃ³rios destacados em vermelho ainda precisam ser preenchidos',
               valid ? 'success' : 'warning'
             )
           }} />
         </div>
       </IntegrationSection>
 
-      {/* ═══════ SECTION 4: MERCADO PAGO ═══════ */}
+      {/* â•â•â•â•â•â•â• SECTION 4: MERCADO PAGO â•â•â•â•â•â•â• */}
       <IntegrationSection
         icon={CreditCard}
         title="Mercado Pago"
-        description="Processe pagamentos online com Pix, cartão e boleto"
+        description="Processe pagamentos online com Pix, cartÃ£o e boleto"
         status={mpStatus}
       >
         <InstructionBox steps={[
-          'Acesse mercadopago.com.br/developers e faça login',
-          'Crie uma aplicação ou acesse a existente',
-          'Em Credenciais de Produção, copie o Access Token e a Public Key',
+          'Acesse mercadopago.com.br/developers e faÃ§a login',
+          'Crie uma aplicaÃ§Ã£o ou acesse a existente',
+          'Em Credenciais de ProduÃ§Ã£o, copie o Access Token e a Public Key',
           'Em Credenciais de Teste, copie o Access Token de sandbox',
-          'Configure a URL de webhook IPN abaixo em Configurações → Notificações IPN',
+          'Salve as credenciais e teste a conexao no modo desejado',
+          'A confirmacao dos pagamentos passa a ser feita por consulta direta na API do Mercado Pago',
         ]} />
 
-        {/* ── Modo sandbox / produção ── */}
+        {/* â”€â”€ Modo sandbox / produÃ§Ã£o â”€â”€ */}
         <div className="intg-mp-mode-toggle">
           <span className="intg-mp-mode-label">Modo ativo:</span>
           <button
@@ -665,46 +667,46 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             className={`intg-mode-btn${mp.sandboxMode ? ' active' : ''}`}
             onClick={() => setMp(p => ({ ...p, sandboxMode: true }))}
           >
-            🧪 Sandbox / Testes
+            ðŸ§ª Sandbox / Testes
           </button>
           <button
             type="button"
             className={`intg-mode-btn${!mp.sandboxMode ? ' active' : ''}`}
             onClick={() => setMp(p => ({ ...p, sandboxMode: false }))}
           >
-            🚀 Produção
+            ðŸš€ ProduÃ§Ã£o
           </button>
           <span className="intg-mp-mode-hint">
             {mp.sandboxMode
-              ? 'Cobranças NÃO são reais. Use para testes.'
-              : '⚠️ Cobranças REAIS serão processadas.'}
+              ? 'CobranÃ§as NÃƒO sÃ£o reais. Use para testes.'
+              : 'âš ï¸ CobranÃ§as REAIS serÃ£o processadas.'}
           </span>
         </div>
 
         <div className="form-2col">
           <div className="input-group full-span">
             <SensitiveField
-              label={`Access Token (${mp.sandboxMode ? 'Sandbox/Testes' : 'Produção'})`}
+              label={`Access Token (${mp.sandboxMode ? 'Sandbox/Testes' : 'ProduÃ§Ã£o'})`}
               required={!mp.sandboxMode}
               placeholder={mp.sandboxMode
                 ? 'TEST-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000'
                 : 'APP_USR-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000'}
               hint={mp.sandboxMode
                 ? 'Credencial de teste. Encontrado em Credenciais de Teste no painel do MP.'
-                : '⚠️ Credencial de produção — nunca exponha publicamente.'}
+                : 'âš ï¸ Credencial de produÃ§Ã£o â€” nunca exponha publicamente.'}
               mono
               value={mp.sandboxMode ? mp.sandboxToken : mp.accessToken}
               onChange={v => mp.sandboxMode
                 ? setMp(p => ({ ...p, sandboxToken: v }))
-                : setMp(p => ({ ...p, accessToken: v, ...(mpErrors.accessToken ? {} : {}) }))
+                : setMp(p => ({ ...p, accessToken: v }))
               }
-              error={!mp.sandboxMode ? mpErrors.accessToken : undefined}
+              error={mp.sandboxMode ? mpErrors.sandboxToken : mpErrors.accessToken}
             />
           </div>
           {!mp.sandboxMode && (
             <div className="input-group full-span">
               <SensitiveField
-                label="Access Token (Sandbox) — guarda para alternância rápida"
+                label="Access Token (Sandbox) â€” guarda para alternÃ¢ncia rÃ¡pida"
                 placeholder="TEST-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000"
                 hint="Opcional. Permite alternar entre prod e sandbox sem redigitar."
                 mono
@@ -715,29 +717,19 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           )}
           <SensitiveField
             label="Public Key"
-            required
             placeholder={mp.sandboxMode
               ? 'TEST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
               : 'APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
-            hint="Usada no frontend para tokenização de cartão. Encontrado junto ao Access Token."
+            hint="Opcional neste fluxo atual. Use apenas se for integrar tokenizacao direta de cartao no frontend."
             mono
             value={mp.publicKey}
             onChange={v => { setMp(p => ({ ...p, publicKey: v })); setMpErrors(p => ({ ...p, publicKey: '' })) }}
             error={mpErrors.publicKey}
           />
-          <SensitiveField
-            label="Webhook Secret IPN"
-            placeholder="Gerado automaticamente pelo Mercado Pago"
-            hint="Gerado ao configurar o webhook no painel do MP. Valida a autenticidade das notificações."
-            mono
-            value={mp.webhookSecret}
-            onChange={v => setMp(p => ({ ...p, webhookSecret: v }))}
-          />
-          <WebhookField label="URL do Webhook IPN" url={`${baseUrl}/webhooks/mercadopago`} />
         </div>
 
         <div className="intg-actions">
-          <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+          <SaveButton label="Testar ConexÃ£o" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
             await handleTest('mercadopago')
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
@@ -746,7 +738,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             await updateMutation.mutateAsync({ clinicId, data: { mpConnected: false, connected: false } as any })
             addToast('Mercado Pago desconectado', 'warning')
           }} />
-          <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
+          <SaveButton label="Salvar AlteraÃ§Ãµes" icon={<Shield size={14} />} onClick={async () => {
             const valid = validateMercadoPago()
             if (!clinicId) return
             await updateMutation.mutateAsync({
@@ -756,38 +748,36 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
                 mpAccessTokenProd:     mp.accessToken,
                 mpAccessTokenSandbox:  mp.sandboxToken,
                 mpPublicKeyProd:       mp.publicKey,
-                mpWebhookSecret:       mp.webhookSecret,
                 // .NET field names
                 accessTokenProd:       mp.accessToken,
                 accessTokenSandbox:    mp.sandboxToken,
                 publicKey:             mp.publicKey,
-                webhookSecret:         mp.webhookSecret,
                 sandboxMode:           mp.sandboxMode,
               } as any
             })
             addToast(
               valid
-                ? `Configurações do Mercado Pago salvas · Modo: ${mp.sandboxMode ? 'Sandbox' : 'Produção'}`
-                : 'Dados salvos — campos obrigatórios ainda precisam ser preenchidos',
+                ? `ConfiguraÃ§Ãµes do Mercado Pago salvas Â· Modo: ${mp.sandboxMode ? 'Sandbox' : 'ProduÃ§Ã£o'}`
+                : 'Dados salvos â€” campos obrigatÃ³rios ainda precisam ser preenchidos',
               valid ? 'success' : 'warning'
             )
           }} />
         </div>
       </IntegrationSection>
 
-      {/* ═══════ SECTION 5: GOOGLE PUB/SUB ═══════ */}
+      {/* â•â•â•â•â•â•â• SECTION 5: GOOGLE PUB/SUB â•â•â•â•â•â•â• */}
       <IntegrationSection
         icon={Cloud}
         title="Google Pub/Sub"
-        description="Notificações em tempo real do Gmail via Google Cloud Pub/Sub"
+        description="NotificaÃ§Ãµes em tempo real do Gmail via Google Cloud Pub/Sub"
         status="disconnected"
       >
 
         <InstructionBox steps={[
           'No Google Cloud Console, acesse o mesmo projeto da Gmail API',
           'Ative a API do Cloud Pub/Sub',
-          'Crie um tópico (ex: gmail-notifications)',
-          'Crie uma service account com as permissões pubsub.subscriber e gmail.readonly',
+          'Crie um tÃ³pico (ex: gmail-notifications)',
+          'Crie uma service account com as permissÃµes pubsub.subscriber e gmail.readonly',
           'Exporte o JSON da service account e cole no campo abaixo',
         ]} />
 
@@ -803,11 +793,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               onChange={e => { setPubsub(p => ({ ...p, projectId: e.target.value })); setPsErrors(p => ({ ...p, projectId: '' })) }}
             />
             {psErrors.projectId && <span className="intg-field-error">{psErrors.projectId}</span>}
-            <span className="intg-field-hint">ID do projeto no Google Cloud Console (não é o nome)</span>
+            <span className="intg-field-hint">ID do projeto no Google Cloud Console (nÃ£o Ã© o nome)</span>
           </div>
           <div className="input-group">
             <label className="input-label">
-              Nome do Tópico Pub/Sub <span className="intg-required">*</span>
+              Nome do TÃ³pico Pub/Sub <span className="intg-required">*</span>
             </label>
             <input
               className={`input-field${psErrors.topicName ? ' intg-error-border' : ''}`}
@@ -839,12 +829,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               onChange={e => { setPubsub(p => ({ ...p, serviceKey: e.target.value })); setPsErrors(p => ({ ...p, serviceKey: '' })) }}
             />
             {psErrors.serviceKey && <span className="intg-field-error">{psErrors.serviceKey}</span>}
-            <span className="intg-field-hint">Cole o conteúdo completo do arquivo JSON exportado pelo Google Cloud</span>
+            <span className="intg-field-hint">Cole o conteÃºdo completo do arquivo JSON exportado pelo Google Cloud</span>
           </div>
         </div>
 
         <div className="intg-actions">
-          <SaveButton label="Salvar Configurações" icon={<Shield size={14} />} onClick={async () => {
+          <SaveButton label="Salvar ConfiguraÃ§Ãµes" icon={<Shield size={14} />} onClick={async () => {
             const valid = validatePubSub()
             if (!clinicId) return
             await updateMutation.mutateAsync({
@@ -857,8 +847,8 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             })
             addToast(
               valid
-                ? 'Configurações do Pub/Sub salvas'
-                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+                ? 'ConfiguraÃ§Ãµes do Pub/Sub salvas'
+                : 'Dados salvos â€” campos obrigatÃ³rios destacados em vermelho ainda precisam ser preenchidos',
               valid ? 'success' : 'warning'
             )
           }} />

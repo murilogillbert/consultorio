@@ -24,7 +24,6 @@ export interface IntegrationSettings {
   mpAccessTokenProd?: string
   mpAccessTokenSandbox?: string
   mpPublicKeyProd?: string
-  mpWebhookSecret?: string
   mpConnected?: boolean
   gmailConnected?: boolean
   waConnected?: boolean

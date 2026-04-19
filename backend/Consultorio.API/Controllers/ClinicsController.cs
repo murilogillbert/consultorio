@@ -172,7 +172,6 @@ public class ClinicsController : ControllerBase
         if (dto.AccessTokenProd    != null) clinic.MpAccessTokenProd    = dto.AccessTokenProd    == "" ? null : dto.AccessTokenProd;
         if (dto.AccessTokenSandbox != null) clinic.MpAccessTokenSandbox = dto.AccessTokenSandbox == "" ? null : dto.AccessTokenSandbox;
         if (dto.PublicKey          != null) clinic.MpPublicKey          = dto.PublicKey          == "" ? null : dto.PublicKey;
-        if (dto.WebhookSecret      != null) clinic.MpWebhookSecret      = dto.WebhookSecret      == "" ? null : dto.WebhookSecret;
         if (dto.SandboxMode.HasValue)       clinic.MpSandboxMode        = dto.SandboxMode.Value;
         if (dto.Connected.HasValue)         clinic.MpConnected          = dto.Connected.Value;
 

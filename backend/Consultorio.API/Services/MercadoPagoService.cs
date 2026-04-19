@@ -1,49 +1,43 @@
+using System.Globalization;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
 namespace Consultorio.API.Services;
 
-// ─── Result types ────────────────────────────────────────────────────────────
-
 public class MpPixResult
 {
-    public string ExternalId      { get; init; } = null!;
-    public string Status          { get; init; } = null!;
-    public string QrCode          { get; init; } = null!;
-    public string QrCodeBase64    { get; init; } = null!;
+    public string ExternalId { get; init; } = null!;
+    public string Status { get; init; } = null!;
+    public string QrCode { get; init; } = null!;
+    public string QrCodeBase64 { get; init; } = null!;
 }
 
 public class MpPreferenceResult
 {
-    public string ExternalId      { get; init; } = null!;
-    public string CheckoutUrl     { get; init; } = null!;
-    public string SandboxUrl      { get; init; } = null!;
+    public string ExternalId { get; init; } = null!;
+    public string CheckoutUrl { get; init; } = null!;
+    public string SandboxUrl { get; init; } = null!;
 }
 
 public class MpPaymentStatus
 {
-    public string ExternalId      { get; init; } = null!;
-    /// <summary>pending | approved | rejected | cancelled</summary>
-    public string Status          { get; init; } = null!;
+    public string ExternalId { get; init; } = null!;
+    public string Status { get; init; } = null!;
 }
 
 public class MpAccountInfo
 {
-    public string Email           { get; init; } = null!;
-    public string SiteId          { get; init; } = null!;
+    public string Email { get; init; } = null!;
+    public string SiteId { get; init; } = null!;
 }
-
-// ─── Service ─────────────────────────────────────────────────────────────────
 
 public class MercadoPagoService
 {
     private readonly HttpClient _http;
-    private readonly string     _fallbackToken;
-    private readonly string     _fallbackPublicKey;
+    private readonly string _fallbackToken;
+    private readonly string _fallbackPublicKey;
 
-    /// <summary>Public key from appsettings — used as fallback when the clinic has none.</summary>
     public string FallbackPublicKey => _fallbackPublicKey;
 
     private static readonly JsonSerializerOptions _json =
@@ -51,38 +45,43 @@ public class MercadoPagoService
 
     public MercadoPagoService(IConfiguration config, HttpClient http)
     {
-        _fallbackToken     = config["MercadoPago:AccessToken"] ?? "";
-        _fallbackPublicKey = config["MercadoPago:PublicKey"]   ?? "";
+        _fallbackToken = config["MercadoPago:AccessToken"] ?? "";
+        _fallbackPublicKey = config["MercadoPago:PublicKey"] ?? "";
         _http = http;
         _http.BaseAddress = new Uri(config["MercadoPago:BaseUrl"] ?? "https://api.mercadopago.com");
     }
 
-    // Resolves the effective token: per-clinic override takes precedence over appsettings fallback.
     private string Resolve(string? overrideToken) =>
         !string.IsNullOrWhiteSpace(overrideToken) ? overrideToken : _fallbackToken;
 
-    // ── PIX ──────────────────────────────────────────────────────────────────
-
     public async Task<MpPixResult> CreatePixAsync(
-        decimal amount, string description,
-        string payerEmail, string? payerFirstName, string? payerLastName, string? payerCpf,
+        decimal amount,
+        string description,
+        string payerEmail,
+        string? payerFirstName,
+        string? payerLastName,
+        string? payerCpf,
+        string? externalReference = null,
         string? accessToken = null)
     {
         var body = new
         {
             transaction_amount = amount,
             description,
+            external_reference = externalReference,
             payment_method_id = "pix",
             payer = new
             {
-                email      = string.IsNullOrWhiteSpace(payerEmail) ? "pagador@clinica.com.br" : payerEmail,
+                email = string.IsNullOrWhiteSpace(payerEmail) ? "pagador@clinica.com.br" : payerEmail,
                 first_name = payerFirstName ?? "Paciente",
-                last_name  = payerLastName  ?? "Clínica",
-                identification = string.IsNullOrWhiteSpace(payerCpf) ? null : new
-                {
-                    type   = "CPF",
-                    number = payerCpf.Replace(".", "").Replace("-", "")
-                }
+                last_name = payerLastName ?? "Clinica",
+                identification = string.IsNullOrWhiteSpace(payerCpf)
+                    ? null
+                    : new
+                    {
+                        type = "CPF",
+                        number = payerCpf.Replace(".", "").Replace("-", "")
+                    }
             }
         };
 
@@ -99,23 +98,24 @@ public class MercadoPagoService
         if (!res.IsSuccessStatusCode)
             throw new Exception($"Mercado Pago PIX error {res.StatusCode}: {raw}");
 
-        using var doc  = JsonDocument.Parse(raw);
-        var root       = doc.RootElement;
-        var txData     = root.GetProperty("point_of_interaction").GetProperty("transaction_data");
+        using var doc = JsonDocument.Parse(raw);
+        var root = doc.RootElement;
+        var txData = root.GetProperty("point_of_interaction").GetProperty("transaction_data");
 
         return new MpPixResult
         {
-            ExternalId    = root.GetProperty("id").GetInt64().ToString(),
-            Status        = root.GetProperty("status").GetString()!,
-            QrCode        = txData.GetProperty("qr_code").GetString()!,
-            QrCodeBase64  = txData.GetProperty("qr_code_base64").GetString()!,
+            ExternalId = root.GetProperty("id").GetInt64().ToString(CultureInfo.InvariantCulture),
+            Status = root.GetProperty("status").GetString() ?? "pending",
+            QrCode = txData.GetProperty("qr_code").GetString() ?? "",
+            QrCodeBase64 = txData.GetProperty("qr_code_base64").GetString() ?? "",
         };
     }
 
-    // ── Preference (link de checkout para cartão) ─────────────────────────────
-
     public async Task<MpPreferenceResult> CreatePreferenceAsync(
-        decimal amount, string description, string payerEmail,
+        decimal amount,
+        string description,
+        string payerEmail,
+        string? externalReference = null,
         string? accessToken = null)
     {
         var body = new
@@ -124,7 +124,11 @@ public class MercadoPagoService
             {
                 new { title = description, quantity = 1, unit_price = amount, currency_id = "BRL" }
             },
-            payer = new { email = string.IsNullOrWhiteSpace(payerEmail) ? "pagador@clinica.com.br" : payerEmail },
+            payer = new
+            {
+                email = string.IsNullOrWhiteSpace(payerEmail) ? "pagador@clinica.com.br" : payerEmail
+            },
+            external_reference = externalReference,
         };
 
         var req = new HttpRequestMessage(HttpMethod.Post, "/checkout/preferences")
@@ -144,16 +148,13 @@ public class MercadoPagoService
 
         return new MpPreferenceResult
         {
-            ExternalId   = root.GetProperty("id").GetString()!,
-            CheckoutUrl  = root.TryGetProperty("init_point",         out var ip)  ? ip.GetString()! : "",
-            SandboxUrl   = root.TryGetProperty("sandbox_init_point", out var sip) ? sip.GetString()! : "",
+            ExternalId = root.GetProperty("id").GetString() ?? "",
+            CheckoutUrl = root.TryGetProperty("init_point", out var initPoint) ? initPoint.GetString() ?? "" : "",
+            SandboxUrl = root.TryGetProperty("sandbox_init_point", out var sandboxPoint) ? sandboxPoint.GetString() ?? "" : "",
         };
     }
 
-    // ── Consultar status ─────────────────────────────────────────────────────
-
-    public async Task<MpPaymentStatus> GetPaymentStatusAsync(
-        string externalId, string? accessToken = null)
+    public async Task<MpPaymentStatus> GetPaymentStatusAsync(string externalId, string? accessToken = null)
     {
         var req = new HttpRequestMessage(HttpMethod.Get, $"/v1/payments/{externalId}");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Resolve(accessToken));
@@ -170,11 +171,56 @@ public class MercadoPagoService
         return new MpPaymentStatus
         {
             ExternalId = externalId,
-            Status     = root.GetProperty("status").GetString()!,
+            Status = root.GetProperty("status").GetString() ?? "pending",
         };
     }
 
-    // ── Test connection (GET /v1/users/me) ───────────────────────────────────
+    public async Task<MpPaymentStatus?> FindPaymentByExternalReferenceAsync(string externalReference, string? accessToken = null)
+    {
+        var req = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/v1/payments/search?sort=date_created&criteria=desc&external_reference={Uri.EscapeDataString(externalReference)}");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Resolve(accessToken));
+
+        var res = await _http.SendAsync(req);
+        var raw = await res.Content.ReadAsStringAsync();
+
+        if (!res.IsSuccessStatusCode)
+            throw new Exception($"Mercado Pago search error {res.StatusCode}: {raw}");
+
+        using var doc = JsonDocument.Parse(raw);
+        if (!doc.RootElement.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
+            return null;
+
+        JsonElement? selected = null;
+        foreach (var item in results.EnumerateArray())
+        {
+            if (selected == null)
+                selected = item;
+
+            if (item.TryGetProperty("status", out var statusEl) &&
+                string.Equals(statusEl.GetString(), "approved", StringComparison.OrdinalIgnoreCase))
+            {
+                selected = item;
+                break;
+            }
+        }
+
+        if (selected == null)
+            return null;
+
+        var payment = selected.Value;
+        if (!payment.TryGetProperty("id", out var idEl) || !payment.TryGetProperty("status", out var paymentStatusEl))
+            return null;
+
+        return new MpPaymentStatus
+        {
+            ExternalId = idEl.ValueKind == JsonValueKind.Number
+                ? idEl.GetInt64().ToString(CultureInfo.InvariantCulture)
+                : idEl.GetString() ?? idEl.GetRawText().Trim('"'),
+            Status = paymentStatusEl.GetString() ?? "pending",
+        };
+    }
 
     public async Task<MpAccountInfo> TestConnectionAsync(string? accessToken = null)
     {
@@ -192,42 +238,8 @@ public class MercadoPagoService
 
         return new MpAccountInfo
         {
-            Email  = root.TryGetProperty("email",   out var e) ? e.GetString() ?? "" : "",
-            SiteId = root.TryGetProperty("site_id", out var s) ? s.GetString() ?? "" : "",
+            Email = root.TryGetProperty("email", out var emailEl) ? emailEl.GetString() ?? "" : "",
+            SiteId = root.TryGetProperty("site_id", out var siteEl) ? siteEl.GetString() ?? "" : "",
         };
-    }
-
-    // ── Validate IPN signature ───────────────────────────────────────────────
-    // MP signs: "id:<paymentId>;request-id:<xRequestId>;ts:<timestamp>;"
-    // Header: X-Signature: ts=<ts>,v1=<hmac>
-
-    public static bool ValidateWebhookSignature(
-        string xSignature, string? xRequestId, string paymentId, string secret)
-    {
-        try
-        {
-            // Parse "ts=...,v1=..."
-            var parts = xSignature
-                .Split(',')
-                .Select(p => p.Split('=', 2))
-                .Where(p => p.Length == 2)
-                .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
-
-            if (!parts.TryGetValue("ts", out var ts) || !parts.TryGetValue("v1", out var v1))
-                return false;
-
-            var manifest = $"id:{paymentId};request-id:{xRequestId ?? ""};ts:{ts};";
-            var expected = Convert.ToHexString(
-                HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(manifest))
-            ).ToLower();
-
-            return CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(expected),
-                Encoding.UTF8.GetBytes(v1.ToLower()));
-        }
-        catch
-        {
-            return false;
-        }
     }
 }
