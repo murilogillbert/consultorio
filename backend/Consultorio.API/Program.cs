@@ -36,6 +36,16 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod()
             .AllowCredentials();
     });
+
+    // Webhooks are called by external servers (Mercado Pago, etc.)
+    // They must not be restricted by origin.
+    options.AddPolicy("AllowWebhooks", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .WithMethods("GET", "POST");
+    });
 });
 
 // JWT

@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Consultorio.API.Services;
@@ -11,6 +13,8 @@ namespace Consultorio.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/webhooks")]
+[AllowAnonymous]                          // no JWT required — MP calls without auth token
+[EnableCors("AllowWebhooks")]             // permit any origin (external server-to-server calls)
 public class WebhooksController : ControllerBase
 {
     private readonly AppDbContext       _db;
