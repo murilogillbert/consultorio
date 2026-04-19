@@ -26,6 +26,15 @@ public class Clinic
     public string? Milestones { get; set; }   // JSON array
     public string? GalleryUrls { get; set; }  // JSON array
     public string? ThemeColors { get; set; }  // JSON object { "--color-accent-gold": "#C9A84C", ... }
+
+    // ── Mercado Pago credentials (stored encrypted-at-rest by SQL Server TDE) ──
+    public string? MpAccessTokenProd    { get; set; }
+    public string? MpAccessTokenSandbox { get; set; }
+    public string? MpPublicKey          { get; set; }
+    public string? MpWebhookSecret      { get; set; }
+    public bool    MpSandboxMode        { get; set; } = true;
+    public bool    MpConnected          { get; set; } = false;
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

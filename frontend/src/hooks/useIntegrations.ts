@@ -3,7 +3,9 @@ import { api } from '../services/api'
 
 export interface IntegrationSettings {
   id?: string
-  clinicId: string
+  clinicId?: string
+
+  // ── Node.js backend field names ──
   gmailClientId?: string
   gmailClientSecret?: string
   gmailAccessToken?: string
@@ -27,6 +29,13 @@ export interface IntegrationSettings {
   gmailConnected?: boolean
   waConnected?: boolean
   igConnected?: boolean
+
+  // ── .NET backend field names (masked tokens — read-only display) ──
+  accessTokenProdMasked?: string
+  accessTokenSandboxMasked?: string
+  publicKey?: string           // MP public key (unmasked — safe to display)
+  sandboxMode?: boolean        // true = sandbox, false = production
+  connected?: boolean          // .NET equivalent of mpConnected
 }
 
 export function useIntegrations(clinicId?: string) {

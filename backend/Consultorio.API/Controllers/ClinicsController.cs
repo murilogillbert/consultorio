@@ -1,7 +1,9 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Consultorio.API.DTOs;
+using Consultorio.API.Services;
 using Consultorio.Domain.Models;
 using Consultorio.Infra.Context;
 
@@ -11,10 +13,19 @@ namespace Consultorio.API.Controllers;
 [Route("api/[controller]")]
 public class ClinicsController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly AppDbContext        _db;
+    private readonly MercadoPagoService  _mp;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public ClinicsController(AppDbContext db) => _db = db;
+    public ClinicsController(AppDbContext db, MercadoPagoService mp)
+    {
+        _db = db;
+        _mp = mp;
+    }
+
+    private static string? Mask(string? token) =>
+        string.IsNullOrEmpty(token) ? null
+            : "••••••••••••••••••" + token[^Math.Min(6, token.Length)..];
 
     // GET /api/clinics
     [HttpGet]
@@ -107,5 +118,99 @@ public class ClinicsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(ClinicResponseDto.FromModel(clinic));
+    }
+
+    // ─── GET /api/clinics/{id}/settings/integrations ──────────────────────────
+    [HttpGet("{id}/settings/integrations")]
+    [Authorize]
+    public async Task<ActionResult<MpIntegrationResponseDto>> GetIntegrations(Guid id)
+    {
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+            return NotFound(new { message = "Clínica não encontrada." });
+
+        return Ok(new MpIntegrationResponseDto
+        {
+            AccessTokenProdMasked    = Mask(clinic.MpAccessTokenProd),
+            AccessTokenSandboxMasked = Mask(clinic.MpAccessTokenSandbox),
+            PublicKey                = clinic.MpPublicKey,
+            SandboxMode              = clinic.MpSandboxMode,
+            Connected                = clinic.MpConnected,
+        });
+    }
+
+    // ─── PUT /api/clinics/{id}/settings/integrations ──────────────────────────
+    [HttpPut("{id}/settings/integrations")]
+    [Authorize]
+    public async Task<ActionResult<MpIntegrationResponseDto>> UpdateIntegrations(
+        Guid id, [FromBody] UpdateMpIntegrationDto dto)
+    {
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+            return NotFound(new { message = "Clínica não encontrada." });
+
+        // Only overwrite if the client sent a non-null, non-empty value.
+        // Sending "" explicitly clears the field.
+        if (dto.AccessTokenProd    != null) clinic.MpAccessTokenProd    = dto.AccessTokenProd    == "" ? null : dto.AccessTokenProd;
+        if (dto.AccessTokenSandbox != null) clinic.MpAccessTokenSandbox = dto.AccessTokenSandbox == "" ? null : dto.AccessTokenSandbox;
+        if (dto.PublicKey          != null) clinic.MpPublicKey          = dto.PublicKey          == "" ? null : dto.PublicKey;
+        if (dto.WebhookSecret      != null) clinic.MpWebhookSecret      = dto.WebhookSecret      == "" ? null : dto.WebhookSecret;
+        if (dto.SandboxMode.HasValue)       clinic.MpSandboxMode        = dto.SandboxMode.Value;
+        if (dto.Connected.HasValue)         clinic.MpConnected          = dto.Connected.Value;
+
+        clinic.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new MpIntegrationResponseDto
+        {
+            AccessTokenProdMasked    = Mask(clinic.MpAccessTokenProd),
+            AccessTokenSandboxMasked = Mask(clinic.MpAccessTokenSandbox),
+            PublicKey                = clinic.MpPublicKey,
+            SandboxMode              = clinic.MpSandboxMode,
+            Connected                = clinic.MpConnected,
+        });
+    }
+
+    // ─── POST /api/clinics/{id}/settings/integrations/mercadopago/test ────────
+    [HttpPost("{id}/settings/integrations/mercadopago/test")]
+    [Authorize]
+    public async Task<ActionResult> TestMercadoPago(Guid id)
+    {
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+            return NotFound(new { message = "Clínica não encontrada." });
+
+        var token = clinic.MpSandboxMode
+            ? clinic.MpAccessTokenSandbox
+            : clinic.MpAccessTokenProd;
+
+        // Fall back to appsettings token if none stored in DB
+        if (string.IsNullOrWhiteSpace(token))
+            token = null; // MercadoPagoService will use its fallback
+
+        try
+        {
+            var info = await _mp.TestConnectionAsync(token);
+
+            // Mark as connected on successful test
+            clinic.MpConnected = true;
+            clinic.UpdatedAt   = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                ok      = true,
+                message = $"Conectado · {info.Email}",
+                detail  = $"Site: {info.SiteId} · Modo: {(clinic.MpSandboxMode ? "Sandbox" : "Produção")}",
+            });
+        }
+        catch (Exception ex)
+        {
+            clinic.MpConnected = false;
+            clinic.UpdatedAt   = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { ok = false, message = ex.Message });
+        }
     }
 }
