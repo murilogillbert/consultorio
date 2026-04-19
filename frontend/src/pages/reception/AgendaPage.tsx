@@ -151,8 +151,9 @@ export default function AgendaPage() {
     <div className="animate-fade-in agenda-page-layout">
       {/* Filters */}
       <div className="agenda-filters">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="btn btn-icon btn-sm" style={{ border: '1px solid var(--color-border-default)' }}
+        {/* Row 1: date nav + desktop CTA */}
+        <div className="agenda-filter-top">
+          <button className="btn btn-icon btn-sm" style={{ border: '1px solid var(--color-border-default)', flexShrink: 0 }}
             onClick={() => {
               const d = new Date(selectedDate + 'T12:00:00'); d.setDate(d.getDate() - 1)
               setSelectedDate(d.toISOString().split('T')[0])
@@ -162,51 +163,58 @@ export default function AgendaPage() {
           <input
             type="date"
             className="input-field"
-            style={{ width: 'auto', padding: '4px 8px', height: 32, fontSize: 13, fontWeight: 500 }}
+            style={{ flex: '1 1 auto', minWidth: 0, padding: '4px 8px', height: 32, fontSize: 13, fontWeight: 500 }}
             value={selectedDate}
             onChange={e => setSelectedDate(e.target.value)}
           />
-          <button className="btn btn-icon btn-sm" style={{ border: '1px solid var(--color-border-default)' }}
+          <button className="btn btn-icon btn-sm" style={{ border: '1px solid var(--color-border-default)', flexShrink: 0 }}
             onClick={() => {
               const d = new Date(selectedDate + 'T12:00:00'); d.setDate(d.getDate() + 1)
               setSelectedDate(d.toISOString().split('T')[0])
             }}>
             <ChevronRight size={16} />
           </button>
+          <button className="btn btn-primary btn-sm agenda-new-desktop" onClick={() => setShowNewModal(true)}>
+            <Plus size={14} /> Novo Agendamento
+          </button>
         </div>
 
-        <div style={{ width: 220 }}>
-          <ComboBox
-            placeholder="Filtrar por Profissional"
-            options={professionals.map(p => ({ value: p.id, label: p.user?.name || 'Profissional' }))}
-            value={profFilter}
-            onChange={val => setProfFilter(val)}
-          />
+        {/* Row 2: filters */}
+        <div className="agenda-filter-bottom">
+          <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+            <ComboBox
+              placeholder="Filtrar profissional"
+              options={professionals.map(p => ({ value: p.id, label: p.user?.name || 'Profissional' }))}
+              value={profFilter}
+              onChange={val => setProfFilter(val)}
+            />
+          </div>
+
+          <div className="search-input-wrapper" style={{ flex: '1 1 160px', maxWidth: 200 }}>
+            <Search size={16} />
+            <input
+              className="input-field"
+              placeholder="Busca rápida..."
+              value={profSearch}
+              onChange={e => setProfSearch(e.target.value)}
+            />
+          </div>
+
+          <label className="agenda-cancelled-label">
+            <input type="checkbox" checked={showCancelled} onChange={e => setShowCancelled(e.target.checked)}
+              style={{ accentColor: 'var(--color-accent-emerald)' }} />
+            Cancelados
+          </label>
         </div>
-
-        <div className="search-input-wrapper" style={{ maxWidth: 200 }}>
-          <Search size={16} />
-          <input
-            className="input-field"
-            placeholder="Busca rápida..."
-            value={profSearch}
-            onChange={e => setProfSearch(e.target.value)}
-          />
-        </div>
-
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
-          <input type="checkbox" checked={showCancelled} onChange={e => setShowCancelled(e.target.checked)}
-            style={{ accentColor: 'var(--color-accent-emerald)' }} />
-          Exibir cancelados
-        </label>
-
-        <button className="btn btn-primary btn-sm" onClick={() => setShowNewModal(true)} style={{ marginLeft: 'auto' }}>
-          <Plus size={14} /> Novo Agendamento
-        </button>
       </div>
 
+      {/* FAB — mobile only */}
+      <button className="agenda-fab" onClick={() => setShowNewModal(true)} aria-label="Novo Agendamento">
+        <Plus size={22} />
+      </button>
+
       {/* Calendar Grid — Day View */}
-      <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, overflow: 'hidden' }}>
+      <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, overflow: 'hidden', position: 'relative' }}>
         <div className="calendar-grid" style={{ flex: 1, minWidth: 0 }}>
           {/* Header */}
           <div className="calendar-header" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>
@@ -270,6 +278,8 @@ export default function AgendaPage() {
 
         {/* Detail Drawer */}
         {selectedAppointment && (
+          <>
+          <div className="agenda-drawer-backdrop" onClick={() => { setSelectedAppointment(null); setShowCancelConfirm(false) }} />
           <div className="appointment-drawer">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}>Detalhes</h3>
@@ -429,6 +439,7 @@ export default function AgendaPage() {
               )}
             </div>
           </div>
+          </>
         )}
       </div>
 

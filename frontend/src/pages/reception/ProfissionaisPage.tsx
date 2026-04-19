@@ -91,7 +91,7 @@ export default function ProfissionaisPage() {
   return (
     <div className="animate-fade-in">
       <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="search-input-wrapper" style={{ maxWidth: 280 }}>
+        <div className="search-input-wrapper profissionais-search-wrapper" style={{ maxWidth: 280 }}>
           <Search size={16} />
           <input
             className="input-field"

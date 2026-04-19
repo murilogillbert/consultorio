@@ -30,7 +30,7 @@ function StatusBadge({ status }: { status: ProfessionalMetric['status'] }) {
 export default function MetricasProfissionaisPage() {
   const [period, setPeriod] = useState('30 dias')
   const { user } = useAuth()
-  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const clinicId = user?.clinicId
   const { data: professionals = [], isLoading } = useProfessionalMetrics(clinicId, undefined, undefined, period)
 
   const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)

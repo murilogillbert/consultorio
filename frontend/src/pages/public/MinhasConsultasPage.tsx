@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Loader2, CalendarDays, Clock, UserCheck,
   MessageCircle, Send, CheckCircle, XCircle, LogOut, Lock, Eye, EyeOff, AlertTriangle, X
@@ -7,7 +8,7 @@ import {
   usePatientLogin, useRegisterPatient,
   usePatientAppointments, usePatientConversation, useSendPatientMessage,
   useCancelPatientAppointment, useSubmitReview,
-  getPatientUser, clearPatient, type PatientAppointment
+  getPatientToken, getPatientUser, clearPatient, subscribeToPatientAuthChange, type PatientAppointment
 } from '../../hooks/usePatientPortal'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -239,7 +240,10 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
   const { data: convData, isLoading: loadingConv } = usePatientConversation()
   const sendMsg = useSendPatientMessage()
   const [message, setMessage] = useState('')
-  const [tab, setTab] = useState<'consultas' | 'chat'>('consultas')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<'consultas' | 'chat'>(() =>
+    searchParams.get('tab') === 'chat' ? 'chat' : 'consultas'
+  )
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -594,6 +598,24 @@ export default function MinhasConsultasPage() {
         name: authUser.name,
         email: authUser.email,
       }))
+    }
+  }, [isAuthenticated, authUser, authToken])
+
+  useEffect(() => {
+    const syncScreen = () => {
+      const hasPortalToken = !!getPatientToken()
+      const hasAuthPatient = isAuthenticated && authUser?.role === 'PATIENT' && !!authToken
+      if (!hasPortalToken && !hasAuthPatient) {
+        setScreen('login')
+      }
+    }
+
+    syncScreen()
+    const unsubscribe = subscribeToPatientAuthChange(syncScreen)
+    window.addEventListener('storage', syncScreen)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', syncScreen)
     }
   }, [isAuthenticated, authUser, authToken])
 

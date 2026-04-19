@@ -116,27 +116,26 @@ export default function PatientsPage() {
 
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>Carregando pacientes...</div>
+      ) : patients.length === 0 ? (
+        <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+          Nenhum paciente encontrado.
+        </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Paciente</th>
-                <th>CPF</th>
-                <th>Telefone</th>
-                <th>Última Consulta</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {patients.length === 0 ? (
+        <>
+          {/* Desktop: tabela */}
+          <div className="patient-table-wrapper card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
-                    Nenhum paciente encontrado.
-                  </td>
+                  <th>Paciente</th>
+                  <th>CPF</th>
+                  <th>Telefone</th>
+                  <th>Última Consulta</th>
+                  <th style={{ textAlign: 'right' }}>Ações</th>
                 </tr>
-              ) : (
-                patients.map(p => (
+              </thead>
+              <tbody>
+                {patients.map(p => (
                   <tr key={p.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -155,21 +154,45 @@ export default function PatientsPage() {
                     <td>
                       <div className="row-actions">
                         <button className="btn btn-icon btn-sm" onClick={() => handleEdit(p)} title="Editar"><Edit size={14} /></button>
-                        <button
-                          className="btn btn-icon btn-sm"
-                          title="Remover"
-                          onClick={() => { setDeleteConfirm({ id: p.id, name: p.user?.name || 'este paciente' }); setDeleteError('') }}
-                        >
+                        <button className="btn btn-icon btn-sm" title="Remover"
+                          onClick={() => { setDeleteConfirm({ id: p.id, name: p.user?.name || 'este paciente' }); setDeleteError('') }}>
                           <Trash2 size={14} color="var(--color-accent-danger)" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: cards */}
+          <div className="patient-card-list card" style={{ padding: 0, overflow: 'hidden' }}>
+            {patients.map(p => {
+              const initials = (p.user?.name || 'P').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+              return (
+                <div key={p.id} className="patient-card-mobile">
+                  <div className="avatar avatar-sm avatar-placeholder">{initials}</div>
+                  <div className="patient-card-info">
+                    <div className="patient-card-name">{p.user?.name || '—'}</div>
+                    <div className="patient-card-email">{p.user?.email || '—'}</div>
+                    <div className="patient-card-details">
+                      {p.cpf && <span>CPF: {p.cpf}</span>}
+                      {p.phone && <span>Tel: {p.phone}</span>}
+                    </div>
+                  </div>
+                  <div className="patient-card-actions">
+                    <button className="btn btn-icon btn-sm" onClick={() => handleEdit(p)} title="Editar"><Edit size={15} /></button>
+                    <button className="btn btn-icon btn-sm" title="Remover"
+                      onClick={() => { setDeleteConfirm({ id: p.id, name: p.user?.name || 'este paciente' }); setDeleteError('') }}>
+                      <Trash2 size={15} color="var(--color-accent-danger)" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {/* Delete confirmation modal */}

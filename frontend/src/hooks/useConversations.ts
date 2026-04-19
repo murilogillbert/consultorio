@@ -31,86 +31,60 @@ export interface PatientConversationDetail {
   messages: PatientMessageItem[]
 }
 
-export interface ExternalMessage {
-  id: string
-  conversationId: string
-  direction: 'IN' | 'OUT'
-  type: string
-  content?: string
-  createdAt: string
-  readAt?: string
-  sentById?: string
-}
-
-export interface Conversation {
-  id: string
-  clinicId: string
-  contactId: string
-  channel: string
-  status: string
-  unreadCount: number
+// Raw shape returned by GET /api/patient-conversations
+interface ConversationSummaryRaw {
+  patientId: string
+  patientName: string
+  patientEmail?: string
   lastMessageAt?: string
-  createdAt: string
-  contact?: {
+  unreadCount: number
+  lastMessage?: string
+  source?: string
+}
+
+// Raw shape returned by GET /api/patient-conversations/{id}/messages
+interface ConversationDetailRaw {
+  patient: {
     id: string
-    name?: string
-    phone?: string
+    name: string
     email?: string
-    patientId?: string
-  }
-  messages?: ExternalMessage[]
-}
-
-function mapConversationSummary(conversation: Conversation): PatientConversationSummary {
-  const lastMessage = conversation.messages?.[0]
-
-  return {
-    patientId: conversation.id,
-    patientName: conversation.contact?.name || conversation.contact?.phone || 'Contato sem nome',
-    patientEmail: conversation.contact?.email,
-    lastMessageAt: conversation.lastMessageAt || lastMessage?.createdAt || conversation.createdAt,
-    unreadCount: conversation.unreadCount,
-    lastMessage: lastMessage?.content,
-    source: conversation.channel,
-  }
-}
-
-function mapConversationMessage(message: ExternalMessage): PatientMessageItem {
-  return {
-    id: message.id,
-    direction: message.direction,
-    content: message.content || '',
-    isRead: !!message.readAt,
-    createdAt: message.createdAt,
-    sentByUserId: message.sentById,
-  }
+    phone?: string
+  } | null
+  messages: PatientMessageItem[]
 }
 
 export function useConversations(clinicId?: string) {
   return useQuery<PatientConversationSummary[]>({
     queryKey: ['patient-conversations', clinicId],
     queryFn: async () => {
-      const { data } = await api.get<Conversation[]>('/messaging/conversations', {
-        params: clinicId ? { clinicId } : undefined,
-      })
-      return data.map(mapConversationSummary)
+      // clinicId is read from the JWT on the backend — no query param needed.
+      const { data } = await api.get<ConversationSummaryRaw[]>('/patient-conversations')
+      return data.map(c => ({
+        patientId: c.patientId,
+        patientName: c.patientName,
+        patientEmail: c.patientEmail,
+        lastMessageAt: c.lastMessageAt || new Date().toISOString(),
+        unreadCount: c.unreadCount,
+        lastMessage: c.lastMessage,
+        source: c.source,
+      }))
     },
     enabled: !!clinicId,
     refetchInterval: 15_000,
   })
 }
 
-export function usePatientConversationDetail(conversationId: string | null) {
+export function usePatientConversationDetail(patientId: string | null) {
   return useQuery<PatientConversationDetail>({
-    queryKey: ['patient-conversation-messages', conversationId],
+    queryKey: ['patient-conversation-messages', patientId],
     queryFn: async () => {
-      const { data } = await api.get<ExternalMessage[]>(`/messaging/conversations/${conversationId}/messages`)
+      const { data } = await api.get<ConversationDetailRaw>(`/patient-conversations/${patientId}/messages`)
       return {
-        patient: null,
-        messages: data.map(mapConversationMessage),
+        patient: data.patient ?? null,
+        messages: data.messages ?? [],
       }
     },
-    enabled: !!conversationId,
+    enabled: !!patientId,
     refetchInterval: 10_000,
   })
 }
@@ -119,8 +93,8 @@ export function useSendConversationMessage() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ conversationId, content }: { conversationId: string; content: string }) => {
-      const { data } = await api.post<ExternalMessage>(`/messaging/conversations/${conversationId}/messages`, { content })
-      return mapConversationMessage(data)
+      const { data } = await api.post<PatientMessageItem>(`/patient-conversations/${conversationId}/reply`, { content })
+      return data
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['patient-conversation-messages', vars.conversationId] })
@@ -129,11 +103,12 @@ export function useSendConversationMessage() {
   })
 }
 
+// Backend auto-marks messages as read on GET — no dedicated endpoint needed
 export function useMarkConversationRead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (conversationId: string) => {
-      await api.patch(`/messaging/conversations/${conversationId}/read`)
+    mutationFn: async (_conversationId: string) => {
+      // No-op: the backend marks messages read automatically when fetched
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
   })

@@ -60,7 +60,7 @@ export default function ConfiguracoesPage() {
   const updateClinicMutation = useUpdateClinic()
   const clinic = clinics[0]
 
-  const [clinicForm, setClinicForm] = useState({ name: '', cnpj: '', address: '', phone: '', email: '', instagram: '', facebook: '' })
+  const [clinicForm, setClinicForm] = useState({ name: '', cnpj: '', address: '', phone: '', email: '', whatsapp: '', instagram: '', facebook: '' })
   const [clinicSaveMsg, setClinicSaveMsg] = useState('')
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
@@ -183,6 +183,7 @@ export default function ConfiguracoesPage() {
         address: clinic.address || '',
         phone: clinic.phone || '',
         email: clinic.email || '',
+        whatsapp: clinic.whatsapp || '',
         instagram: clinic.instagram || '',
         facebook: clinic.facebook || '',
       })
@@ -436,11 +437,27 @@ export default function ConfiguracoesPage() {
                 </div>
                 <div className="input-group">
                   <label className="input-label">E-mail</label>
-                  <input 
-                    className="input-field" 
-                    value={clinicForm.email} 
-                    onChange={e => setClinicForm({ ...clinicForm, email: e.target.value })} 
+                  <input
+                    className="input-field"
+                    value={clinicForm.email}
+                    onChange={e => setClinicForm({ ...clinicForm, email: e.target.value })}
                   />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">
+                    WhatsApp
+                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: 6 }}>· botão do site</span>
+                  </label>
+                  <input
+                    className="input-field"
+                    type="tel"
+                    placeholder="+55 11 99999-9999"
+                    value={clinicForm.whatsapp}
+                    onChange={e => setClinicForm({ ...clinicForm, whatsapp: e.target.value })}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
+                    Formato recomendado: +5511999999999 (sem espaços ou traços)
+                  </span>
                 </div>
                 <div className="input-group">
                   <label className="input-label">Instagram</label>

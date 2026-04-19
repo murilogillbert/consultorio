@@ -52,7 +52,7 @@ export default function ServicosPage() {
   const [categoryError, setCategoryError] = useState('')
 
   const { user } = useAuth()
-  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const clinicId = user?.clinicId
 
   const { data: services = [], isLoading } = useServices()
   const { data: rooms = [] } = useRooms()
@@ -326,80 +326,130 @@ export default function ServicosPage() {
               <p>Carregando servicos...</p>
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Servico</th>
-                    <th>Categoria</th>
-                    <th>Duracao</th>
-                    <th>Preco</th>
-                    <th>Salas</th>
-                    <th>Equipamentos</th>
-                    <th>Online</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Acoes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((svc) => (
-                    <tr key={svc.id}>
-                      <td style={{ fontWeight: 500 }}>{svc.name}</td>
-                      <td><span className="badge badge-gold">{svc.category || '—'}</span></td>
-                      <td style={{ color: 'var(--color-text-muted)' }}>{formatDuration(svc.duration)}</td>
-                      <td style={{ color: 'var(--color-accent-gold)', fontWeight: 500 }}>{formatPrice(svc.price)}</td>
-                      <td>
-                        {svc.rooms && svc.rooms.length > 0
-                          ? <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{svc.rooms.map(r => r.name).join(', ')}</span>
-                          : <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>—</span>
-                        }
-                      </td>
-                      <td>
-                        {svc.equipments && svc.equipments.length > 0
-                          ? <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{svc.equipments.map(e => e.name).join(', ')}</span>
-                          : <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>—</span>
-                        }
-                      </td>
-                      <td>
+            <>
+              {/* Desktop: tabela */}
+              <div className="admin-svc-table-wrapper card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Servico</th>
+                      <th>Categoria</th>
+                      <th>Duracao</th>
+                      <th>Preco</th>
+                      <th>Salas</th>
+                      <th>Equipamentos</th>
+                      <th>Online</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right' }}>Acoes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((svc) => (
+                      <tr key={svc.id}>
+                        <td style={{ fontWeight: 500 }}>{svc.name}</td>
+                        <td><span className="badge badge-gold">{svc.category || '—'}</span></td>
+                        <td style={{ color: 'var(--color-text-muted)' }}>{formatDuration(svc.duration)}</td>
+                        <td style={{ color: 'var(--color-accent-gold)', fontWeight: 500 }}>{formatPrice(svc.price)}</td>
+                        <td>
+                          {svc.rooms && svc.rooms.length > 0
+                            ? <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{svc.rooms.map(r => r.name).join(', ')}</span>
+                            : <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>—</span>
+                          }
+                        </td>
+                        <td>
+                          {svc.equipments && svc.equipments.length > 0
+                            ? <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{svc.equipments.map(e => e.name).join(', ')}</span>
+                            : <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>—</span>
+                          }
+                        </td>
+                        <td>
+                          <span className={`badge ${svc.onlineBooking ? 'badge-emerald' : 'badge-muted'}`}>
+                            {svc.onlineBooking ? 'Sim' : 'Nao'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${svc.active ? 'badge-emerald' : 'badge-muted'}`}>
+                            {svc.active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="row-actions">
+                            <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(svc)}>
+                              <Edit size={14} color="var(--color-accent-emerald)" />
+                            </button>
+                            <button
+                              className="btn btn-icon btn-sm"
+                              title={svc.active ? 'Desativar (ocultar do site)' : 'Ativar'}
+                              onClick={() => handleToggleActive(svc.id)}
+                              disabled={toggleActiveMutation.isPending}
+                            >
+                              {svc.active
+                                ? <EyeOff size={14} color="var(--color-accent-warning)" />
+                                : <Eye size={14} color="var(--color-accent-emerald)" />
+                              }
+                            </button>
+                            <button
+                              className="btn btn-icon btn-sm"
+                              title="Excluir permanentemente"
+                              onClick={() => { setDeleteConfirmId(svc.id); setDeleteConfirmName(svc.name); setDeleteError('') }}
+                            >
+                              <Trash2 size={14} color="var(--color-accent-danger)" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile: cards */}
+              <div className="admin-svc-card-list card" style={{ padding: 0, overflow: 'hidden' }}>
+                {filtered.map((svc) => (
+                  <div key={svc.id} className="admin-svc-card">
+                    <div className="admin-svc-card-info">
+                      <div className="admin-svc-card-name">{svc.name}</div>
+                      <div className="admin-svc-card-meta">
+                        <span>{formatDuration(svc.duration)}</span>
+                        {svc.category && <><span>·</span><span>{svc.category}</span></>}
+                      </div>
+                      <div className="admin-svc-card-footer">
+                        <span style={{ color: 'var(--color-accent-gold)', fontWeight: 600, fontSize: 14 }}>{formatPrice(svc.price)}</span>
                         <span className={`badge ${svc.onlineBooking ? 'badge-emerald' : 'badge-muted'}`}>
-                          {svc.onlineBooking ? 'Sim' : 'Nao'}
+                          {svc.onlineBooking ? 'Online' : 'Presencial'}
                         </span>
-                      </td>
-                      <td>
                         <span className={`badge ${svc.active ? 'badge-emerald' : 'badge-muted'}`}>
                           {svc.active ? 'Ativo' : 'Inativo'}
                         </span>
-                      </td>
-                      <td>
-                        <div className="row-actions">
-                          <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(svc)}>
-                            <Edit size={14} color="var(--color-accent-emerald)" />
-                          </button>
-                          <button
-                            className="btn btn-icon btn-sm"
-                            title={svc.active ? 'Desativar (ocultar do site)' : 'Ativar'}
-                            onClick={() => handleToggleActive(svc.id)}
-                            disabled={toggleActiveMutation.isPending}
-                          >
-                            {svc.active
-                              ? <EyeOff size={14} color="var(--color-accent-warning)" />
-                              : <Eye size={14} color="var(--color-accent-emerald)" />
-                            }
-                          </button>
-                          <button
-                            className="btn btn-icon btn-sm"
-                            title="Excluir permanentemente"
-                            onClick={() => { setDeleteConfirmId(svc.id); setDeleteConfirmName(svc.name); setDeleteError('') }}
-                          >
-                            <Trash2 size={14} color="var(--color-accent-danger)" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </div>
+                    <div className="admin-svc-card-actions">
+                      <button className="btn btn-icon btn-sm" title="Editar" onClick={() => handleEdit(svc)}>
+                        <Edit size={14} color="var(--color-accent-emerald)" />
+                      </button>
+                      <button
+                        className="btn btn-icon btn-sm"
+                        title={svc.active ? 'Desativar' : 'Ativar'}
+                        onClick={() => handleToggleActive(svc.id)}
+                        disabled={toggleActiveMutation.isPending}
+                      >
+                        {svc.active
+                          ? <EyeOff size={14} color="var(--color-accent-warning)" />
+                          : <Eye size={14} color="var(--color-accent-emerald)" />
+                        }
+                      </button>
+                      <button
+                        className="btn btn-icon btn-sm"
+                        title="Excluir"
+                        onClick={() => { setDeleteConfirmId(svc.id); setDeleteConfirmName(svc.name); setDeleteError('') }}
+                      >
+                        <Trash2 size={14} color="var(--color-accent-danger)" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </>
       ) : (

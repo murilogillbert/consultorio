@@ -264,15 +264,21 @@ export default function PublicLayout() {
       <div className="floating-contact">
         {floatingOpen && (
           <div className="floating-menu">
-            <button className="floating-menu-item" onClick={() => window.open('https://wa.me/5511999999999?text=Olá, gostaria de agendar uma consulta', '_blank')}>
+            <button className="floating-menu-item" onClick={() => window.open(`https://wa.me/${(clinic?.whatsapp || clinic?.phone || '').replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta`, '_blank')}>
               <MessageCircle size={18} />
               <span>WhatsApp</span>
             </button>
-            <button className="floating-menu-item" onClick={() => window.open('tel:+5511999999999')}>
+            <button className="floating-menu-item" onClick={() => window.open(`tel:${(clinic?.phone || clinic?.whatsapp || '').replace(/\D/g, '')}`)}>
               <Phone size={18} />
               <span>Ligar</span>
             </button>
-            <button className="floating-menu-item">
+            <button
+              className="floating-menu-item"
+              onClick={() => {
+                setFloatingOpen(false)
+                navigate(isAuthenticated ? '/minhas-consultas?tab=chat' : '/minhas-consultas')
+              }}
+            >
               <ExternalLink size={18} />
               <span>Chat Online</span>
             </button>
