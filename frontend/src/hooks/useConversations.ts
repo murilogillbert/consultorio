@@ -57,9 +57,8 @@ export function useConversations(clinicId?: string) {
   return useQuery<PatientConversationSummary[]>({
     queryKey: ['patient-conversations', clinicId],
     queryFn: async () => {
-      const { data } = await api.get<ConversationSummaryRaw[]>('/patient-conversations', {
-        params: clinicId ? { clinicId } : undefined,
-      })
+      // clinicId is read from the JWT on the backend — no query param needed.
+      const { data } = await api.get<ConversationSummaryRaw[]>('/patient-conversations')
       return data.map(c => ({
         patientId: c.patientId,
         patientName: c.patientName,

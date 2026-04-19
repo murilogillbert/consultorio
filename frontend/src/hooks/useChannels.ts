@@ -45,12 +45,14 @@ function mapChannel(raw: ChannelRaw): Channel {
 export function useChannels(clinicId?: string) {
   return useQuery<Channel[]>({
     queryKey: ['channels', clinicId],
+    // clinicId is read from the JWT on the backend — no query param needed.
+    // We keep it in the queryKey so the cache stays scoped, and use it
+    // only as an enabled guard to avoid firing for roles without a clinic.
     queryFn: async () => {
-      const { data } = await api.get<ChannelRaw[]>('/chatchannels', {
-        params: clinicId ? { clinicId } : undefined,
-      })
+      const { data } = await api.get<ChannelRaw[]>('/chatchannels')
       return data.map(mapChannel)
     },
+    enabled: !!clinicId,
   })
 }
 

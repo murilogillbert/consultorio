@@ -155,8 +155,8 @@ function NewConversationModal({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function MensagensPage() {
   const { user } = useAuth()
-  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
-  const myUserId = (user as any)?.id
+  const clinicId = user?.clinicId
+  const myUserId = user?.id
 
   const [activeTab, setActiveTab] = useState<'patients' | 'internal'>('patients')
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
