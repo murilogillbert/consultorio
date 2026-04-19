@@ -1,7 +1,7 @@
 import { ServicesService } from './ServicesService'
-import { ServicesRepository } from '../repositories/servicesRepository'
+import { ServicesRepository } from '../repositories'
 
-export async function listServicesService() {
-  const svc = new ServicesService(new ServicesRepository())
-  return svc.executeList()
+export async function listServicesService(clinicId?: string) {
+  const repo = new ServicesRepository()
+  return repo.findAll()
 }

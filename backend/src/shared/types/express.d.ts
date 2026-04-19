@@ -1,3 +1,17 @@
-// Express Request type augmentation is in src/@types/express/index.d.ts
-// This file intentionally left as a re-export point for consistency.
+// Express Request type augmentation
+import { Request } from 'express'
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string
+        email: string
+        role: string
+        clinicId?: string
+      }
+    }
+  }
+}
+
 export {}

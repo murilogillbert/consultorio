@@ -31,3 +31,7 @@ export function addDays(date: Date, days: number): Date {
 export function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000)
 }
+
+export function getHoursDifference(from: Date, to: Date): number {
+  return (to.getTime() - from.getTime()) / (1000 * 60 * 60)
+}

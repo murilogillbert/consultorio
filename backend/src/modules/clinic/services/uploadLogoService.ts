@@ -12,5 +12,5 @@ export async function uploadLogoService(clinicId: string, logoUrl: string) {
   if (!logoUrl) throw new AppError('logoUrl é obrigatório', 400)
   const clinic = await clinicRepository.findById(clinicId)
   if (!clinic) throw new AppError('Clínica não encontrada', 404)
-  return clinicRepository.update(clinicId, { logoUrl } as any)
+  return clinicRepository.update(clinicId, { logoUrl })
 }

@@ -1,5 +1,5 @@
-import { prisma } from '../../../config/database'
-import { AppError } from '../../../shared/errors/AppError'
+import { prisma } from '../../../../config/database'
+import { AppError } from '../../../../shared/errors/AppError'
 
 export class ChannelManagementService {
   async createChannel(params: {
@@ -42,7 +42,17 @@ export class ChannelManagementService {
       include: {
         _count: { select: { members: true, messages: true } },
       },
-      orderBy: { name: 'asc' },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  async getChannel(id: string) {
+    return prisma.internalChannel.findUnique({
+      where: { id },
+      include: {
+        members: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } },
+        _count: { select: { messages: true } },
+      },
     })
   }
 }

@@ -8,4 +8,7 @@ export function validateCreatePatient(dto: Partial<CreatePatientDto>): void {
   if (dto.cpf && !/^\d{11}$/.test(dto.cpf.replace(/\D/g, ''))) {
     throw new AppError('CPF inválido', 400)
   }
+  if (dto.birthDate && isNaN(new Date(dto.birthDate).getTime())) {
+    throw new AppError('Data de nascimento inválida', 400)
+  }
 }

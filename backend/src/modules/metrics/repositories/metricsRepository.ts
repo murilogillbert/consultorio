@@ -48,7 +48,7 @@ export class MetricsRepository {
 
     return grouped.map(g => ({
       serviceId: g.serviceId,
-      name: services.find(s => s.id === g.serviceId)?.name ?? '',
+      name: services.find(s => s.id === g.serviceId)?.name ?? 'Unknown',
       count: g._count.id,
     }))
   }

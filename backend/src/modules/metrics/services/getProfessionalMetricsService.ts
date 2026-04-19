@@ -41,5 +41,5 @@ export async function getProfessionalMetricsService(filter: MetricsFilterDto) {
     })
   )
 
-  return results
+  return { professionals: results, period: { start, end } }
 }

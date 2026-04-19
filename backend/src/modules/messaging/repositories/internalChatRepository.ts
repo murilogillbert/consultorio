@@ -29,7 +29,7 @@ export class InternalChatRepository {
       include: {
         _count: { select: { members: true, messages: true } },
       },
-      orderBy: { name: 'asc' },
+      orderBy: { createdAt: 'desc' },
     })
   }
 }

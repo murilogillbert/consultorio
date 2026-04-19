@@ -92,56 +92,37 @@ export class ProfessionalsService {
   async executeToggleActive(id: string): Promise<Professional> {
     const professional = await this.professionalsRepository.findById(id)
     if (!professional) {
-      throw new AppError('Profissional nÃ£o encontrado', 404)
+      throw new AppError('Profissional não encontrado', 404)
     }
-
-    return this.professionalsRepository.update(id, {
-      active: !professional.active,
-    })
+    return this.professionalsRepository.update(id, { active: !professional.active })
   }
 
-  async executeGetAvailability(professionalId: string, date: Date) {
-    await this.executeGet(professionalId)
+  async executeGetAvailability(professionalId: string, date: Date): Promise<any> {
+    // Implementation for getting available time slots
+    const dayOfWeek = date.getDay()
+    const schedules = await prisma.schedule.findMany({
+      where: { professionalId, dayOfWeek, active: true },
+    })
+    
+    if (schedules.length === 0) {
+      return { available: false, message: 'Profissional não atua neste dia da semana' }
+    }
 
+    // Get booked appointments for this date
     const dayStart = new Date(date)
     dayStart.setHours(0, 0, 0, 0)
-
-    const dayEnd = new Date(dayStart)
+    const dayEnd = new Date(date)
     dayEnd.setHours(23, 59, 59, 999)
 
-    const [schedules, blocks, appointments] = await Promise.all([
-      prisma.schedule.findMany({
-        where: {
-          professionalId,
-          active: true,
-          dayOfWeek: dayStart.getDay(),
-        },
-        orderBy: { startTime: 'asc' },
-      }),
-      prisma.block.findMany({
-        where: {
-          professionalId,
-          startTime: { lte: dayEnd },
-          endTime: { gte: dayStart },
-        },
-        orderBy: { startTime: 'asc' },
-      }),
-      prisma.appointment.findMany({
-        where: {
-          professionalId,
-          startTime: { gte: dayStart, lte: dayEnd },
-          status: { notIn: ['CANCELED', 'CANCELLED'] },
-        },
-        orderBy: { startTime: 'asc' },
-      }),
-    ])
+    const booked = await prisma.appointment.findMany({
+      where: {
+        professionalId,
+        startTime: { gte: dayStart, lte: dayEnd },
+        status: { not: 'CANCELLED' },
+      },
+      select: { startTime: true, endTime: true },
+    })
 
-    return {
-      professionalId,
-      date: dayStart,
-      schedules,
-      blocks,
-      appointments,
-    }
+    return { available: true, schedules, booked }
   }
 }

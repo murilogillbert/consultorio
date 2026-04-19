@@ -5,4 +5,6 @@ export interface UpdatePatientDto {
   address?: string
   notes?: string
   active?: boolean
+  allergies?: string
+  bloodType?: string
 }

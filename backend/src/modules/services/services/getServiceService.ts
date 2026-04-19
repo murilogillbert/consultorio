@@ -1,7 +1,7 @@
 import { ServicesService } from './ServicesService'
-import { ServicesRepository } from '../repositories/servicesRepository'
+import { ServicesRepository } from '../repositories'
 
 export async function getServiceService(id: string) {
-  const svc = new ServicesService(new ServicesRepository())
-  return svc.executeGet(id)
+  const repo = new ServicesRepository()
+  return repo.findById(id)
 }

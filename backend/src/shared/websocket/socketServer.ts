@@ -56,6 +56,7 @@ export function emitToUser(userId: string, event: string, data: unknown) {
   try {
     getIo().of('/').to(`user:${userId}`).emit(event, data)
   } catch {
+    // Silently fail if io is not initialized
   }
 }
 
@@ -63,5 +64,6 @@ export function emitToClinic(clinicId: string, event: string, data: unknown) {
   try {
     getIo().of('/').to(`clinic:${clinicId}`).emit(event, data)
   } catch {
+    // Silently fail if io is not initialized
   }
 }

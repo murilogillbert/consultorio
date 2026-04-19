@@ -66,7 +66,7 @@ export class AuthController {
   async resetPassword(req: Request, res: Response, next: NextFunction) {
     try {
       const { email, otp, newPassword } = req.body
-      await resetPasswordService({ email, otp, newPassword })
+      await resetPasswordService(email, otp, newPassword)
       res.status(200).json({ message: 'Senha redefinida com sucesso.' })
     } catch (err) {
       next(err)
@@ -85,7 +85,7 @@ export class AuthController {
 
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
-      res.status(200).json({ message: 'Logout realizado com sucesso.' })
+      res.status(200).json({ message: 'Desconectado com sucesso.' })
     } catch (err) {
       next(err)
     }

@@ -114,7 +114,6 @@ export async function findClinicsNeedingWatchRenewal(
         { pubsubWatchExpiresAt: { lte: cutoff } },
       ],
     },
-    select: { clinicId: true },
   })
 
   return results.map((r) => r.clinicId)

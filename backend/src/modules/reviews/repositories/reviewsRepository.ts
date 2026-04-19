@@ -44,6 +44,8 @@ export class ReviewsRepository {
   }
 
   async findByAppointment(appointmentId: string): Promise<ProfessionalReview | null> {
-    return prisma.professionalReview.findFirst({ where: { appointmentId } })
+    return prisma.professionalReview.findFirst({
+      where: { appointmentId },
+    })
   }
 }

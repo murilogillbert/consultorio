@@ -14,7 +14,7 @@ export function birthdayGreetingHtml(data: BirthdayGreetingData): string {
           <h1 style="color:#fff;margin:16px 0 0;font-size:24px;">Feliz Aniversário!</h1>
         </td></tr>
         <tr><td style="padding:40px;text-align:center;">
-          <p style="font-size:18px;color:#374151;margin:0 0 16px;">Olá, <strong>${data.patientName}</strong>! 🎉</p>
+          <p style="font-size:18px;color:#374151;margin:0 0 16px;">Olá, <strong>${data.patientName}</strong>!</p>
           <p style="font-size:15px;color:#6b7280;line-height:1.6;margin:0 0 24px;">
             Hoje é um dia especial — e nós da <strong>Psicologia e Existir</strong> queremos celebrar junto com você!<br><br>
             Que este novo ciclo traga muita saúde, autoconhecimento e momentos de alegria. Você merece!
@@ -31,22 +31,23 @@ export function birthdayGreetingHtml(data: BirthdayGreetingData): string {
 }
 
 export function birthdayGreetingText(data: BirthdayGreetingData): string {
-  return `Feliz Aniversário, ${data.patientName}! 🎂
+  return `Feliz Aniversário, ${data.patientName}!
 
 Hoje é um dia especial e nós da Psicologia e Existir queremos celebrar junto com você!
 
 Que este novo ciclo traga muita saúde, autoconhecimento e momentos de alegria. Você merece!
 
 Com carinho,
-Psicologia e Existir 💜`
+Psicologia e Existir`
 }
 
 export function birthdayGreetingWhatsApp(data: BirthdayGreetingData): string {
-  return `🎂 *Feliz Aniversário, ${data.patientName}!* 🎉
+  return `Feliz Aniversário, ${data.patientName}!
 
-Hoje é um dia muito especial, e nós da *Psicologia e Existir* queremos celebrar junto com você!
+Hoje é um dia muito especial, e nós da Psicologia e Existir queremos celebrar junto com você!
 
-Que este novo ciclo traga muito autoconhecimento, saúde e momentos de alegria. Você merece! 💜
+Que este novo ciclo traga muito autoconhecimento, saúde e momentos de alegria. Você merece!
 
-_Com carinho, Psicologia e Existir_`
+Com carinho,
+Psicologia e Existir`
 }

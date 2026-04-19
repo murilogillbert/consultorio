@@ -21,6 +21,7 @@ export class MercadoPagoProvider implements PaymentProvider {
   }
 
   async refund(_gatewayId: string) {
-    // TODO: implement MP refund
+    // TODO: implement refund
+    console.warn('[MercadoPago] Refund not implemented')
   }
 }

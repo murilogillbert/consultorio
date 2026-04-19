@@ -73,4 +73,8 @@ export class AppointmentsRepository {
   async count(where?: Prisma.AppointmentWhereInput): Promise<number> {
     return prisma.appointment.count({ where })
   }
+
+  async findMany(where?: Prisma.AppointmentWhereInput, take?: number, skip?: number): Promise<Appointment[]> {
+    return prisma.appointment.findMany({ where, take, skip, orderBy: { startTime: 'desc' } })
+  }
 }

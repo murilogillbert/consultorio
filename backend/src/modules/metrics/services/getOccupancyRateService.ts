@@ -32,5 +32,5 @@ export async function getOccupancyRateService(filter: MetricsFilterDto) {
 
   const occupancyRate = totalSlots > 0 ? Math.min(100, (booked / totalSlots) * 100) : 0
 
-  return { start, end, totalSlots, booked, occupancyRate: Math.round(occupancyRate * 10) / 10 }
+  return { start, end, totalSlots, booked, occupancyRate: Math.round(occupancyRate * 100) / 100 }
 }

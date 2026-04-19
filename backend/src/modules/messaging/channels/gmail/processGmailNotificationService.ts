@@ -47,11 +47,11 @@ export async function processGmailNotification(payload: PubSubNotificationPayloa
   }
 
   const clinicId = settings.clinicId
-  const lastHistoryId = settings.gmailHistoryId
+  const lastHistoryId = (settings as any).gmailHistoryId as string | null
 
   if (!lastHistoryId) {
     // First notification — just store the historyId as our baseline and wait for the next one
-    await prisma.integrationSettings.update({
+    await (prisma.integrationSettings as any).update({
       where: { clinicId },
       data: { gmailHistoryId: newHistoryId },
     })
@@ -66,7 +66,7 @@ export async function processGmailNotification(payload: PubSubNotificationPayloa
   } catch (err: any) {
     // historyId too old (410 Gone) → reset baseline and skip
     if (err?.statusCode === 410 || String(err?.message).includes('410')) {
-      await prisma.integrationSettings.update({
+      await (prisma.integrationSettings as any).update({
         where: { clinicId },
         data: { gmailHistoryId: newHistoryId },
       })
@@ -98,7 +98,7 @@ export async function processGmailNotification(payload: PubSubNotificationPayloa
   }
 
   // 4. Advance the stored historyId
-  await prisma.integrationSettings.update({
+  await (prisma.integrationSettings as any).update({
     where: { clinicId },
     data: { gmailHistoryId: historyResp.historyId ?? newHistoryId },
   })
@@ -233,6 +233,6 @@ function extractEmailAddress(from: string): string {
 /** "John Doe <john@example.com>" → "John Doe" */
 function extractDisplayName(from: string): string {
   const match = from.match(/^([^<]+)</)
-  if (match) return match[1].trim().replace(/^"|"$/g, '')
+  if (match) return match[1].trim()
   return ''
 }

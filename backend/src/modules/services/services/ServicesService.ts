@@ -1,4 +1,4 @@
-import { ServicesRepository } from '../repositories/servicesRepository'
+import { ServicesRepository } from '../repositories'
 import { Service, Prisma } from '@prisma/client'
 import { AppError } from '../../../shared/errors/AppError'
 

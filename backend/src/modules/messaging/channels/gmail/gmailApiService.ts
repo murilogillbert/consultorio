@@ -79,7 +79,9 @@ const oauthService = new GoogleOAuthService()
 
 export class GmailApiService {
   private async token(clinicId: string): Promise<string> {
-    return oauthService.getValidAccessToken(clinicId)
+    const t = await oauthService.getValidAccessToken(clinicId)
+    if (!t) throw new AppError('Token de acesso Gmail inválido ou expirado', 401)
+    return t
   }
 
   /**
@@ -203,10 +205,10 @@ export function extractEmailBody(payload: GmailMessagePart | undefined): string 
 }
 
 /**
- * Extract a named header value from a GmailMessage payload.
+ * Extract a named header value from a GmailMessage payload (case-insensitive).
  */
 export function getHeader(payload: GmailMessagePart | undefined, name: string): string {
-  return (
-    payload?.headers?.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? ''
-  )
+  if (!payload?.headers) return ''
+  const header = payload.headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
+  return header?.value ?? ''
 }

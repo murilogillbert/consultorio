@@ -3,5 +3,5 @@ import { AppointmentsRepository } from '../../patients/repositories/PatientsRepo
 
 export async function checkInAppointmentService(id: string) {
   const service = new AppointmentsService(new AppointmentsRepository())
-  return service.executeUpdateStatus(id, 'CONFIRMED')
+  return service.executeUpdateStatus(id, 'CHECK_IN')
 }

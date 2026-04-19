@@ -22,5 +22,6 @@ export async function getConversionFunnelService(clinicId: string, startDate: st
       { stage: 'Agendamentos', count: scheduled },
       { stage: 'Atendimentos', count: completed },
     ],
+    period: { start, end },
   }
 }

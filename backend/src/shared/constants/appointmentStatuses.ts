@@ -6,3 +6,5 @@ export const APPOINTMENT_STATUSES = {
   NO_SHOW: 'NO_SHOW',
   IN_PROGRESS: 'IN_PROGRESS',
 } as const
+
+export type AppointmentStatusType = (typeof APPOINTMENT_STATUSES)[keyof typeof APPOINTMENT_STATUSES]

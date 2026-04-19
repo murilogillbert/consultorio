@@ -8,4 +8,5 @@ export interface CreateProfessionalDto {
   commissionPct?: number
   schedules?: Array<{ dayOfWeek: number; startTime: string; endTime: string }>
   serviceIds?: string[]
+  active?: boolean
 }

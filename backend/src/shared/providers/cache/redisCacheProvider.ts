@@ -27,4 +27,8 @@ export class RedisCacheProvider implements CacheProvider {
   async del(key: string): Promise<void> {
     memoryCache.delete(key)
   }
+
+  async clear(): Promise<void> {
+    memoryCache.clear()
+  }
 }

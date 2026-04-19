@@ -24,7 +24,7 @@ export function appointmentReminderHtml(data: AppointmentReminderData): string {
       <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
         <tr><td style="background:#8b5cf6;padding:32px;text-align:center;">
           <h1 style="color:#fff;margin:0;font-size:22px;">Psicologia e Existir</h1>
-          <p style="color:#ddd6fe;margin:8px 0 0;font-size:14px;">🔔 Lembrete: sua consulta é ${label}</p>
+          <p style="color:#ddd6fe;margin:8px 0 0;font-size:14px;">Lembrete: sua consulta ${label}</p>
         </td></tr>
         <tr><td style="padding:32px;">
           <p style="margin:0 0 16px;font-size:16px;color:#374151;">Olá, <strong>${data.patientName}</strong>!</p>
@@ -48,7 +48,7 @@ export function appointmentReminderHtml(data: AppointmentReminderData): string {
 
 export function appointmentReminderText(data: AppointmentReminderData): string {
   const label = timeLabel(data.hoursUntil)
-  return `Lembrete: sua consulta é ${label}!
+  return `Lembrete: sua consulta ${label}!
 
 Olá, ${data.patientName}!
 
@@ -64,16 +64,16 @@ Psicologia e Existir`
 
 export function appointmentReminderWhatsApp(data: AppointmentReminderData): string {
   const label = timeLabel(data.hoursUntil)
-  return `🔔 *Lembrete de Consulta*
+  return `Lembrete de Consulta
 
-Olá, ${data.patientName}! Sua consulta é *${label}*:
+Olá, ${data.patientName}! Sua consulta ${label}:
 
-👩‍⚕️ *Profissional:* ${data.professionalName}
-📋 *Serviço:* ${data.serviceName}
-📅 *Data:* ${data.date}
-🕐 *Horário:* ${data.time}${data.address ? '\n📍 *Local:* ' + data.address : ''}
+Profissional: ${data.professionalName}
+Serviço: ${data.serviceName}
+Data: ${data.date}
+Horário: ${data.time}${data.address ? '\nLocal: ' + data.address : ''}
 
-Precisa remarcar? Entre em contato o quanto antes. 💜
+Precisa remarcar? Entre em contato o quanto antes.
 
-_Psicologia e Existir_`
+Psicologia e Existir`
 }

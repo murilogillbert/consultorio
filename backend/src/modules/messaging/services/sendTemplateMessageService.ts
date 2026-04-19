@@ -68,7 +68,5 @@ export async function sendTemplateMessageService(input: SendTemplateInput) {
     data: { lastMessageAt: new Date() },
   })
 
-  console.log(`[Messaging] Template "${input.templateName}" enviado para ${conversation.contact.phone}. WA ID: ${waMessageId}`)
-
   return message
 }

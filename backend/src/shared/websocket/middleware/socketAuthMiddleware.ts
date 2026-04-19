@@ -36,11 +36,9 @@ export async function socketAuthMiddleware(socket: Socket, next: (err?: Error) =
     socket.data.userId = payload.sub
     socket.data.role = payload.role
     socket.data.clinicIds = clinicIds
-    socket.data.primaryClinicId = clinicIds[0]
-    socket.data.systemRoles = systemUsers.map((item) => item.role)
 
     next()
-  } catch {
-    next(new Error('AUTH_INVALID: token inválido ou expirado'))
+  } catch (err: any) {
+    next(new Error(`AUTH_ERROR: ${err?.message || 'Token inválido'}`))
   }
 }

@@ -5,3 +5,5 @@ export const ROLES = {
   PATIENT: 'PATIENT',
   PROFESSIONAL: 'PROFESSIONAL',
 } as const
+
+export type RoleType = (typeof ROLES)[keyof typeof ROLES]

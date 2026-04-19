@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { ServicesService } from '../services/ServicesService'
-import { ServicesRepository } from '../repositories/servicesRepository'
+import { ServicesRepository } from '../repositories'
 
 export class ServicesController {
   async index(req: Request, res: Response, next: NextFunction) {

@@ -6,4 +6,6 @@ export interface UpdateProfessionalDto {
   languages?: string
   commissionPct?: number
   active?: boolean
+  schedules?: Array<{ dayOfWeek: number; startTime: string; endTime: string }>
+  avatarUrl?: string
 }

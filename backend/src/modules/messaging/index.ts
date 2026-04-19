@@ -5,3 +5,7 @@ export { resolveConversationService } from './services/resolveConversationServic
 export { transferConversationService } from './services/transferConversationService'
 export { addInternalNoteService } from './services/addInternalNoteService'
 export { linkPatientToConversationService } from './services/linkPatientToConversationService'
+export { listConversationsService } from './services/listConversationsService'
+export { sendMessageService } from './services/sendMessageService'
+export { sendTemplateMessageService } from './services/sendTemplateMessageService'
+export { MessagingController } from './controllers/messagingController'

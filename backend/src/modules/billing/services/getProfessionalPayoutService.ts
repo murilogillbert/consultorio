@@ -43,4 +43,4 @@ export async function getProfessionalPayoutService(clinicId: string, startDate: 
     professionalId,
     ...data,
   }))
-}
+}

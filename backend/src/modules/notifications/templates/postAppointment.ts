@@ -17,13 +17,13 @@ export function postAppointmentHtml(data: PostAppointmentData): string {
           <p style="color:#c7d2fe;margin:8px 0 0;font-size:14px;">Como foi sua experiência?</p>
         </td></tr>
         <tr><td style="padding:40px;text-align:center;">
-          <p style="font-size:16px;color:#374151;margin:0 0 16px;">Olá, <strong>${data.patientName}</strong>! 😊</p>
+          <p style="font-size:16px;color:#374151;margin:0 0 16px;">Olá, <strong>${data.patientName}</strong>!</p>
           <p style="font-size:15px;color:#6b7280;line-height:1.6;margin:0 0 24px;">
             Obrigada por confiar em nosso trabalho. Esperamos que sua consulta com <strong>${data.professionalName}</strong> tenha sido uma ótima experiência.
           </p>
           ${data.reviewLink ? `
           <a href="${data.reviewLink}" style="display:inline-block;background:#6366f1;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:15px;font-weight:600;margin-bottom:24px;">
-            ⭐ Avaliar minha consulta
+            Avaliar minha consulta
           </a>
           <br>` : ''}
           <p style="font-size:14px;color:#9ca3af;">Sua opinião é muito importante para nós e nos ajuda a melhorar sempre.</p>
@@ -44,15 +44,15 @@ Obrigada por confiar em nosso trabalho. Esperamos que sua consulta com ${data.pr
 
 ${data.reviewLink ? `Que tal avaliar sua experiência? Acesse: ${data.reviewLink}\n\n` : ''}Sua opinião é muito importante para nós.
 
-Psicologia e Existir 💜`
+Psicologia e Existir`
 }
 
 export function postAppointmentWhatsApp(data: PostAppointmentData): string {
-  return `😊 *Olá, ${data.patientName}!*
+  return `Olá, ${data.patientName}!
 
-Obrigada por confiar em nosso trabalho. Esperamos que sua consulta com *${data.professionalName}* tenha sido uma ótima experiência!
+Obrigada por confiar em nosso trabalho. Esperamos que sua consulta com ${data.professionalName} tenha sido uma ótima experiência!
 
-${data.reviewLink ? `⭐ Que tal nos contar como foi? Avalie sua consulta:\n${data.reviewLink}\n\n` : ''}Sua opinião é muito importante para continuarmos melhorando. 💜
+${data.reviewLink ? `Que tal nos contar como foi? Avalie sua consulta:\n${data.reviewLink}\n\n` : ''}Sua opinião é muito importante para nós.
 
-_Psicologia e Existir_`
+Psicologia e Existir`
 }

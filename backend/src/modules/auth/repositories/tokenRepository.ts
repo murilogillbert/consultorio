@@ -1,5 +1,3 @@
-import { prisma } from '../../../config/database'
-
 /**
  * Token repository — placeholder for a future token blocklist or
  * refresh token store. Currently JWT auth is stateless.
@@ -11,6 +9,7 @@ export class TokenRepository {
   }
 
   async isInvalidated(_token: string): Promise<boolean> {
+    // TODO: check if token is in blocklist
     return false
   }
 }

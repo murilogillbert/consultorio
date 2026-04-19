@@ -74,8 +74,19 @@ export class WhatsappAdapter {
         template: {
           name: templateName,
           language: { code: languageCode },
-          components,
+          ...(components.length > 0 && { components }),
         },
+      }),
+    })
+  }
+
+  async markAsRead(messageId: string): Promise<any> {
+    return this.fetchApi<any>('messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: messageId,
       }),
     })
   }

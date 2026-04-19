@@ -29,7 +29,7 @@ export class MarketingController {
       const segment = getFirstString(req.query.segment) ?? 'all'
       const csv = await exportSegmentedListService(segment)
       res.setHeader('Content-Type', 'text/csv')
-      res.setHeader('Content-Disposition', `attachment; filename="patients-${segment}.csv"`)
+      res.setHeader('Content-Disposition', `attachment; filename="segment_${segment}.csv"`)
       res.send(csv)
     } catch (err) {
       next(err)

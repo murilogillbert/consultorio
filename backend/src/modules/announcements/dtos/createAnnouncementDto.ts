@@ -6,6 +6,6 @@ export interface CreateAnnouncementDto {
   fileUrl?: string
   urgency?: 'NORMAL' | 'IMPORTANT' | 'URGENT'
   audience?: 'ALL' | 'ADMIN' | 'STAFF' | 'PROFESSIONALS'
-  audienceIds?: string
-  expiresAt?: string
+  audienceIds?: string[]
+  expiresAt?: Date
 }

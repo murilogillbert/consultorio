@@ -29,6 +29,14 @@ export class ConversationsRepository {
   }
 
   async update(id: string, data: Prisma.ConversationUpdateInput): Promise<Conversation> {
-    return prisma.conversation.update({ where: { id }, data })
+    return prisma.conversation.update({
+      where: { id },
+      data,
+      include: {
+        contact: true,
+        assignedTo: { select: { id: true, name: true } },
+        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+    })
   }
 }

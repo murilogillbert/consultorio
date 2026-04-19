@@ -82,7 +82,7 @@ export async function sendConfirmationService(appointmentId: string): Promise<vo
     }
   }
 
-  if (errors.length < 2) {
+  if (errors.length === 0) {
     await prisma.appointment.update({
       where: { id: appointmentId },
       data: { reminderSent: true },

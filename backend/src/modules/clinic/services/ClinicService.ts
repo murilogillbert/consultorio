@@ -122,13 +122,11 @@ export class ClinicService {
       })
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
-        await this.clinicRepository.updateIntegrations(clinicId, { gmailConnected: false })
-        throw new AppError(json.error?.message || 'Falha ao validar a conexão com o Gmail', 400)
+        throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
       }
-      await this.clinicRepository.updateIntegrations(clinicId, { gmailConnected: true })
       return { ok: true, message: 'Gmail conectado com sucesso', detail: json.emailAddress }
     }
 
-    throw new AppError(`Tipo de integração desconhecido: ${type}`, 400)
+    throw new AppError('Tipo de integração não suportado', 400)
   }
-}
+}

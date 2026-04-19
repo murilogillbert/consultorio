@@ -7,4 +7,7 @@ export interface CreatePatientDto {
   birthDate?: string
   address?: string
   notes?: string
+  allergies?: string
+  bloodType?: string
+  active?: boolean
 }

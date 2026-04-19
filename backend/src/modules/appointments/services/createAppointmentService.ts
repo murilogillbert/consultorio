@@ -15,6 +15,6 @@ export async function createAppointmentService(dto: CreateAppointmentDto) {
     notes: dto.notes,
     origin: dto.origin ?? 'MANUAL',
     source: dto.source,
-    repeat: dto.repeat,
+    repeat: dto.repeat ?? false,
   })
 }

@@ -10,6 +10,8 @@ export async function createCampaignService(dto: CreateCampaignDto) {
       startDate: new Date(dto.startDate),
       endDate: dto.endDate ? new Date(dto.endDate) : null,
       budget: dto.budget,
+      targetSegment: dto.targetSegment,
+      notes: dto.notes,
     },
   })
 }

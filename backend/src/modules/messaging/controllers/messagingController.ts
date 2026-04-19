@@ -8,14 +8,14 @@ import { linkPatientToConversationService } from '../services/linkPatientToConve
 export class MessagingController {
   async show(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await getConversationService(req.params.id)
+      const result = await getConversationService(req.params.id as string)
       res.json(result)
     } catch (err) { next(err) }
   }
 
   async resolve(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await resolveConversationService(req.params.id)
+      const result = await resolveConversationService(req.params.id as string)
       res.json(result)
     } catch (err) { next(err) }
   }
@@ -23,7 +23,7 @@ export class MessagingController {
   async transfer(req: Request, res: Response, next: NextFunction) {
     try {
       const { assignedToId } = req.body
-      const result = await transferConversationService(req.params.id, assignedToId)
+      const result = await transferConversationService(req.params.id as string, assignedToId)
       res.json(result)
     } catch (err) { next(err) }
   }
@@ -31,7 +31,7 @@ export class MessagingController {
   async addNote(req: Request, res: Response, next: NextFunction) {
     try {
       const { content } = req.body
-      const result = await addInternalNoteService(req.params.id, req.user.id, content)
+      const result = await addInternalNoteService(req.params.id as string, req.user!.id, content)
       res.status(201).json(result)
     } catch (err) { next(err) }
   }
@@ -39,7 +39,7 @@ export class MessagingController {
   async linkPatient(req: Request, res: Response, next: NextFunction) {
     try {
       const { patientId } = req.body
-      const result = await linkPatientToConversationService(req.params.id, patientId)
+      const result = await linkPatientToConversationService(req.params.id as string, patientId)
       res.json(result)
     } catch (err) { next(err) }
   }

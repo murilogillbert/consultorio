@@ -57,7 +57,7 @@ export class NotificationsController {
     try {
       const hoursAfter = Number(req.body.hoursAfter) || 1
       await sendPostAppointmentService(hoursAfter)
-      res.json({ ok: true, message: 'Mensagens pós-consulta enviadas' })
+      res.json({ ok: true, message: `Mensagens pós-atendimento disparadas (${hoursAfter}h após)` })
     } catch (err) {
       next(err)
     }

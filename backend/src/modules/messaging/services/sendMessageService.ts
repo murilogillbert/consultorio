@@ -64,7 +64,5 @@ export async function sendMessageService(input: SendMessageInput) {
     data: { lastMessageAt: new Date() },
   })
 
-  console.log(`[Messaging] Mensagem enviada para ${conversation.contact.phone}. WA ID: ${waMessageId}`)
-
   return message
 }

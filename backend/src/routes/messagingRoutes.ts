@@ -53,16 +53,8 @@ r.post('/conversations/:id/messages', ensureAuthenticated, async (req, res, next
   try {
     const { content } = req.body
     const conversationId = requireSingleString(req.params.id, 'id')
-    const msg = await internalChatService.sendConversationMessage(conversationId, content, req.user.id)
+    const msg = await internalChatService.sendConversationMessage(conversationId, req.user.id, content)
     res.status(201).json(msg)
-  } catch (err) { next(err) }
-})
-
-r.patch('/conversations/:id/read', ensureAuthenticated, async (req, res, next) => {
-  try {
-    const conversationId = requireSingleString(req.params.id, 'id')
-    await internalChatService.markConversationAsRead(conversationId)
-    res.status(200).json({ ok: true })
   } catch (err) { next(err) }
 })
 

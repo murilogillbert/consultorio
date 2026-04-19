@@ -39,7 +39,7 @@ export class MercadoPagoWebhookController {
         console.log(`[MercadoPago Webhook] Pagamento encontrado: ${payment.id}`)
       }
     } catch (err) {
-      console.error('[MercadoPago Webhook] Erro:', err)
+      console.error('[MercadoPago Webhook] Error:', err)
     }
   }
 }

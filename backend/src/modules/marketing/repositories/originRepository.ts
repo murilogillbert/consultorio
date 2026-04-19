@@ -27,14 +27,12 @@ export class OriginRepository {
     })
 
     const bySource: Record<string, number> = {}
-    for (const attribution of attributions) {
-      const key = attribution.campaignId
-        ? attribution.campaign?.name ?? attribution.source
-        : attribution.source
 
+    for (const attr of attributions) {
+      const key = attr.campaign?.name || 'organic'
       bySource[key] = (bySource[key] ?? 0) + 1
     }
 
-    return Object.entries(bySource).map(([source, count]) => ({ source, count }))
+    return Object.entries(bySource).map(([name, count]) => ({ name, count }))
   }
 }

@@ -59,6 +59,11 @@ export class BillingRepository {
       byMethod[p.method] = (byMethod[p.method] ?? 0) + p.amount
     }
 
-    return { totalRevenue, totalPending, byMethod, payments }
+    return {
+      totalRevenue,
+      totalPending,
+      byMethod,
+      count: payments.length,
+    }
   }
 }

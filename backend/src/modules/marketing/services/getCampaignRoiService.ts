@@ -28,23 +28,21 @@ export async function getCampaignRoiService(campaignId: string) {
     : []
 
   const revenueByAppointmentId = new Map(
-    appointments.map((appointment) => [appointment.id, appointment.service.price] as const),
+    appointments.map((appointment) => [
+      appointment.id,
+      appointment.service?.price ?? 0,
+    ])
   )
 
-  const revenue = attributions.reduce((sum, attribution) => {
-    return sum + (revenueByAppointmentId.get(attribution.appointmentId) ?? 0)
-  }, 0)
-
-  const cost = campaign.cost ?? campaign.budget ?? 0
-  const roi = cost > 0 ? ((revenue - cost) / cost) * 100 : null
+  const revenue = Array.from(revenueByAppointmentId.values()).reduce((sum, price) => sum + price, 0)
+  const cost = campaign.budget ?? 0
+  const roi = cost > 0 ? ((revenue - cost) / cost) * 100 : 0
 
   return {
     campaignId,
-    name: campaign.name,
-    channel: campaign.channel,
-    leads: attributions.length,
     revenue,
     cost,
     roi,
+    conversions: attributions.length,
   }
 }

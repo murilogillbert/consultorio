@@ -7,4 +7,5 @@ export async function deleteUserService(id: string) {
 
   // Soft delete
   await prisma.user.update({ where: { id }, data: { active: false } })
+  return { message: 'Usuário deletado com sucesso' }
 }

@@ -139,7 +139,10 @@ export class ClinicController {
     try {
       const { clinicId } = req.params as { clinicId: string }
       await stopGmailWatch(clinicId)
-      res.status(200).json({ ok: true, message: 'Gmail watch cancelado.' })
+      res.status(200).json({
+        ok: true,
+        message: 'Gmail watch desativado com sucesso.',
+      })
     } catch (err) {
       next(err)
     }

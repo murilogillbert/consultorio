@@ -15,6 +15,8 @@ export class LocalStorageProvider implements StorageProvider {
   async delete(fileUrl: string): Promise<void> {
     const filename = path.basename(fileUrl)
     const dest = path.join(UPLOADS_DIR, filename)
-    await fs.unlink(dest).catch(() => {})
+    await fs.unlink(dest).catch(() => {
+      // File doesn't exist, ignore
+    })
   }
 }

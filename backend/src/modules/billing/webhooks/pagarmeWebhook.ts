@@ -52,7 +52,7 @@ export class PagarmeWebhookController {
 
       console.log(`[Pagar.me Webhook] Pagamento ${data.id} → ${newStatus}`)
     } catch (err) {
-      console.error('[Pagar.me Webhook] Erro:', err)
+      console.error('[Pagar.me Webhook] Error:', err)
     }
   }
 }

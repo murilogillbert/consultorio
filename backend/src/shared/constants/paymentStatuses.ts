@@ -5,3 +5,5 @@ export const PAYMENT_STATUSES = {
   REFUNDED: 'REFUNDED',
   FAILED: 'FAILED',
 } as const
+
+export type PaymentStatusType = (typeof PAYMENT_STATUSES)[keyof typeof PAYMENT_STATUSES]

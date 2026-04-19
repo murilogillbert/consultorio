@@ -5,4 +5,6 @@ export interface CreateCampaignDto {
   startDate: string
   endDate?: string
   budget?: number
+  targetSegment?: string
+  notes?: string
 }

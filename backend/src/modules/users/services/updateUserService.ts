@@ -9,6 +9,6 @@ export async function updateUserService(id: string, dto: UpdateUserDto) {
   return prisma.user.update({
     where: { id },
     data: dto,
-    select: { id: true, name: true, email: true, role: true, avatarUrl: true, phone: true },
+    select: { id: true, name: true, email: true, role: true, avatarUrl: true, phone: true, createdAt: true },
   })
 }

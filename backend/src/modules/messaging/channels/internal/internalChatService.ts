@@ -1,7 +1,6 @@
 import { prisma } from '../../../../config/database'
 import { emitToClinic } from '../../../../shared/websocket/socketServer'
 import { AppError } from '../../../../shared/errors/AppError'
-import { sendMessageService } from '../../services/sendMessageService'
 
 export class InternalChatService {
   async listMessages(channelId: string, limit = 50) {
@@ -62,37 +61,22 @@ export class InternalChatService {
       throw new AppError('Conteúdo da mensagem é obrigatório', 400)
     }
 
-    const msg = conversation.channel === 'WHATSAPP'
-      ? await sendMessageService({ conversationId, content: normalizedContent, sentById })
-      : await prisma.externalMessage.create({
-          data: {
-            conversationId,
-            direction: 'OUT',
-            type: 'TEXT',
-            content: normalizedContent,
-            sentById,
-          },
-        })
-
-    if (conversation.channel !== 'WHATSAPP') {
-      await prisma.conversation.update({
-        where: { id: conversationId },
-        data: { lastMessageAt: new Date() },
-      })
-    }
-
-    emitToClinic(conversation.clinicId, 'messaging:new_message', {
-      conversationId,
-      message: msg,
+    const msg = await prisma.externalMessage.create({
+      data: {
+        conversationId,
+        content: normalizedContent,
+        direction: 'OUT',
+        type: 'TEXT',
+        sentById,
+      },
     })
 
-    return msg
-  }
-
-  async markConversationAsRead(conversationId: string) {
     await prisma.conversation.update({
       where: { id: conversationId },
-      data: { unreadCount: 0 },
+      data: { lastMessageAt: new Date() },
     })
+
+    emitToClinic(conversation.clinicId, 'messaging:message_sent', { conversationId, message: msg })
+    return msg
   }
 }

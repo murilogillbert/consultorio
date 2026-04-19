@@ -6,4 +6,9 @@ export class NotificationsRepository {
     // For now, return empty array — in-app notifications are via WebSocket
     return []
   }
+
+  async markAsRead(id: string) {
+    // Future implementation
+    return null
+  }
 }

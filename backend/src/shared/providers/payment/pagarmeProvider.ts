@@ -18,5 +18,8 @@ export class PagarmeProvider implements PaymentProvider {
     return { paymentLinkUrl: `https://checkout.pagarme.com/${Date.now()}`, gatewayId: `pagarme_${Date.now()}` }
   }
 
-  async refund(_gatewayId: string) {}
+  async refund(_gatewayId: string) {
+    // TODO: implement refund
+    console.warn('[Pagarme] Refund not implemented')
+  }
 }
