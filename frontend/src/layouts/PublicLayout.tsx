@@ -272,7 +272,13 @@ export default function PublicLayout() {
               <Phone size={18} />
               <span>Ligar</span>
             </button>
-            <button className="floating-menu-item">
+            <button
+              className="floating-menu-item"
+              onClick={() => {
+                setFloatingOpen(false)
+                navigate(isAuthenticated ? '/minhas-consultas?tab=chat' : '/minhas-consultas')
+              }}
+            >
               <ExternalLink size={18} />
               <span>Chat Online</span>
             </button>

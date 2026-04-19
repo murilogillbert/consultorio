@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Loader2, CalendarDays, Clock, UserCheck,
   MessageCircle, Send, CheckCircle, XCircle, LogOut, Lock, Eye, EyeOff, AlertTriangle, X
@@ -239,7 +240,10 @@ function PatientDashboard({ onLogout }: { onLogout: () => void }) {
   const { data: convData, isLoading: loadingConv } = usePatientConversation()
   const sendMsg = useSendPatientMessage()
   const [message, setMessage] = useState('')
-  const [tab, setTab] = useState<'consultas' | 'chat'>('consultas')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<'consultas' | 'chat'>(() =>
+    searchParams.get('tab') === 'chat' ? 'chat' : 'consultas'
+  )
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
