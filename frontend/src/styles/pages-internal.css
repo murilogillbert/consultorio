@@ -534,6 +534,7 @@
   background: var(--color-bg-secondary);
   align-self: flex-start;
   border-bottom-left-radius: var(--radius-sm);
+  max-width: none;
 }
 
 .message-bubble.outgoing {
