@@ -19,6 +19,10 @@ import uploadRoutes from './uploadRoutes'
 import bannerRoutes from './bannerRoutes'
 import whatsappRoutes from './whatsappRoutes'
 import notificationsRoutes from './notificationsRoutes'
+import auditRoutes from './auditRoutes'
+import billingRoutes from './billingRoutes'
+import marketingRoutes from './marketingRoutes'
+import reviewsRoutes from './reviewsRoutes'
 
 const r = Router()
 
@@ -27,6 +31,7 @@ r.use('/auth', authRoutes)
 r.use('/public', publicRoutes)
 r.use('/banners/public', bannerRoutes) // Allow public access to banners
 r.use('/webhooks', whatsappRoutes)
+r.use('/reviews', reviewsRoutes)      // POST /reviews is public (patient submits review)
 
 // Protected / Main Routes
 r.use('/users', usersRoutes)
@@ -46,5 +51,8 @@ r.use('/hr', hrRoutes)
 r.use('/banners', bannerRoutes)
 r.use('/uploads', uploadRoutes)
 r.use('/notifications', notificationsRoutes)
+r.use('/audit', auditRoutes)
+r.use('/billing', billingRoutes)
+r.use('/marketing', marketingRoutes)
 
 export default r

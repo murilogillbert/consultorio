@@ -1,0 +1,6 @@
+export const MESSAGE_CHANNELS = {
+  WHATSAPP: 'WHATSAPP',
+  INSTAGRAM: 'INSTAGRAM',
+  EMAIL: 'EMAIL',
+  INTERNAL: 'INTERNAL',
+} as const

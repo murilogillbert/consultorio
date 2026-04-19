@@ -1,0 +1,12 @@
+export const ANNOUNCEMENT_URGENCY = {
+  NORMAL: 'NORMAL',
+  IMPORTANT: 'IMPORTANT',
+  URGENT: 'URGENT',
+} as const
+
+export const ANNOUNCEMENT_AUDIENCE = {
+  ALL: 'ALL',
+  ADMIN: 'ADMIN',
+  STAFF: 'STAFF',
+  PROFESSIONALS: 'PROFESSIONALS',
+} as const
