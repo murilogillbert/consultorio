@@ -18,12 +18,88 @@ type GoogleOAuthStatePayload = {
   allowedOrigin?: string
 }
 
+type GoogleOAuthCredentials = {
+  clientId: string
+  clientSecret: string
+}
+
+function tryExtractCredentialValue(rawValue: string, key: 'clientId' | 'clientSecret') {
+  const trimmed = rawValue.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  const regex = key === 'clientId'
+    ? /client[_-]?id["']?\s*[:=]\s*["']([^"']+)["']/i
+    : /client[_-]?secret["']?\s*[:=]\s*["']([^"']+)["']/i
+
+  const directMatch = trimmed.match(regex)
+  if (directMatch?.[1]) {
+    return directMatch[1].trim()
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as any
+    const source = parsed?.web ?? parsed?.installed ?? parsed
+
+    if (key === 'clientId') {
+      return String(source?.client_id ?? source?.clientId ?? '').trim()
+    }
+
+    return String(source?.client_secret ?? source?.clientSecret ?? '').trim()
+  } catch {
+    return ''
+  }
+}
+
+function normalizeCredentialValue(rawValue: string | null | undefined, key: 'clientId' | 'clientSecret') {
+  const input = String(rawValue ?? '').trim()
+  if (!input) {
+    return ''
+  }
+
+  const extracted = tryExtractCredentialValue(input, key)
+  return (extracted || input)
+    .trim()
+    .replace(/^[\s"'`]+|[\s"',`]+$/g, '')
+    .trim()
+}
+
+function getNormalizedGoogleCredentials(settings: { gmailClientId?: string | null; gmailClientSecret?: string | null }) {
+  const clientId = normalizeCredentialValue(settings.gmailClientId, 'clientId')
+  const clientSecret = normalizeCredentialValue(settings.gmailClientSecret, 'clientSecret')
+
+  if (!clientId || !clientSecret) {
+    throw new AppError('Salve Client ID e Client Secret do Gmail antes de autenticar', 422)
+  }
+
+  if (!clientId.includes('.apps.googleusercontent.com')) {
+    throw new AppError(
+      'Client ID do Google parece invalido. Use um OAuth Client ID do tipo "Aplicativo Web" e cole apenas o valor do client_id.',
+      422,
+    )
+  }
+
+  return { clientId, clientSecret } satisfies GoogleOAuthCredentials
+}
+
+function normalizePublicApiUrl(url: string) {
+  return url
+    .trim()
+    .replace(/\/$/, '')
+    .replace(/\/api$/, '')
+}
+
 function resolveRequestBaseUrl(req: Request) {
+  if (process.env.PUBLIC_API_URL) {
+    return normalizePublicApiUrl(process.env.PUBLIC_API_URL)
+  }
+
   const protocol = (req.get('x-forwarded-proto') || req.protocol || 'http').split(',')[0].trim()
   const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim()
 
   if (!host) {
-    throw new AppError('Não foi possível determinar a URL pública da API', 500)
+    throw new AppError('Nao foi possivel determinar a URL publica da API', 500)
   }
 
   return `${protocol}://${host}`
@@ -121,7 +197,7 @@ async function exchangeCodeForTokens(input: {
   }
 
   if (!response.ok || !data.access_token) {
-    throw new AppError(data.error_description || data.error || 'Falha ao trocar o código OAuth do Google', 400)
+    throw new AppError(data.error_description || data.error || 'Falha ao trocar o codigo OAuth do Google', 400)
   }
 
   return data
@@ -162,7 +238,7 @@ async function refreshAccessToken(input: {
 export class GoogleOAuthService {
   async createAuthorizationUrl(req: Request, input: { clinicId: string; userId: string; returnUrl?: string }) {
     if (!input.clinicId) {
-      throw new AppError('clinicId é obrigatório para iniciar a autenticação do Gmail', 400)
+      throw new AppError('clinicId e obrigatorio para iniciar a autenticacao do Gmail', 400)
     }
 
     const membership = await prisma.systemUser.findUnique({
@@ -175,17 +251,14 @@ export class GoogleOAuthService {
     })
 
     if (!membership || !membership.active) {
-      throw new AppError('Você não tem acesso a esta clínica', 403)
+      throw new AppError('Voce nao tem acesso a esta clinica', 403)
     }
 
     const settings = await prisma.integrationSettings.findUnique({
       where: { clinicId: input.clinicId },
     })
 
-    if (!settings?.gmailClientId || !settings.gmailClientSecret) {
-      throw new AppError('Salve Client ID e Client Secret do Gmail antes de autenticar', 422)
-    }
-
+    const credentials = getNormalizedGoogleCredentials(settings ?? {})
     const redirectUri = `${resolveRequestBaseUrl(req)}/api/auth/google/callback`
     const allowedOrigin = resolveAllowedOrigin(req, input.returnUrl)
     const returnUrl = buildSafeReturnUrl(input.returnUrl, allowedOrigin)
@@ -203,7 +276,7 @@ export class GoogleOAuthService {
     )
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({
-      client_id: settings.gmailClientId,
+      client_id: credentials.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
       access_type: 'offline',
@@ -224,7 +297,7 @@ export class GoogleOAuthService {
 
     const state = verify(stateToken, env.JWT_SECRET) as GoogleOAuthStatePayload
     if (state.type !== 'gmail_oauth') {
-      throw new AppError('State OAuth inválido', 400)
+      throw new AppError('State OAuth invalido', 400)
     }
 
     const safeReturnUrl = buildSafeReturnUrl(state.returnUrl, state.allowedOrigin)
@@ -247,7 +320,7 @@ export class GoogleOAuthService {
         redirectUrl: appendRedirectParams(safeReturnUrl, {
           tab: 'integrations',
           gmail_oauth: 'error',
-          gmail_message: 'Código OAuth do Google ausente',
+          gmail_message: 'Codigo OAuth do Google ausente',
         }),
       }
     }
@@ -263,37 +336,36 @@ export class GoogleOAuthService {
       })
 
       if (!membership || !membership.active) {
-        throw new AppError('Você não tem mais acesso a esta clínica', 403)
+        throw new AppError('Voce nao tem mais acesso a esta clinica', 403)
       }
 
       const settings = await prisma.integrationSettings.findUnique({
         where: { clinicId: state.clinicId },
       })
 
-      if (!settings?.gmailClientId || !settings.gmailClientSecret) {
-        throw new AppError('Credenciais OAuth do Gmail não configuradas para esta clínica', 422)
-      }
-
+      const credentials = getNormalizedGoogleCredentials(settings ?? {})
       const redirectUri = `${resolveRequestBaseUrl(req)}/api/auth/google/callback`
       const tokens = await exchangeCodeForTokens({
         code,
-        clientId: settings.gmailClientId,
-        clientSecret: settings.gmailClientSecret,
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
         redirectUri,
       })
 
       await prisma.integrationSettings.upsert({
         where: { clinicId: state.clinicId },
         update: {
+          gmailClientId: credentials.clientId,
+          gmailClientSecret: credentials.clientSecret,
           gmailAccessToken: tokens.access_token,
-          gmailRefreshToken: tokens.refresh_token || settings.gmailRefreshToken,
+          gmailRefreshToken: tokens.refresh_token || settings?.gmailRefreshToken,
           gmailTokenExpiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : null,
           gmailConnected: true,
         },
         create: {
           clinicId: state.clinicId,
-          gmailClientId: settings.gmailClientId,
-          gmailClientSecret: settings.gmailClientSecret,
+          gmailClientId: credentials.clientId,
+          gmailClientSecret: credentials.clientSecret,
           gmailAccessToken: tokens.access_token,
           gmailRefreshToken: tokens.refresh_token,
           gmailTokenExpiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : null,
@@ -316,7 +388,7 @@ export class GoogleOAuthService {
 
       const message = error instanceof AppError
         ? error.message
-        : 'Falha ao concluir a autenticação do Gmail'
+        : 'Falha ao concluir a autenticacao do Gmail'
 
       return {
         redirectUrl: appendRedirectParams(safeReturnUrl, {
@@ -333,30 +405,29 @@ export class GoogleOAuthService {
       where: { clinicId },
     })
 
-    if (!settings?.gmailClientId || !settings.gmailClientSecret) {
-      throw new AppError('Credenciais do Gmail não configuradas', 422)
-    }
-
-    const currentToken = settings.gmailAccessToken
-    const expiresAt = settings.gmailTokenExpiresAt
+    const credentials = getNormalizedGoogleCredentials(settings ?? {})
+    const currentToken = settings?.gmailAccessToken
+    const expiresAt = settings?.gmailTokenExpiresAt
 
     if (currentToken && (!expiresAt || expiresAt.getTime() > Date.now() + 60_000)) {
       return currentToken
     }
 
-    if (!settings.gmailRefreshToken) {
-      throw new AppError('Gmail ainda não autenticado. Faça a conexão OAuth primeiro.', 422)
+    if (!settings?.gmailRefreshToken) {
+      throw new AppError('Gmail ainda nao autenticado. Faca a conexao OAuth primeiro.', 422)
     }
 
     const refreshed = await refreshAccessToken({
-      clientId: settings.gmailClientId,
-      clientSecret: settings.gmailClientSecret,
+      clientId: credentials.clientId,
+      clientSecret: credentials.clientSecret,
       refreshToken: settings.gmailRefreshToken,
     })
 
     await prisma.integrationSettings.update({
       where: { clinicId },
       data: {
+        gmailClientId: credentials.clientId,
+        gmailClientSecret: credentials.clientSecret,
         gmailAccessToken: refreshed.access_token,
         gmailTokenExpiresAt: refreshed.expires_in ? new Date(Date.now() + refreshed.expires_in * 1000) : null,
         gmailConnected: true,

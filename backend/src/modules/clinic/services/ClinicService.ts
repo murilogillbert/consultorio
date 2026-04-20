@@ -3,6 +3,37 @@ import { AppError } from '../../../shared/errors/AppError'
 import { Prisma } from '@prisma/client'
 import { GoogleOAuthService } from '../../auth/services/GoogleOAuthService'
 
+function normalizeGoogleIntegrationValue(value: unknown, key: 'clientId' | 'clientSecret') {
+  const raw = String(value ?? '').trim()
+  if (!raw) {
+    return raw
+  }
+
+  const regex = key === 'clientId'
+    ? /client[_-]?id["']?\s*[:=]\s*["']([^"']+)["']/i
+    : /client[_-]?secret["']?\s*[:=]\s*["']([^"']+)["']/i
+
+  const directMatch = raw.match(regex)
+  if (directMatch?.[1]) {
+    return directMatch[1].trim()
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as any
+    const source = parsed?.web ?? parsed?.installed ?? parsed
+    const extracted = key === 'clientId'
+      ? source?.client_id ?? source?.clientId
+      : source?.client_secret ?? source?.clientSecret
+
+    if (typeof extracted === 'string') {
+      return extracted.trim()
+    }
+  } catch {
+  }
+
+  return raw.replace(/^[\s"'`]+|[\s"',`]+$/g, '').trim()
+}
+
 export class ClinicService {
   constructor(private clinicRepository: ClinicRepository) { }
 
@@ -55,7 +86,17 @@ export class ClinicService {
   }
 
   async updateIntegrations(clinicId: string, data: any) {
-    return this.clinicRepository.updateIntegrations(clinicId, data)
+    const normalizedData = { ...data }
+
+    if (Object.prototype.hasOwnProperty.call(normalizedData, 'gmailClientId')) {
+      normalizedData.gmailClientId = normalizeGoogleIntegrationValue(normalizedData.gmailClientId, 'clientId')
+    }
+
+    if (Object.prototype.hasOwnProperty.call(normalizedData, 'gmailClientSecret')) {
+      normalizedData.gmailClientSecret = normalizeGoogleIntegrationValue(normalizedData.gmailClientSecret, 'clientSecret')
+    }
+
+    return this.clinicRepository.updateIntegrations(clinicId, normalizedData)
   }
 
   async testIntegration(clinicId: string, type: string) {
@@ -140,4 +181,4 @@ export class ClinicService {
 
     throw new AppError('Tipo de integração não suportado', 400)
   }
-}
+}
