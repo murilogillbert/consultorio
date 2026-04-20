@@ -214,7 +214,7 @@ export default function AgendaPage() {
       </button>
 
       {/* Calendar Grid — Day View */}
-      <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, overflow: 'hidden', position: 'relative' }}>
+      <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, position: 'relative' }}>
         <div className="calendar-grid" style={{ flex: 1, minWidth: 0 }}>
           {/* Header */}
           <div className="calendar-header" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>

@@ -220,7 +220,7 @@
 .agenda-main-layout {
   display: flex;
   gap: 0;
-  overflow: hidden;
+  /* overflow intentionally not set — calendar-grid handles its own scroll */
 }
 
 .agenda-filters {
@@ -402,7 +402,7 @@
 .messages-layout {
   display: flex;
   min-height: calc(100dvh - var(--topbar-height));
-  overflow: hidden;
+  /* overflow not clipped — panels manage their own scroll */
 }
 
 .messages-layout-shell {
@@ -1470,6 +1470,10 @@
   .data-table {
     min-width: 760px;
   }
+  /* allow tables to scroll horizontally instead of overflowing hidden */
+  .service-table-wrapper {
+    overflow-x: auto !important;
+  }
   .row-actions {
     flex-wrap: wrap;
   }
@@ -1941,6 +1945,22 @@
 }
 
 /* ================================================================
+   @media (max-width: 600px) — calendar scroll on narrow tablets/phones
+   ================================================================ */
+@media (max-width: 600px) {
+  /* Shrink min-width so the calendar is still scrollable below 640px
+     (the 768px rule sets 720px — here we pull it down for phones) */
+  .calendar-header,
+  .calendar-row {
+    min-width: 480px;
+  }
+  /* Ensure agenda layout never clips the horizontal scrollbar */
+  .agenda-main-layout {
+    overflow-x: auto;
+  }
+}
+
+/* ================================================================
    @media (max-width: 640px) — intermediate mobile breakpoint
    ================================================================ */
 @media (max-width: 640px) {
@@ -2034,6 +2054,10 @@
     margin-right: var(--space-2);
     flex-shrink: 0;
   }
+  .messages-list-panel {
+    width: 100%;
+    flex-shrink: 1;
+  }
   .messages-layout[data-mobile-view="list"] .chat-panel {
     display: none;
   }
@@ -2042,8 +2066,10 @@
   }
   .messages-layout[data-mobile-view="chat"] .chat-panel {
     min-height: calc(100dvh - 120px);
+    width: 100%;
   }
   .messages-layout {
+    flex-direction: column;
     min-height: calc(100dvh - var(--topbar-height));
   }
 
