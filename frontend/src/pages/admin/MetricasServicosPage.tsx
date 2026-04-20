@@ -31,13 +31,14 @@ export default function MetricasServicosPage() {
   const [period, setPeriod] = useState('30 dias')
   const { user } = useAuth()
   const clinicId = user?.clinicId
-  const { data, isLoading } = useServiceMetrics(clinicId, undefined, undefined, period)
+  const { data, isLoading, error } = useServiceMetrics(clinicId, undefined, undefined, period)
   const services = data?.services || []
   const peakHours = data?.peakHours || []
 
   const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
   if (isLoading) return <div style={{ padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>Carregando métricas...</div>
+  if (error) return <div style={{ padding: 'var(--space-8)', color: 'var(--color-accent-danger)' }}>Erro ao carregar métricas de serviços: {(error as any)?.response?.data?.detail ?? (error as any)?.message}</div>
 
   // Agregações globais
   const totalCompleted = services.reduce((s, sv) => s + sv.completedCount, 0)

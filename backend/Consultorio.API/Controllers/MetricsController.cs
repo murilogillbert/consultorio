@@ -66,6 +66,8 @@ public class MetricsController : ControllerBase
     [HttpGet("professionals")]
     public async Task<ActionResult> GetProfessionalMetrics([FromQuery] string? period)
     {
+        try
+        {
         var clinicId = GetClinicId();
         var (start, end) = ParsePeriod(period);
 
@@ -185,7 +187,7 @@ public class MetricsController : ControllerBase
                 cancelledCount = cancelled,
                 cancelledByPatientCount = cancelledByPatient,
                 cancelledByReceptionCount = cancelledByReception,
-                noShowCount = 0,
+                noShowCount = appts.Count(a => a.Status == "NO_SHOW"),
                 cancellationRate,
                 conversionRate,
                 revenue,
@@ -206,6 +208,11 @@ public class MetricsController : ControllerBase
         .ToList();
 
         return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Erro ao carregar métricas de profissionais", detail = ex.Message });
+        }
     }
 
     // =====================================================================
@@ -214,6 +221,8 @@ public class MetricsController : ControllerBase
     [HttpGet("services")]
     public async Task<ActionResult> GetServiceMetrics([FromQuery] string? period)
     {
+        try
+        {
         var clinicId = GetClinicId();
         var (start, end) = ParsePeriod(period);
 
@@ -277,9 +286,10 @@ public class MetricsController : ControllerBase
             var durationHours = (double)(s.DurationMinutes * completed) / 60;
             var revenuePerHour = durationHours > 0 ? (int)Math.Round((double)revenue / durationHours) : 0;
 
-            // Top professional
+            // Top professional — null-safe: some appointments may not have Professional loaded
             var topPro = appts
-                .GroupBy(a => a.Professional.User.Name)
+                .Where(a => a.Professional?.User != null)
+                .GroupBy(a => a.Professional!.User.Name)
                 .OrderByDescending(g => g.Count())
                 .Select(g => g.Key)
                 .FirstOrDefault() ?? "—";
@@ -309,7 +319,7 @@ public class MetricsController : ControllerBase
                 cancelledCount = cancelled,
                 cancelledByPatientCount = cancelledByPatient,
                 cancelledByReceptionCount = cancelledByReception,
-                noShowCount = 0,
+                noShowCount = appts.Count(a => a.Status == "NO_SHOW"),
                 cancellationRate,
                 revenue,
                 avgPrice,
@@ -340,6 +350,11 @@ public class MetricsController : ControllerBase
             .ToList();
 
         return Ok(new { services = result, peakHours });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Erro ao carregar métricas de serviços", detail = ex.Message });
+        }
     }
 
     // =====================================================================
