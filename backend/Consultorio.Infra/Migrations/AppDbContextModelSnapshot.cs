@@ -392,6 +392,9 @@ namespace Consultorio.Infra.Migrations
                     b.Property<string>("GmailAccessToken")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("GmailAddress")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("GmailClientId")
                         .HasColumnType("nvarchar(max)");
 
@@ -406,6 +409,9 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<DateTime?>("GmailTokenExpiresAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("GmailWatchHistoryId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Instagram")
                         .HasColumnType("nvarchar(max)");
@@ -442,6 +448,27 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<string>("MpWebhookSecret")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubsubProjectId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubsubPushEndpoint")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubsubServiceAccount")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubsubSubscriptionName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubsubTopicName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubsubVerificationToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PubsubWatchExpiresAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()

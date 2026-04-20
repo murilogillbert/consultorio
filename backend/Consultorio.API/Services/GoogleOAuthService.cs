@@ -127,12 +127,19 @@ public class GoogleOAuthService
             var tokens = await ExchangeCodeForTokensAsync(code, clinic.GmailClientId, clinic.GmailClientSecret, redirectUri);
 
             clinic.GmailAccessToken = tokens.AccessToken;
-            clinic.GmailRefreshToken = !string.IsNullOrWhiteSpace(tokens.RefreshToken)
+        clinic.GmailRefreshToken = !string.IsNullOrWhiteSpace(tokens.RefreshToken)
                 ? tokens.RefreshToken
                 : clinic.GmailRefreshToken;
             clinic.GmailTokenExpiresAt = tokens.ExpiresIn.HasValue
                 ? DateTime.UtcNow.AddSeconds(tokens.ExpiresIn.Value)
                 : null;
+            try
+            {
+                clinic.GmailAddress = await GetProfileEmailAsync(tokens.AccessToken);
+            }
+            catch
+            {
+            }
             clinic.GmailConnected = true;
             clinic.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
@@ -236,6 +243,31 @@ public class GoogleOAuthService
         await _db.SaveChangesAsync();
 
         return profile.EmailAddress;
+    }
+
+    public async Task<string?> GetProfileEmailAsync(Guid clinicId)
+    {
+        var accessToken = await GetValidAccessTokenAsync(clinicId);
+        return await GetProfileEmailAsync(accessToken);
+    }
+
+    private async Task<string?> GetProfileEmailAsync(string accessToken)
+    {
+        using var requestMessage = new HttpRequestMessage(HttpMethod.Get, "https://gmail.googleapis.com/gmail/v1/users/me/profile");
+        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await _http.SendAsync(requestMessage);
+        var body = await response.Content.ReadAsStringAsync();
+        var profile = Deserialize<GoogleProfileResponse>(body);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new GoogleOAuthException(
+                ExtractGoogleError(body) ?? "Falha ao consultar o perfil do Gmail",
+                StatusCodes.Status400BadRequest);
+        }
+
+        return profile?.EmailAddress;
     }
 
     private async Task<TokenResponse> ExchangeCodeForTokensAsync(string code, string clientId, string clientSecret, string redirectUri)

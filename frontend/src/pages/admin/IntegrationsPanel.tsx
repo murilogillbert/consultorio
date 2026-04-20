@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Mail, MessageCircle, Camera, CreditCard, Cloud,
   ChevronDown, Eye, EyeOff, Copy, Check, Loader2,
@@ -195,6 +196,7 @@ function IntegrationSection({
 /* ═══════════════════════════════════════════ */
 
 export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
+  const queryClient = useQueryClient()
   const { data: existingSettings, isLoading } = useIntegrations(clinicId)
   const updateMutation = useUpdateIntegrations()
   const testMutation = useTestIntegration()
@@ -208,6 +210,15 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       ? 'error'
       : 'disconnected'
   const mpStatus: ConnectionStatus = (existingSettings?.mpConnected ?? existingSettings?.connected) ? 'connected' : 'disconnected'
+  const pubsubConfigured = Boolean(
+    existingSettings?.pubsubProjectId &&
+    existingSettings?.pubsubTopicName &&
+    existingSettings?.pubsubServiceAccount
+  )
+  const pubsubStatus: ConnectionStatus = existingSettings?.pubsubConnected ? 'connected' : 'disconnected'
+  const pubsubWatchExpiresLabel = existingSettings?.pubsubWatchExpiresAt
+    ? new Date(existingSettings.pubsubWatchExpiresAt).toLocaleString('pt-BR')
+    : null
 
   /* Toast system */
   const [toasts, setToasts] = useState<ToastMsg[]>([])
@@ -248,6 +259,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       addToast(msg, 'error')
     }
   }, [clinicId, testMutation, addToast])
+
+  const refreshIntegrations = useCallback(async () => {
+    if (!clinicId) return
+    await queryClient.invalidateQueries({ queryKey: ['integrations', clinicId] })
+  }, [clinicId, queryClient])
 
   /* Gmail state */
   const [gmail, setGmail] = useState({ clientId: '', clientSecret: '' })
@@ -790,8 +806,21 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         icon={Cloud}
         title="Google Pub/Sub"
         description="Notificações em tempo real do Gmail via Google Cloud Pub/Sub"
-        status="disconnected"
+        status={pubsubStatus}
       >
+        <div className="intg-info-banner">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>Status do tempo real</strong>
+            <p>
+              {existingSettings?.pubsubConnected
+                ? `Tempo real ativo${existingSettings.gmailAddress ? ` para ${existingSettings.gmailAddress}` : ''}. Watch atual atÃ© ${pubsubWatchExpiresLabel}.`
+                : pubsubConfigured
+                  ? 'As credenciais do Pub/Sub jÃ¡ estÃ£o salvas, mas o watch ainda nÃ£o estÃ¡ ativo. Salve e depois clique em "Ativar Tempo Real".'
+                  : 'Salve as credenciais abaixo para habilitar o modo em tempo real do Gmail. Sem isso, a recepÃ§Ã£o continua funcionando pelo sync normal da API.'}
+            </p>
+          </div>
+        </div>
 
         <InstructionBox steps={[
           'No Google Cloud Console, acesse o mesmo projeto da Gmail API',
@@ -865,12 +894,57 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
                 pubsubServiceAccount: pubsub.serviceKey,
               }
             })
+            await refreshIntegrations()
             addToast(
               valid
                 ? 'Configurações do Pub/Sub salvas'
                 : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
               valid ? 'success' : 'warning'
             )
+          }} />
+        </div>
+        <div className="intg-actions">
+          <SaveButton label="Ativar Tempo Real" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+            const valid = validatePubSub()
+            if (!clinicId) return
+            if (!existingSettings?.gmailConnected) {
+              addToast('Conecte o Gmail via OAuth antes de ativar o Pub/Sub.', 'warning')
+              return
+            }
+            if (!valid) {
+              addToast('Preencha Project ID, Topic Name e Service Account antes de ativar o tempo real.', 'warning')
+              return
+            }
+
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: {
+                pubsubProjectId: pubsub.projectId,
+                pubsubTopicName: pubsub.topicName,
+                pubsubServiceAccount: pubsub.serviceKey,
+              }
+            })
+
+            const { data } = await api.post<{ ok: boolean; message: string; expiresAt?: string }>(
+              `/clinics/${clinicId}/settings/integrations/gmail/watch`,
+              {}
+            )
+
+            addToast(
+              data.expiresAt
+                ? `${data.message} â€” watch ativo atÃ© ${new Date(data.expiresAt).toLocaleString('pt-BR')}`
+                : data.message,
+              'success'
+            )
+            await refreshIntegrations()
+          }} />
+          <SaveButton label="Desativar Tempo Real" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
+            if (!clinicId) return
+            const { data } = await api.delete<{ ok: boolean; message: string }>(
+              `/clinics/${clinicId}/settings/integrations/gmail/watch`
+            )
+            addToast(data.message, 'warning')
+            await refreshIntegrations()
           }} />
         </div>
       </IntegrationSection>
