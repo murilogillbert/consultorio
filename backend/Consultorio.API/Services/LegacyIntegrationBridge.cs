@@ -307,11 +307,11 @@ public sealed class LegacyIntegrationBridge
 
         if (groups.HasFlag(LegacyIntegrationGroup.Gmail))
         {
-            changed |= SetIfMissing(ref clinic.GmailClientId, legacy.GmailClientId);
-            changed |= SetIfMissing(ref clinic.GmailClientSecret, legacy.GmailClientSecret);
-            changed |= SetIfMissing(ref clinic.GmailAccessToken, legacy.GmailAccessToken);
-            changed |= SetIfMissing(ref clinic.GmailRefreshToken, legacy.GmailRefreshToken);
-            changed |= SetIfMissing(ref clinic.GmailTokenExpiresAt, legacy.GmailTokenExpiresAt);
+            changed |= TryApply(clinic.GmailClientId, legacy.GmailClientId, v => clinic.GmailClientId = v);
+            changed |= TryApply(clinic.GmailClientSecret, legacy.GmailClientSecret, v => clinic.GmailClientSecret = v);
+            changed |= TryApply(clinic.GmailAccessToken, legacy.GmailAccessToken, v => clinic.GmailAccessToken = v);
+            changed |= TryApply(clinic.GmailRefreshToken, legacy.GmailRefreshToken, v => clinic.GmailRefreshToken = v);
+            changed |= TryApply(clinic.GmailTokenExpiresAt, legacy.GmailTokenExpiresAt, v => clinic.GmailTokenExpiresAt = v);
 
             if (!clinic.GmailConnected &&
                 string.IsNullOrWhiteSpace(clinic.GmailAccessToken) &&
@@ -325,20 +325,20 @@ public sealed class LegacyIntegrationBridge
 
         if (groups.HasFlag(LegacyIntegrationGroup.PubSub))
         {
-            changed |= SetIfMissing(ref clinic.PubsubProjectId, legacy.PubsubProjectId);
-            changed |= SetIfMissing(ref clinic.PubsubTopicName, legacy.PubsubTopicName);
-            changed |= SetIfMissing(ref clinic.PubsubServiceAccount, legacy.PubsubServiceAccount);
-            changed |= SetIfMissing(ref clinic.PubsubWatchExpiresAt, legacy.PubsubWatchExpiresAt);
-            changed |= SetIfMissing(ref clinic.GmailWatchHistoryId, legacy.GmailHistoryId);
+            changed |= TryApply(clinic.PubsubProjectId, legacy.PubsubProjectId, v => clinic.PubsubProjectId = v);
+            changed |= TryApply(clinic.PubsubTopicName, legacy.PubsubTopicName, v => clinic.PubsubTopicName = v);
+            changed |= TryApply(clinic.PubsubServiceAccount, legacy.PubsubServiceAccount, v => clinic.PubsubServiceAccount = v);
+            changed |= TryApply(clinic.PubsubWatchExpiresAt, legacy.PubsubWatchExpiresAt, v => clinic.PubsubWatchExpiresAt = v);
+            changed |= TryApply(clinic.GmailWatchHistoryId, legacy.GmailHistoryId, v => clinic.GmailWatchHistoryId = v);
         }
 
         if (groups.HasFlag(LegacyIntegrationGroup.WhatsApp))
         {
-            changed |= SetIfMissing(ref clinic.WaPhoneNumberId, legacy.WaPhoneNumberId);
-            changed |= SetIfMissing(ref clinic.WaWabaId, legacy.WaWabaId);
-            changed |= SetIfMissing(ref clinic.WaAccessToken, legacy.WaAccessToken);
-            changed |= SetIfMissing(ref clinic.WaVerifyToken, legacy.WaVerifyToken);
-            changed |= SetIfMissing(ref clinic.WaAppSecret, legacy.WaAppSecret);
+            changed |= TryApply(clinic.WaPhoneNumberId, legacy.WaPhoneNumberId, v => clinic.WaPhoneNumberId = v);
+            changed |= TryApply(clinic.WaWabaId, legacy.WaWabaId, v => clinic.WaWabaId = v);
+            changed |= TryApply(clinic.WaAccessToken, legacy.WaAccessToken, v => clinic.WaAccessToken = v);
+            changed |= TryApply(clinic.WaVerifyToken, legacy.WaVerifyToken, v => clinic.WaVerifyToken = v);
+            changed |= TryApply(clinic.WaAppSecret, legacy.WaAppSecret, v => clinic.WaAppSecret = v);
 
             if (!clinic.WaConnected &&
                 string.IsNullOrWhiteSpace(clinic.WaAccessToken) &&
@@ -352,10 +352,10 @@ public sealed class LegacyIntegrationBridge
 
         if (groups.HasFlag(LegacyIntegrationGroup.Instagram))
         {
-            changed |= SetIfMissing(ref clinic.IgAccountId, legacy.IgAccountId);
-            changed |= SetIfMissing(ref clinic.IgPageId, legacy.IgPageId);
-            changed |= SetIfMissing(ref clinic.IgAccessToken, legacy.IgAccessToken);
-            changed |= SetIfMissing(ref clinic.IgTokenExpiresAt, legacy.IgTokenExpiresAt);
+            changed |= TryApply(clinic.IgAccountId, legacy.IgAccountId, v => clinic.IgAccountId = v);
+            changed |= TryApply(clinic.IgPageId, legacy.IgPageId, v => clinic.IgPageId = v);
+            changed |= TryApply(clinic.IgAccessToken, legacy.IgAccessToken, v => clinic.IgAccessToken = v);
+            changed |= TryApply(clinic.IgTokenExpiresAt, legacy.IgTokenExpiresAt, v => clinic.IgTokenExpiresAt = v);
 
             if (!clinic.IgConnected &&
                 string.IsNullOrWhiteSpace(clinic.IgAccessToken) &&
@@ -369,10 +369,10 @@ public sealed class LegacyIntegrationBridge
 
         if (groups.HasFlag(LegacyIntegrationGroup.MercadoPago))
         {
-            changed |= SetIfMissing(ref clinic.MpAccessTokenProd, legacy.MpAccessTokenProd);
-            changed |= SetIfMissing(ref clinic.MpAccessTokenSandbox, legacy.MpAccessTokenSandbox);
-            changed |= SetIfMissing(ref clinic.MpPublicKey, legacy.MpPublicKeyProd);
-            changed |= SetIfMissing(ref clinic.MpWebhookSecret, legacy.MpWebhookSecret);
+            changed |= TryApply(clinic.MpAccessTokenProd, legacy.MpAccessTokenProd, v => clinic.MpAccessTokenProd = v);
+            changed |= TryApply(clinic.MpAccessTokenSandbox, legacy.MpAccessTokenSandbox, v => clinic.MpAccessTokenSandbox = v);
+            changed |= TryApply(clinic.MpPublicKey, legacy.MpPublicKeyProd, v => clinic.MpPublicKey = v);
+            changed |= TryApply(clinic.MpWebhookSecret, legacy.MpWebhookSecret, v => clinic.MpWebhookSecret = v);
 
             if (string.IsNullOrWhiteSpace(clinic.MpAccessTokenProd) &&
                 string.IsNullOrWhiteSpace(clinic.MpAccessTokenSandbox) &&
@@ -459,21 +459,21 @@ public sealed class LegacyIntegrationBridge
         return record;
     }
 
-    private static bool SetIfMissing(ref string? currentValue, string? legacyValue)
+    private static bool TryApply(string? current, string? legacy, Action<string?> setter)
     {
-        if (!string.IsNullOrWhiteSpace(currentValue) || string.IsNullOrWhiteSpace(legacyValue))
+        if (!string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(legacy))
             return false;
 
-        currentValue = legacyValue;
+        setter(legacy);
         return true;
     }
 
-    private static bool SetIfMissing(ref DateTime? currentValue, DateTime? legacyValue)
+    private static bool TryApply(DateTime? current, DateTime? legacy, Action<DateTime?> setter)
     {
-        if (currentValue.HasValue || !legacyValue.HasValue)
+        if (current.HasValue || !legacy.HasValue)
             return false;
 
-        currentValue = legacyValue;
+        setter(legacy);
         return true;
     }
 
