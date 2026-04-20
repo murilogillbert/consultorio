@@ -1,14 +1,40 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Consultorio.Infra.Migrations
 {
+    /// <inheritdoc />
     public partial class AddWhatsAppIntegrationFields : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<string>(
+                name: "ExternalMessageId",
+                table: "PatientMessages",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "ExternalProvider",
+                table: "PatientMessages",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "ExternalStatus",
+                table: "PatientMessages",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "ExternalTimestamp",
+                table: "PatientMessages",
+                type: "datetime2",
+                nullable: true);
+
             migrationBuilder.AddColumn<string>(
                 name: "WaAccessToken",
                 table: "Clinics",
@@ -45,41 +71,25 @@ namespace Consultorio.Infra.Migrations
                 table: "Clinics",
                 type: "nvarchar(max)",
                 nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "ExternalMessageId",
-                table: "PatientMessages",
-                type: "nvarchar(450)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "ExternalProvider",
-                table: "PatientMessages",
-                type: "nvarchar(max)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "ExternalStatus",
-                table: "PatientMessages",
-                type: "nvarchar(max)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "ExternalTimestamp",
-                table: "PatientMessages",
-                type: "datetime2",
-                nullable: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PatientMessages_ExternalMessageId",
-                table: "PatientMessages",
-                column: "ExternalMessageId");
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_PatientMessages_ExternalMessageId",
+            migrationBuilder.DropColumn(
+                name: "ExternalMessageId",
+                table: "PatientMessages");
+
+            migrationBuilder.DropColumn(
+                name: "ExternalProvider",
+                table: "PatientMessages");
+
+            migrationBuilder.DropColumn(
+                name: "ExternalStatus",
+                table: "PatientMessages");
+
+            migrationBuilder.DropColumn(
+                name: "ExternalTimestamp",
                 table: "PatientMessages");
 
             migrationBuilder.DropColumn(
@@ -105,22 +115,6 @@ namespace Consultorio.Infra.Migrations
             migrationBuilder.DropColumn(
                 name: "WaWabaId",
                 table: "Clinics");
-
-            migrationBuilder.DropColumn(
-                name: "ExternalMessageId",
-                table: "PatientMessages");
-
-            migrationBuilder.DropColumn(
-                name: "ExternalProvider",
-                table: "PatientMessages");
-
-            migrationBuilder.DropColumn(
-                name: "ExternalStatus",
-                table: "PatientMessages");
-
-            migrationBuilder.DropColumn(
-                name: "ExternalTimestamp",
-                table: "PatientMessages");
         }
     }
 }
