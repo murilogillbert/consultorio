@@ -238,6 +238,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!clinicId) return
     try {
       const result = await testMutation.mutateAsync({ clinicId, type })
+      if (!result.ok) {
+        addToast(result.message || 'Falha no teste de conexao', 'error')
+        return
+      }
       addToast(result.message + ((result as any).detail ? ` â€” ${(result as any).detail}` : ''), 'success')
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Falha no teste de conexÃ£o'
@@ -285,10 +289,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         pageToken: existingSettings.igAccessToken || '',
       })
       setMp({
-        // Node.js backend sends full token; .NET sends masked â€” show as-is for display
-        accessToken:  existingSettings.mpAccessTokenProd     || existingSettings.accessTokenProdMasked    || '',
-        sandboxToken: existingSettings.mpAccessTokenSandbox  || existingSettings.accessTokenSandboxMasked || '',
-        publicKey:    existingSettings.mpPublicKeyProd        || existingSettings.publicKey               || '',
+        accessToken:  existingSettings.accessTokenProdMasked    || '',
+        sandboxToken: existingSettings.accessTokenSandboxMasked || '',
+        publicKey:    existingSettings.publicKey               || '',
         sandboxMode:  existingSettings.sandboxMode           ?? true,
       })
       setPubsub({
@@ -339,6 +342,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     } else if (!mp.accessToken) {
       e.accessToken = 'Access Token de producao e obrigatorio'
     }
+    if (!mp.publicKey) e.publicKey = 'Public Key e obrigatoria'
     setMpErrors(e)
     return Object.keys(e).length === 0
   }
@@ -353,6 +357,16 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   }
 
   const baseUrl = (api.defaults.baseURL || `${window.location.origin}/api`).replace(/\/$/, '')
+  const isMaskedCredential = (value: string) => {
+    const trimmed = value.trim()
+    return trimmed.startsWith('••') || trimmed.startsWith('â€¢â€¢')
+  }
+  const mercadoPagoPayload = {
+    ...(mp.accessToken && !isMaskedCredential(mp.accessToken) ? { accessTokenProd: mp.accessToken } : {}),
+    ...(mp.sandboxToken && !isMaskedCredential(mp.sandboxToken) ? { accessTokenSandbox: mp.sandboxToken } : {}),
+    publicKey: mp.publicKey,
+    sandboxMode: mp.sandboxMode,
+  }
 
   return (
     <div className="intg-panel">
@@ -363,7 +377,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <AlertTriangle size={18} />
         <div>
           <strong>Estado atual das integraÃ§Ãµes</strong>
-          <p>Hoje os e-mails automÃ¡ticos do sistema usam SMTP ou Ethereal no backend. Gmail, Pub/Sub e Instagram ainda estÃ£o em etapa parcial de construÃ§Ã£o neste backend Node.</p>
+          <p>Hoje os e-mails automÃ¡ticos do sistema usam SMTP ou Ethereal no backend. Gmail, Pub/Sub e Instagram ainda estÃ£o em etapa parcial de construÃ§Ã£o.</p>
         </div>
       </div>
 
@@ -687,7 +701,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           <div className="input-group full-span">
             <SensitiveField
               label={`Access Token (${mp.sandboxMode ? 'Sandbox/Testes' : 'ProduÃ§Ã£o'})`}
-              required={!mp.sandboxMode}
+              required
               placeholder={mp.sandboxMode
                 ? 'TEST-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000'
                 : 'APP_USR-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxx-000000000'}
@@ -697,8 +711,8 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               mono
               value={mp.sandboxMode ? mp.sandboxToken : mp.accessToken}
               onChange={v => mp.sandboxMode
-                ? setMp(p => ({ ...p, sandboxToken: v }))
-                : setMp(p => ({ ...p, accessToken: v }))
+                ? (setMp(p => ({ ...p, sandboxToken: v })), setMpErrors(p => ({ ...p, sandboxToken: '' })))
+                : (setMp(p => ({ ...p, accessToken: v })), setMpErrors(p => ({ ...p, accessToken: '' })))
               }
               error={mp.sandboxMode ? mpErrors.sandboxToken : mpErrors.accessToken}
             />
@@ -717,10 +731,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           )}
           <SensitiveField
             label="Public Key"
+            required
             placeholder={mp.sandboxMode
               ? 'TEST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
               : 'APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
-            hint="Opcional neste fluxo atual. Use apenas se for integrar tokenizacao direta de cartao no frontend."
+            hint="Encontrado junto ao Access Token no painel do Mercado Pago."
             mono
             value={mp.publicKey}
             onChange={v => { setMp(p => ({ ...p, publicKey: v })); setMpErrors(p => ({ ...p, publicKey: '' })) }}
@@ -730,12 +745,21 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
 
         <div className="intg-actions">
           <SaveButton label="Testar ConexÃ£o" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+            const valid = validateMercadoPago()
+            if (!clinicId) return
+            if (!valid) {
+              addToast('Preencha Access Token e Public Key antes de testar', 'warning')
+              return
+            }
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: mercadoPagoPayload as any
+            })
             await handleTest('mercadopago')
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
             if (!clinicId) return
-            // send both naming conventions so both backends accept it
-            await updateMutation.mutateAsync({ clinicId, data: { mpConnected: false, connected: false } as any })
+            await updateMutation.mutateAsync({ clinicId, data: { connected: false } as any })
             addToast('Mercado Pago desconectado', 'warning')
           }} />
           <SaveButton label="Salvar AlteraÃ§Ãµes" icon={<Shield size={14} />} onClick={async () => {
@@ -743,17 +767,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             if (!clinicId) return
             await updateMutation.mutateAsync({
               clinicId,
-              data: {
-                // Node.js field names
-                mpAccessTokenProd:     mp.accessToken,
-                mpAccessTokenSandbox:  mp.sandboxToken,
-                mpPublicKeyProd:       mp.publicKey,
-                // .NET field names
-                accessTokenProd:       mp.accessToken,
-                accessTokenSandbox:    mp.sandboxToken,
-                publicKey:             mp.publicKey,
-                sandboxMode:           mp.sandboxMode,
-              } as any
+              data: mercadoPagoPayload as any
             })
             addToast(
               valid
