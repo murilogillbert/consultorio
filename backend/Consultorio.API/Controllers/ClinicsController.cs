@@ -16,15 +16,13 @@ public class ClinicsController : ControllerBase
     private readonly AppDbContext        _db;
     private readonly MercadoPagoService  _mp;
     private readonly GoogleOAuthService  _googleOAuth;
-    private readonly GmailPubSubService  _gmailPubSub;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, GmailPubSubService gmailPubSub)
+    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth)
     {
         _db = db;
         _mp = mp;
         _googleOAuth = googleOAuth;
-        _gmailPubSub = gmailPubSub;
     }
 
     private static string? Mask(string? token) =>
@@ -44,17 +42,7 @@ public class ClinicsController : ControllerBase
     {
         GmailClientId = clinic.GmailClientId,
         GmailClientSecret = clinic.GmailClientSecret,
-        GmailAddress = clinic.GmailAddress,
         GmailConnected = clinic.GmailConnected,
-        PubsubProjectId = clinic.PubsubProjectId,
-        PubsubTopicName = clinic.PubsubTopicName,
-        PubsubServiceAccount = clinic.PubsubServiceAccount,
-        PubsubSubscriptionName = clinic.PubsubSubscriptionName,
-        PubsubWatchExpiresAt = clinic.PubsubWatchExpiresAt,
-        PubsubConnected = clinic.GmailConnected &&
-            !string.IsNullOrWhiteSpace(clinic.PubsubSubscriptionName) &&
-            clinic.PubsubWatchExpiresAt.HasValue &&
-            clinic.PubsubWatchExpiresAt.Value > DateTime.UtcNow,
         AccessTokenProdMasked = Mask(clinic.MpAccessTokenProd),
         AccessTokenSandboxMasked = Mask(clinic.MpAccessTokenSandbox),
         PublicKey = clinic.MpPublicKey,
@@ -177,30 +165,16 @@ public class ClinicsController : ControllerBase
         if (clinic == null)
             return NotFound(new { message = "Clínica não encontrada." });
 
-        if (dto.GmailClientId     != null) clinic.GmailClientId     = dto.GmailClientId     == "" ? null : dto.GmailClientId.Trim();
-        if (dto.GmailClientSecret != null) clinic.GmailClientSecret = dto.GmailClientSecret == "" ? null : dto.GmailClientSecret.Trim();
+        if (dto.GmailClientId     != null) clinic.GmailClientId     = dto.GmailClientId     == "" ? null : dto.GmailClientId;
+        if (dto.GmailClientSecret != null) clinic.GmailClientSecret = dto.GmailClientSecret == "" ? null : dto.GmailClientSecret;
         if (dto.GmailAccessToken  != null)
         {
             clinic.GmailAccessToken = dto.GmailAccessToken == "" ? null : dto.GmailAccessToken;
             if (dto.GmailAccessToken == "")
-            {
                 clinic.GmailTokenExpiresAt = null;
-                clinic.GmailAddress = null;
-            }
         }
         if (dto.GmailRefreshToken != null) clinic.GmailRefreshToken = dto.GmailRefreshToken == "" ? null : dto.GmailRefreshToken;
-        if (dto.GmailConnected.HasValue)
-        {
-            clinic.GmailConnected = dto.GmailConnected.Value;
-            if (!dto.GmailConnected.Value)
-            {
-                clinic.PubsubWatchExpiresAt = null;
-                clinic.GmailWatchHistoryId = null;
-            }
-        }
-        if (dto.PubsubProjectId != null) clinic.PubsubProjectId = dto.PubsubProjectId == "" ? null : dto.PubsubProjectId.Trim();
-        if (dto.PubsubTopicName != null) clinic.PubsubTopicName = dto.PubsubTopicName == "" ? null : dto.PubsubTopicName.Trim();
-        if (dto.PubsubServiceAccount != null) clinic.PubsubServiceAccount = dto.PubsubServiceAccount == "" ? null : dto.PubsubServiceAccount.Trim();
+        if (dto.GmailConnected.HasValue)   clinic.GmailConnected    = dto.GmailConnected.Value;
 
         // Only overwrite if the client sent a non-null value.
         // Sending "" explicitly clears the field.
@@ -211,20 +185,6 @@ public class ClinicsController : ControllerBase
         if (dto.PublicKey          != null) clinic.MpPublicKey          = dto.PublicKey == "" ? null : dto.PublicKey;
         if (dto.SandboxMode.HasValue)       clinic.MpSandboxMode        = dto.SandboxMode.Value;
         if (dto.Connected.HasValue)         clinic.MpConnected          = dto.Connected.Value;
-
-        var hasPubSubConfig =
-            !string.IsNullOrWhiteSpace(clinic.PubsubProjectId) &&
-            !string.IsNullOrWhiteSpace(clinic.PubsubTopicName) &&
-            !string.IsNullOrWhiteSpace(clinic.PubsubServiceAccount);
-
-        if (!hasPubSubConfig)
-        {
-            clinic.PubsubSubscriptionName = null;
-            clinic.PubsubPushEndpoint = null;
-            clinic.PubsubWatchExpiresAt = null;
-            clinic.PubsubVerificationToken = null;
-            clinic.GmailWatchHistoryId = null;
-        }
 
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -248,47 +208,6 @@ public class ClinicsController : ControllerBase
             });
         }
         catch (GoogleOAuthException ex)
-        {
-            return StatusCode(ex.StatusCode, new { message = ex.Message });
-        }
-    }
-
-    [HttpPost("{id}/settings/integrations/gmail/watch")]
-    [Authorize]
-    public async Task<ActionResult> SetupGmailWatch(Guid id)
-    {
-        try
-        {
-            var result = await _gmailPubSub.EnsureWatchAsync(id, Request);
-            return Ok(new
-            {
-                ok = true,
-                message = "Pub/Sub do Gmail ativado com sucesso",
-                historyId = result.HistoryId,
-                expiresAt = result.ExpiresAt,
-                subscriptionName = result.SubscriptionName,
-            });
-        }
-        catch (GmailPubSubException ex)
-        {
-            return StatusCode(ex.StatusCode, new { message = ex.Message });
-        }
-    }
-
-    [HttpDelete("{id}/settings/integrations/gmail/watch")]
-    [Authorize]
-    public async Task<ActionResult> StopGmailWatch(Guid id)
-    {
-        try
-        {
-            await _gmailPubSub.StopWatchAsync(id, deleteSubscription: true);
-            return Ok(new
-            {
-                ok = true,
-                message = "Pub/Sub do Gmail desativado com sucesso",
-            });
-        }
-        catch (GmailPubSubException ex)
         {
             return StatusCode(ex.StatusCode, new { message = ex.Message });
         }

@@ -77,9 +77,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddHttpClient<GoogleOAuthService>();
 builder.Services.AddHttpClient<GmailInboxSyncService>();
-builder.Services.AddHttpClient<GmailPubSubService>();
 builder.Services.AddHttpClient<MercadoPagoService>();
-builder.Services.AddHostedService<GmailWatchRenewalService>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 

@@ -10,13 +10,9 @@ export interface IntegrationSettings {
   gmailClientSecret?: string
   gmailAccessToken?: string
   gmailRefreshToken?: string
-  gmailAddress?: string
   pubsubProjectId?: string
   pubsubTopicName?: string
   pubsubServiceAccount?: string
-  pubsubSubscriptionName?: string
-  pubsubWatchExpiresAt?: string
-  pubsubConnected?: boolean
   waPhoneNumberId?: string
   waWabaId?: string
   waAccessToken?: string

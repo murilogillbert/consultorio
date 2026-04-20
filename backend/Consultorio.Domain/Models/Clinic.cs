@@ -33,16 +33,7 @@ public class Clinic
     public string? GmailAccessToken { get; set; }
     public string? GmailRefreshToken { get; set; }
     public DateTime? GmailTokenExpiresAt { get; set; }
-    public string? GmailAddress { get; set; }
-    public string? GmailWatchHistoryId { get; set; }
     public bool GmailConnected { get; set; } = false;
-    public string? PubsubProjectId { get; set; }
-    public string? PubsubTopicName { get; set; }
-    public string? PubsubServiceAccount { get; set; }
-    public string? PubsubVerificationToken { get; set; }
-    public string? PubsubSubscriptionName { get; set; }
-    public string? PubsubPushEndpoint { get; set; }
-    public DateTime? PubsubWatchExpiresAt { get; set; }
 
     // ── Mercado Pago credentials (stored encrypted-at-rest by SQL Server TDE) ──
     public string? MpAccessTokenProd    { get; set; }

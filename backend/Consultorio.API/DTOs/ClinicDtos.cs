@@ -8,14 +8,7 @@ public class IntegrationSettingsResponseDto
 {
     public string? GmailClientId            { get; set; }
     public string? GmailClientSecret        { get; set; }
-    public string? GmailAddress             { get; set; }
     public bool    GmailConnected           { get; set; }
-    public string? PubsubProjectId          { get; set; }
-    public string? PubsubTopicName          { get; set; }
-    public string? PubsubServiceAccount     { get; set; }
-    public string? PubsubSubscriptionName   { get; set; }
-    public DateTime? PubsubWatchExpiresAt   { get; set; }
-    public bool    PubsubConnected          { get; set; }
     public string? AccessTokenProdMasked    { get; set; }  // last 6 chars only
     public string? AccessTokenSandboxMasked { get; set; }
     public string? PublicKey                { get; set; }  // public — no masking needed
@@ -30,9 +23,6 @@ public class UpdateIntegrationSettingsDto
     public string? GmailAccessToken  { get; set; }
     public string? GmailRefreshToken { get; set; }
     public bool?   GmailConnected    { get; set; }
-    public string? PubsubProjectId   { get; set; }
-    public string? PubsubTopicName   { get; set; }
-    public string? PubsubServiceAccount { get; set; }
     public string? AccessTokenProd    { get; set; }
     public string? AccessTokenSandbox { get; set; }
     public string? PublicKey          { get; set; }
