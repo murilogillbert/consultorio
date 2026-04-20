@@ -23,13 +23,14 @@ public class MetricsController : ControllerBase
     private (DateTime start, DateTime end) ParsePeriod(string? period)
     {
         var now = DateTime.UtcNow;
-        var end = now;
+        // Always extend to end of today so appointments scheduled later today
+        // (but already completed or confirmed) are included in multi-day ranges.
+        var end = now.Date.AddDays(1).AddSeconds(-1);
         DateTime start;
         switch (period)
         {
             case "Hoje":
                 start = now.Date;
-                end = now.Date.AddDays(1).AddSeconds(-1);
                 break;
             case "7 dias":
                 start = now.AddDays(-7);
