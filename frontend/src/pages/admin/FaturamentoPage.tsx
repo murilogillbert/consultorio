@@ -76,26 +76,26 @@ export default function FaturamentoPage() {
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{payouts.length} profissional(is)</span>
         </div>
         <div className="metric-card">
-          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Receita Liquida</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Receita Líquida</span>
           <span className="metric-value" style={{ color: 'var(--color-accent-emerald)' }}>{fmt(receitaLiquida)}</span>
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>margem: {totalRevenue > 0 ? Math.round((receitaLiquida / totalRevenue) * 100) : 0}%</span>
         </div>
         <div className="metric-card">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><BarChart3 size={14} /> Atendimentos</span>
           <span className="metric-value">{totalAppointments}</span>
-          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{completedAppts} concluidos</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{completedAppts} concluídos</span>
         </div>
       </div>
 
       {/* Cards - Linha 2 */}
       <div className="metrics-row stagger-children" style={{ marginTop: 'var(--space-4)' }}>
         <div className="metric-card">
-          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CreditCard size={14} /> Ticket Medio</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CreditCard size={14} /> Ticket Médio</span>
           <span className="metric-value">{fmt(ticketMedio)}</span>
-          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>por atendimento concluido</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>por atendimento concluído</span>
         </div>
         <div className="metric-card">
-          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Inadimplencia</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Inadimplência</span>
           <span className="metric-value" style={{ color: totalDelinquency > 0 ? 'var(--color-accent-danger)' : 'var(--color-accent-emerald)' }}>
             {fmt(totalDelinquency)}
           </span>
@@ -115,12 +115,12 @@ export default function FaturamentoPage() {
         </div>
       </div>
 
-      {/* Graficos */}
+      {/* Gráficos */}
       <div className="charts-row" style={{ marginTop: 'var(--space-6)' }}>
         <div className="chart-card">
           <h3><CreditCard size={16} style={{ display: 'inline', marginRight: 8 }} />Receita por Canal de Pagamento</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 'var(--space-4) 0' }}>
-            {revenueByChannel.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no periodo.</p>}
+            {revenueByChannel.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no período.</p>}
             {revenueByChannel.map((ch, i) => {
               const maxVal = Math.max(...revenueByChannel.map(c => c.value)) || 1
               const pct = (ch.value / maxVal) * 100
@@ -227,13 +227,13 @@ export default function FaturamentoPage() {
               <th>Profissional</th>
               <th>Atendimentos</th>
               <th>Receita Bruta</th>
-              <th>Comissao</th>
+              <th>Comissão</th>
               <th>Repasse</th>
             </tr>
           </thead>
           <tbody>
             {payouts.length === 0 && (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-text-muted)' }}>Nenhum repasse registrado no periodo.</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-text-muted)' }}>Nenhum repasse registrado no período.</td></tr>
             )}
             {payouts.map((p, i) => (
               <tr key={i}>
@@ -251,11 +251,11 @@ export default function FaturamentoPage() {
         </table>
       </div>
 
-      {/* Tabela Inadimplencia */}
+      {/* Tabela Inadimplência */}
       <div className="card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
           <AlertTriangle size={18} color="var(--color-accent-danger)" />
-          Inadimplencia (Pagamentos Pendentes)
+          Inadimplência (Pagamentos Pendentes)
         </h3>
         {delinquency.length === 0 && (
           <p style={{ fontSize: 13, color: 'var(--color-text-muted)', padding: 'var(--space-4)' }}>Nenhum pagamento pendente detectado.</p>

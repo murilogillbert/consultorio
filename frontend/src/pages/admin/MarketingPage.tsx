@@ -69,7 +69,7 @@ export default function MarketingPage() {
           <TrendBadge value={appointmentsTrend} />
         </div>
         <div className="metric-card">
-          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Concluidos</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Concluídos</span>
           <span className="metric-value" style={{ color: 'var(--color-accent-emerald)' }}>{completedAppointments}</span>
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{completionRate}% dos agendamentos</span>
         </div>
@@ -81,7 +81,7 @@ export default function MarketingPage() {
         <div className="metric-card">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><UserPlus size={14} /> Novos Pacientes</span>
           <span className="metric-value">{newPatients}</span>
-          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>no periodo</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>no período</span>
         </div>
       </div>
 
@@ -90,15 +90,15 @@ export default function MarketingPage() {
         <div className="metric-card">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><BarChart3 size={14} /> Receita</span>
           <span className="metric-value">{fmt(revenue)}</span>
-          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>pagamentos concluidos</span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>pagamentos concluídos</span>
         </div>
         <div className="metric-card">
-          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> Ticket Medio</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> Ticket Médio</span>
           <span className="metric-value">{fmt(completedAppointments > 0 ? revenue / completedAppointments : 0)}</span>
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>por atendimento</span>
         </div>
         <div className="metric-card" style={{ gridColumn: 'span 2' }}>
-          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={14} /> Funil de Conversao</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={14} /> Funil de Conversão</span>
           <div style={{ display: 'flex', gap: 'var(--space-6)', marginTop: 8 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700 }}>{funnel.agendados}</div>
@@ -112,7 +112,7 @@ export default function MarketingPage() {
             <div style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-muted)' }}>&rarr;</div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-accent-emerald)' }}>{funnel.concluidos}</div>
-              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Concluidos ({funnel.concluidosPct}%)</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Concluídos ({funnel.concluidosPct}%)</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-muted)' }}>|</div>
             <div style={{ textAlign: 'center' }}>
@@ -123,12 +123,12 @@ export default function MarketingPage() {
         </div>
       </div>
 
-      {/* Graficos */}
+      {/* Gráficos */}
       <div className="charts-row" style={{ marginTop: 'var(--space-6)' }}>
         <div className="chart-card">
           <h3>Agendamentos por Dia da Semana</h3>
           <div className="chart-placeholder" style={{ alignItems: 'flex-end' }}>
-            {byDayOfWeek.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no periodo.</p>}
+            {byDayOfWeek.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no período.</p>}
             {byDayOfWeek.map((d, i) => {
               const maxCount = Math.max(...byDayOfWeek.map(x => x.count)) || 1
               const hPct = (d.count / maxCount) * 100
@@ -147,9 +147,9 @@ export default function MarketingPage() {
         </div>
 
         <div className="chart-card">
-          <h3>Agendamentos por Servico</h3>
+          <h3>Agendamentos por Serviço</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 'var(--space-4) 0' }}>
-            {byService.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no periodo.</p>}
+            {byService.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados no período.</p>}
             {byService.map((s, i) => {
               const maxVal = Math.max(...byService.map(x => x.value)) || 1
               const pct = (s.value / maxVal) * 100
@@ -167,15 +167,15 @@ export default function MarketingPage() {
         </div>
       </div>
 
-      {/* Top Servicos por Receita */}
+      {/* Top Serviços por Receita */}
       <div className="card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
-          Top Servicos por Receita
+          Top Serviços por Receita
         </h3>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Servico</th>
+              <th>Serviço</th>
               <th>Agendamentos</th>
               <th>% do Total</th>
               <th>Receita</th>
@@ -183,7 +183,7 @@ export default function MarketingPage() {
           </thead>
           <tbody>
             {topServicesByRevenue.length === 0 && (
-              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-text-muted)' }}>Nenhum dado encontrado no periodo.</td></tr>
+              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-text-muted)' }}>Nenhum dado encontrado no período.</td></tr>
             )}
             {topServicesByRevenue.map((s, i) => (
               <tr key={i}>

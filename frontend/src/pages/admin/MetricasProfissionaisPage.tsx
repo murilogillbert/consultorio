@@ -31,11 +31,12 @@ export default function MetricasProfissionaisPage() {
   const [period, setPeriod] = useState('30 dias')
   const { user } = useAuth()
   const clinicId = user?.clinicId
-  const { data: professionals = [], isLoading } = useProfessionalMetrics(clinicId, undefined, undefined, period)
+  const { data: professionals = [], isLoading, error } = useProfessionalMetrics(clinicId, undefined, undefined, period)
 
   const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
   if (isLoading) return <div style={{ padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>Carregando métricas...</div>
+  if (error) return <div style={{ padding: 'var(--space-8)', color: 'var(--color-accent-danger)' }}>Erro ao carregar métricas de profissionais: {(error as any)?.response?.data?.detail ?? (error as any)?.message}</div>
 
   // Agregações globais
   const totalAppointments = professionals.reduce((s, p) => s + p.appointments, 0)

@@ -627,6 +627,7 @@ model IntegrationSettings {
   mpAccessTokenSandbox String?
   mpPublicKeyProd      String?
   mpWebhookSecret      String?
+  mpSandboxMode        Boolean   @default(false)
   mpConnected          Boolean   @default(false)
   updatedAt            DateTime  @updatedAt
   clinic               Clinic    @relation(fields: [clinicId], references: [id])

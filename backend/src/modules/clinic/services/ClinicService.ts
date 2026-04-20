@@ -39,7 +39,7 @@ export class ClinicService {
 
   async executeCreate(data: Prisma.ClinicCreateInput) {
     if (!data.name) {
-      throw new AppError('Nome da clínica é obrigatório', 400)
+      throw new AppError('Nome da clinica e obrigatorio', 400)
     }
 
     const clinic = await this.clinicRepository.create(data)
@@ -55,7 +55,7 @@ export class ClinicService {
     const clinic = await this.clinicRepository.findById(id)
 
     if (!clinic) {
-      throw new AppError('Clínica não encontrada', 404)
+      throw new AppError('Clinica nao encontrada', 404)
     }
 
     return clinic
@@ -65,7 +65,7 @@ export class ClinicService {
     const clinicExists = await this.clinicRepository.findById(id)
 
     if (!clinicExists) {
-      throw new AppError('Clínica não existe para atualizar', 404)
+      throw new AppError('Clinica nao existe para atualizar', 404)
     }
 
     return this.clinicRepository.update(id, data)
@@ -75,7 +75,7 @@ export class ClinicService {
     const clinic = await this.clinicRepository.findFirstByUserId(userId)
 
     if (!clinic) {
-      throw new AppError('Nenhuma clínica encontrada para este usuário', 404)
+      throw new AppError('Nenhuma clinica encontrada para este usuario', 404)
     }
 
     return clinic
@@ -102,21 +102,21 @@ export class ClinicService {
   async testIntegration(clinicId: string, type: string) {
     const settings = await this.clinicRepository.findIntegrationsByClinic(clinicId)
     if (!settings) {
-      throw new AppError('Configurações de integração não encontradas', 404)
+      throw new AppError('Configuracoes de integracao nao encontradas', 404)
     }
 
     if (type === 'whatsapp') {
       const token = settings.waAccessToken
       const phoneId = settings.waPhoneNumberId
       if (!token || !phoneId) {
-        throw new AppError('Token ou Phone Number ID não configurados', 422)
+        throw new AppError('Token ou Phone Number ID nao configurados', 422)
       }
       const url = `https://graph.facebook.com/v19.0/${phoneId}?access_token=${token}`
       const resp = await fetch(url)
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
         await this.clinicRepository.updateIntegrations(clinicId, { waConnected: false })
-        throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
+        throw new AppError(json.error?.message || 'Token invalido ou expirado', 400)
       }
       await this.clinicRepository.updateIntegrations(clinicId, { waConnected: true })
       return { ok: true, message: 'WhatsApp conectado com sucesso', detail: json.display_phone_number || json.name }
@@ -126,44 +126,55 @@ export class ClinicService {
       const token = settings.igAccessToken
       const pageId = settings.igPageId
       if (!token || !pageId) {
-        throw new AppError('Token ou Page ID não configurados', 422)
+        throw new AppError('Token ou Page ID nao configurados', 422)
       }
       const url = `https://graph.facebook.com/v19.0/${pageId}?fields=name,instagram_business_account&access_token=${token}`
       const resp = await fetch(url)
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
         await this.clinicRepository.updateIntegrations(clinicId, { igConnected: false })
-        throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
+        throw new AppError(json.error?.message || 'Token invalido ou expirado', 400)
       }
       await this.clinicRepository.updateIntegrations(clinicId, { igConnected: true })
       return { ok: true, message: 'Credenciais do Instagram validadas com sucesso', detail: json.name }
     }
 
     if (type === 'mercadopago') {
-      const token = settings.mpAccessTokenProd
+      const rawToken = (settings as any).mpSandboxMode
+        ? settings.mpAccessTokenSandbox
+        : settings.mpAccessTokenProd
+      const token = rawToken?.replace(/^\uFEFF/, '').trim()
       if (!token) {
-        throw new AppError('Access Token de produção não configurado', 422)
+        throw new AppError(
+          (settings as any).mpSandboxMode
+            ? 'Access Token sandbox nao configurado'
+            : 'Access Token de producao nao configurado',
+          422,
+        )
       }
-      const url = `https://api.mercadopago.com/v1/payment_methods`
+      const url = 'https://api.mercadopago.com/v1/users/me'
       const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
         await this.clinicRepository.updateIntegrations(clinicId, { mpConnected: false })
-        throw new AppError(json.message || 'Token inválido ou sem permissão', 400)
+        throw new AppError(json.message || 'Token invalido ou sem permissao', 400)
       }
       await this.clinicRepository.updateIntegrations(clinicId, { mpConnected: true })
-      return { ok: true, message: 'Mercado Pago conectado com sucesso' }
+      const mode = (settings as any).mpSandboxMode ? 'Sandbox' : 'Producao'
+      return {
+        ok: true,
+        message: `Conectado · ${json.email ?? ''}`,
+        detail: `Site: ${json.site_id ?? 'N/A'} · Modo: ${mode}`,
+      }
     }
 
     if (type === 'gmail') {
-      // First check if credentials are saved at all
       if (!settings.gmailClientId || !settings.gmailClientSecret) {
         throw new AppError('Salve o Client ID e Client Secret antes de testar', 422)
       }
-      // If not yet authenticated via OAuth, give a clear actionable message
       if (!settings.gmailAccessToken && !settings.gmailRefreshToken) {
         throw new AppError(
-          'Gmail salvo mas ainda não autenticado. Clique em "Salvar e Autenticar" para concluir o OAuth.',
+          'Gmail salvo mas ainda nao autenticado. Clique em "Salvar e Autenticar" para concluir o OAuth.',
           422,
         )
       }
@@ -174,11 +185,11 @@ export class ClinicService {
       })
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
-        throw new AppError(json.error?.message || 'Token inválido ou expirado', 400)
+        throw new AppError(json.error?.message || 'Token invalido ou expirado', 400)
       }
       return { ok: true, message: 'Gmail conectado com sucesso', detail: json.emailAddress }
     }
 
-    throw new AppError('Tipo de integração não suportado', 400)
+    throw new AppError('Tipo de integracao nao suportado', 400)
   }
 }

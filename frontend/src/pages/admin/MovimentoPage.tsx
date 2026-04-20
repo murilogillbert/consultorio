@@ -96,7 +96,7 @@ export default function MovimentoPage() {
         </div>
       </div>
 
-      {/* ── Cards Linha 1: Operacional ── */}
+      {/* -- Cards Linha 1: Operacional -- */}
       <div className="metrics-row stagger-children">
         <div className="metric-card">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Calendar size={14} /> Agendamentos</span>
@@ -104,7 +104,7 @@ export default function MovimentoPage() {
           <TrendBadge value={apptsTrend} />
         </div>
         <div className="metric-card">
-          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Concluidos</span>
+          <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Concluídos</span>
           <span className="metric-value" style={{ color: 'var(--color-accent-emerald)' }}>{completed}</span>
           <TrendBadge value={completedTrend} />
         </div>
@@ -120,7 +120,7 @@ export default function MovimentoPage() {
         </div>
       </div>
 
-      {/* ── Cards Linha 2: Financeiro + Extras ── */}
+      {/* -- Cards Linha 2: Financeiro + Extras -- */}
       <div className="metrics-row stagger-children" style={{ marginTop: 'var(--space-4)' }}>
         <div className="metric-card">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><DollarSign size={14} /> Receita do Dia</span>
@@ -144,9 +144,9 @@ export default function MovimentoPage() {
         </div>
       </div>
 
-      {/* ── Graficos ── */}
+      {/* -- Gráficos -- */}
       <div className="charts-row" style={{ marginTop: 'var(--space-6)' }}>
-        {/* Distribuicao por Status */}
+        {/* Distribuição por Status */}
         <div className="chart-card">
           <h3>Status dos Agendamentos</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 'var(--space-4) 0' }}>
@@ -168,9 +168,9 @@ export default function MovimentoPage() {
           </div>
         </div>
 
-        {/* Distribuicao por Hora */}
+        {/* Distribuição por Hora */}
         <div className="chart-card">
-          <h3><Clock size={16} style={{ display: 'inline', marginRight: 8 }} />Distribuicao por Horario</h3>
+          <h3><Clock size={16} style={{ display: 'inline', marginRight: 8 }} />Distribuição por Horário</h3>
           <div className="chart-placeholder" style={{ alignItems: 'flex-end' }}>
             {hourlyDistribution.map((h, i) => {
               const maxH = Math.max(...hourlyDistribution.map(x => x.total)) || 1
@@ -197,7 +197,7 @@ export default function MovimentoPage() {
         </div>
       </div>
 
-      {/* ── Receita por Metodo + Proximos Atendimentos ── */}
+      {/* -- Receita por Método + Próximos Atendimentos -- */}
       <div className="charts-row" style={{ marginTop: 'var(--space-4)' }}>
         <div className="chart-card">
           <h3><CreditCard size={16} style={{ display: 'inline', marginRight: 8 }} />Receita por Forma de Pagamento</h3>
@@ -221,7 +221,7 @@ export default function MovimentoPage() {
         </div>
 
         <div className="chart-card">
-          <h3><Clock size={16} style={{ display: 'inline', marginRight: 8 }} />Proximos Atendimentos</h3>
+          <h3><Clock size={16} style={{ display: 'inline', marginRight: 8 }} />Próximos Atendimentos</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 'var(--space-4) 0' }}>
             {upcoming.length === 0 && <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Nenhum atendimento pendente.</p>}
             {upcoming.map((u, i) => (
@@ -244,7 +244,7 @@ export default function MovimentoPage() {
         </div>
       </div>
 
-      {/* ── Tabela: Profissionais do Dia ── */}
+      {/* -- Tabela: Profissionais do Dia -- */}
       <div className="card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
           Resumo por Profissional
@@ -254,7 +254,7 @@ export default function MovimentoPage() {
             <tr>
               <th>Profissional</th>
               <th>Agendados</th>
-              <th>Concluidos</th>
+              <th>Concluídos</th>
               <th>Cancelados</th>
               <th>Comparecimento</th>
               <th>Receita</th>
@@ -285,7 +285,7 @@ export default function MovimentoPage() {
         </table>
       </div>
 
-      {/* ── Timeline de Eventos ── */}
+      {/* -- Timeline de Eventos -- */}
       <div className="card" style={{ marginTop: 'var(--space-6)', padding: 0 }}>
         <div style={{ padding: 'var(--space-4) var(--space-5)', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
           <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>

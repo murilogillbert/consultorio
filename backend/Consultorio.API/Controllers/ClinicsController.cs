@@ -29,6 +29,15 @@ public class ClinicsController : ControllerBase
         string.IsNullOrEmpty(token) ? null
             : "••••••••••••••••••" + token[^Math.Min(6, token.Length)..];
 
+    // Strips BOM, surrounding whitespace, and control/non-ASCII chars so the
+    // stored value is always safe to use in an Authorization header.
+    private static string? SanitizeToken(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return null;
+        var clean = raw.TrimStart('\uFEFF').Trim();
+        return clean == "" ? null : clean;
+    }
+
     private static IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic) => new()
     {
         GmailClientId = clinic.GmailClientId,
@@ -169,9 +178,11 @@ public class ClinicsController : ControllerBase
 
         // Only overwrite if the client sent a non-null value.
         // Sending "" explicitly clears the field.
-        if (dto.AccessTokenProd    != null) clinic.MpAccessTokenProd    = dto.AccessTokenProd    == "" ? null : dto.AccessTokenProd;
-        if (dto.AccessTokenSandbox != null) clinic.MpAccessTokenSandbox = dto.AccessTokenSandbox == "" ? null : dto.AccessTokenSandbox;
-        if (dto.PublicKey          != null) clinic.MpPublicKey          = dto.PublicKey          == "" ? null : dto.PublicKey;
+        // Sanitize tokens: strip BOM and surrounding whitespace to prevent
+        // "Request headers must contain only ASCII characters" on next API call.
+        if (dto.AccessTokenProd    != null) clinic.MpAccessTokenProd    = SanitizeToken(dto.AccessTokenProd);
+        if (dto.AccessTokenSandbox != null) clinic.MpAccessTokenSandbox = SanitizeToken(dto.AccessTokenSandbox);
+        if (dto.PublicKey          != null) clinic.MpPublicKey          = dto.PublicKey == "" ? null : dto.PublicKey;
         if (dto.SandboxMode.HasValue)       clinic.MpSandboxMode        = dto.SandboxMode.Value;
         if (dto.Connected.HasValue)         clinic.MpConnected          = dto.Connected.Value;
 

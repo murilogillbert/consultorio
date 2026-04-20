@@ -144,7 +144,7 @@ export function useProfessionalMetrics(clinicId?: string, _startDate?: string, _
       const params = new URLSearchParams()
       if (clinicId) params.set('clinicId', clinicId)
       if (period) params.set('period', period)
-      const { data } = await api.get<ProfessionalMetric[]>(`/metrics/professionals?${params.toString()}`).catch(() => ({ data: [] as ProfessionalMetric[] }))
+      const { data } = await api.get<ProfessionalMetric[]>(`/metrics/professionals?${params.toString()}`)
       return data || []
     }
   })
@@ -190,7 +190,7 @@ export function useServiceMetrics(clinicId?: string, _startDate?: string, _endDa
       const params = new URLSearchParams()
       if (clinicId) params.set('clinicId', clinicId)
       if (period) params.set('period', period)
-      const { data } = await api.get<ServiceMetricsResponse>(`/metrics/services?${params.toString()}`).catch(() => ({ data: { services: [], peakHours: [] } as ServiceMetricsResponse }))
+      const { data } = await api.get<ServiceMetricsResponse>(`/metrics/services?${params.toString()}`)
       return data || { services: [], peakHours: [] }
     }
   })
