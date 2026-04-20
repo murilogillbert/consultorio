@@ -16,16 +16,6 @@ public class IntegrationSettingsResponseDto
     public string? PubsubSubscriptionName   { get; set; }
     public DateTime? PubsubWatchExpiresAt   { get; set; }
     public bool    PubsubConnected          { get; set; }
-    public string? WaPhoneNumberId          { get; set; }
-    public string? WaWabaId                 { get; set; }
-    public string? WaAccessToken            { get; set; }
-    public string? WaVerifyToken            { get; set; }
-    public string? WaAppSecret              { get; set; }
-    public bool    WaConnected              { get; set; }
-    public string? IgAccountId              { get; set; }
-    public string? IgPageId                 { get; set; }
-    public string? IgAccessToken            { get; set; }
-    public bool    IgConnected              { get; set; }
     public string? AccessTokenProdMasked    { get; set; }  // last 6 chars only
     public string? AccessTokenSandboxMasked { get; set; }
     public string? PublicKey                { get; set; }  // public — no masking needed
@@ -43,16 +33,6 @@ public class UpdateIntegrationSettingsDto
     public string? PubsubProjectId   { get; set; }
     public string? PubsubTopicName   { get; set; }
     public string? PubsubServiceAccount { get; set; }
-    public string? WaPhoneNumberId      { get; set; }
-    public string? WaWabaId             { get; set; }
-    public string? WaAccessToken        { get; set; }
-    public string? WaVerifyToken        { get; set; }
-    public string? WaAppSecret          { get; set; }
-    public bool?   WaConnected          { get; set; }
-    public string? IgAccountId          { get; set; }
-    public string? IgPageId             { get; set; }
-    public string? IgAccessToken        { get; set; }
-    public bool?   IgConnected          { get; set; }
     public string? AccessTokenProd    { get; set; }
     public string? AccessTokenSandbox { get; set; }
     public string? PublicKey          { get; set; }

@@ -43,17 +43,6 @@ public class Clinic
     public string? PubsubSubscriptionName { get; set; }
     public string? PubsubPushEndpoint { get; set; }
     public DateTime? PubsubWatchExpiresAt { get; set; }
-    public string? WaPhoneNumberId { get; set; }
-    public string? WaWabaId { get; set; }
-    public string? WaAccessToken { get; set; }
-    public string? WaVerifyToken { get; set; }
-    public string? WaAppSecret { get; set; }
-    public bool WaConnected { get; set; } = false;
-    public string? IgAccountId { get; set; }
-    public string? IgPageId { get; set; }
-    public string? IgAccessToken { get; set; }
-    public DateTime? IgTokenExpiresAt { get; set; }
-    public bool IgConnected { get; set; } = false;
 
     // ── Mercado Pago credentials (stored encrypted-at-rest by SQL Server TDE) ──
     public string? MpAccessTokenProd    { get; set; }

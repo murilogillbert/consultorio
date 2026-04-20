@@ -6,7 +6,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Consultorio.Domain.Models;
 using Consultorio.Infra.Context;
 
 namespace Consultorio.API.Services;
@@ -24,33 +23,12 @@ public class GoogleOAuthService
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
     private readonly HttpClient _http;
-    private readonly LegacyIntegrationBridge _legacyBridge;
 
-    public GoogleOAuthService(
-        AppDbContext db,
-        IConfiguration config,
-        HttpClient http,
-        LegacyIntegrationBridge legacyBridge)
+    public GoogleOAuthService(AppDbContext db, IConfiguration config, HttpClient http)
     {
         _db = db;
         _config = config;
         _http = http;
-        _legacyBridge = legacyBridge;
-    }
-
-    private async Task<Clinic?> LoadClinicWithLegacyAsync(Guid clinicId)
-    {
-        var clinic = await _db.Clinics.FindAsync(clinicId);
-        if (clinic == null)
-            return null;
-
-        if (await _legacyBridge.TryBackfillClinicAsync(clinic, LegacyIntegrationGroup.Gmail))
-        {
-            clinic.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-        }
-
-        return clinic;
     }
 
     public async Task<(string AuthUrl, string RedirectUri)> CreateAuthorizationUrlAsync(
@@ -66,7 +44,7 @@ public class GoogleOAuthService
         if (!hasAccess)
             throw new GoogleOAuthException("Você não tem acesso a esta clínica", StatusCodes.Status403Forbidden);
 
-        var clinic = await LoadClinicWithLegacyAsync(clinicId);
+        var clinic = await _db.Clinics.FindAsync(clinicId);
         if (clinic == null)
             throw new GoogleOAuthException("Clínica não encontrada", StatusCodes.Status404NotFound);
 
@@ -138,7 +116,7 @@ public class GoogleOAuthService
             if (!hasAccess)
                 throw new GoogleOAuthException("Você não tem mais acesso a esta clínica", StatusCodes.Status403Forbidden);
 
-            var clinic = await LoadClinicWithLegacyAsync(state.ClinicId);
+            var clinic = await _db.Clinics.FindAsync(state.ClinicId);
             if (clinic == null)
                 throw new GoogleOAuthException("Clínica não encontrada", StatusCodes.Status404NotFound);
 
@@ -149,7 +127,7 @@ public class GoogleOAuthService
             var tokens = await ExchangeCodeForTokensAsync(code, clinic.GmailClientId, clinic.GmailClientSecret, redirectUri);
 
             clinic.GmailAccessToken = tokens.AccessToken;
-            clinic.GmailRefreshToken = !string.IsNullOrWhiteSpace(tokens.RefreshToken)
+        clinic.GmailRefreshToken = !string.IsNullOrWhiteSpace(tokens.RefreshToken)
                 ? tokens.RefreshToken
                 : clinic.GmailRefreshToken;
             clinic.GmailTokenExpiresAt = tokens.ExpiresIn.HasValue
@@ -165,7 +143,6 @@ public class GoogleOAuthService
             clinic.GmailConnected = true;
             clinic.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
-            await _legacyBridge.TrySyncClinicAsync(clinic, LegacyIntegrationGroup.Gmail);
 
             return AppendRedirectParams(safeReturnUrl, new Dictionary<string, string>
             {
@@ -198,7 +175,7 @@ public class GoogleOAuthService
 
     public async Task<string> GetValidAccessTokenAsync(Guid clinicId)
     {
-        var clinic = await LoadClinicWithLegacyAsync(clinicId);
+        var clinic = await _db.Clinics.FindAsync(clinicId);
         if (clinic == null)
             throw new GoogleOAuthException("Clínica não encontrada", StatusCodes.Status404NotFound);
 
@@ -226,14 +203,13 @@ public class GoogleOAuthService
         clinic.GmailConnected = true;
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        await _legacyBridge.TrySyncClinicAsync(clinic, LegacyIntegrationGroup.Gmail);
 
         return refreshed.AccessToken!;
     }
 
     public async Task<string> TestConnectionAsync(Guid clinicId)
     {
-        var clinic = await LoadClinicWithLegacyAsync(clinicId);
+        var clinic = await _db.Clinics.FindAsync(clinicId);
         if (clinic == null)
             throw new GoogleOAuthException("Clínica não encontrada", StatusCodes.Status404NotFound);
 
@@ -256,7 +232,6 @@ public class GoogleOAuthService
             clinic.GmailConnected = false;
             clinic.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
-            await _legacyBridge.TrySyncClinicAsync(clinic, LegacyIntegrationGroup.Gmail);
 
             throw new GoogleOAuthException(
                 ExtractGoogleError(body) ?? "Token inválido ou expirado",
@@ -266,7 +241,6 @@ public class GoogleOAuthService
         clinic.GmailConnected = true;
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        await _legacyBridge.TrySyncClinicAsync(clinic, LegacyIntegrationGroup.Gmail);
 
         return profile.EmailAddress;
     }
@@ -558,14 +532,13 @@ public class GoogleOAuthService
 
     private async Task MarkClinicDisconnectedAsync(Guid clinicId)
     {
-        var clinic = await LoadClinicWithLegacyAsync(clinicId);
+        var clinic = await _db.Clinics.FindAsync(clinicId);
         if (clinic == null)
             return;
 
         clinic.GmailConnected = false;
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        await _legacyBridge.TrySyncClinicAsync(clinic, LegacyIntegrationGroup.Gmail);
     }
 
     private class GoogleOAuthStatePayload

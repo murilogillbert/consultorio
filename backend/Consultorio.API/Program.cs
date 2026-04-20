@@ -75,7 +75,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<TokenService>();
-builder.Services.AddSingleton<LegacyIntegrationBridge>();
 builder.Services.AddHttpClient<GoogleOAuthService>();
 builder.Services.AddHttpClient<GmailInboxSyncService>();
 builder.Services.AddHttpClient<GmailPubSubService>();
