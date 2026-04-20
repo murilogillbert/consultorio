@@ -94,7 +94,36 @@ export class ClinicController {
   async updateIntegrations(req: Request, res: Response, next: NextFunction) {
     try {
       const { clinicId } = req.params as { clinicId: string }
-      const data = req.body
+
+      // Map frontend field names (matching C# DTO) to Prisma schema field names.
+      // Sanitize MP tokens to strip BOM, surrounding whitespace, and control chars
+      // that would cause "Request headers must contain only ASCII characters" errors.
+      const body = req.body as Record<string, any>
+      const sanitizeToken = (v: unknown) =>
+        typeof v === 'string' ? v.replace(/^\uFEFF/, '').trim() : v
+
+      const data: Record<string, any> = { ...body }
+
+      if ('accessTokenProd' in body) {
+        data.mpAccessTokenProd = body.accessTokenProd ? sanitizeToken(body.accessTokenProd) : null
+        delete data.accessTokenProd
+      }
+      if ('accessTokenSandbox' in body) {
+        data.mpAccessTokenSandbox = body.accessTokenSandbox ? sanitizeToken(body.accessTokenSandbox) : null
+        delete data.accessTokenSandbox
+      }
+      if ('publicKey' in body) {
+        data.mpPublicKeyProd = body.publicKey || null
+        delete data.publicKey
+      }
+      if ('sandboxMode' in body) {
+        data.mpSandboxMode = Boolean(body.sandboxMode)
+        delete data.sandboxMode
+      }
+      if ('connected' in body) {
+        data.mpConnected = Boolean(body.connected)
+        delete data.connected
+      }
 
       const clinicRepository = new ClinicRepository()
       const clinicService = new ClinicService(clinicRepository)

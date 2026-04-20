@@ -12,16 +12,21 @@ import { AppError } from '../../errors/AppError'
 
 const MP_BASE = 'https://api.mercadopago.com'
 
+function sanitizeToken(raw: string): string {
+  return raw.replace(/^\uFEFF/, '').trim()
+}
+
 async function mpFetch(
   accessToken: string,
   path: string,
   options: RequestInit = {},
 ): Promise<any> {
+  const token = sanitizeToken(accessToken)
   const url = `${MP_BASE}${path}`
   const res = await fetch(url, {
     ...options,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       ...(options.headers ?? {}),
     },

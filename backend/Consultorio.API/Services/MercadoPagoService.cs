@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -51,8 +52,18 @@ public class MercadoPagoService
         _http.BaseAddress = new Uri(config["MercadoPago:BaseUrl"] ?? "https://api.mercadopago.com");
     }
 
-    private string Resolve(string? overrideToken) =>
-        !string.IsNullOrWhiteSpace(overrideToken) ? overrideToken : _fallbackToken;
+    // Strips BOM, surrounding whitespace, and any control/non-ASCII chars that
+    // would cause AuthenticationHeaderValue to throw FormatException.
+    private static string SanitizeToken(string raw) =>
+        new string(raw.TrimStart('\uFEFF').Trim()
+            .Where(c => c >= 0x20 && c <= 0x7E)
+            .ToArray());
+
+    private string Resolve(string? overrideToken)
+    {
+        var chosen = !string.IsNullOrWhiteSpace(overrideToken) ? overrideToken : _fallbackToken;
+        return SanitizeToken(chosen);
+    }
 
     public async Task<MpPixResult> CreatePixAsync(
         decimal amount,

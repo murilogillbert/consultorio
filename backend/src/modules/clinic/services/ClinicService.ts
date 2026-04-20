@@ -99,11 +99,19 @@ export class ClinicService {
     }
 
     if (type === 'mercadopago') {
-      const token = settings.mpAccessTokenProd
+      const rawToken = (settings as any).mpSandboxMode
+        ? settings.mpAccessTokenSandbox
+        : settings.mpAccessTokenProd
+      const token = rawToken?.replace(/^\uFEFF/, '').trim()
       if (!token) {
-        throw new AppError('Access Token de produção não configurado', 422)
+        throw new AppError(
+          (settings as any).mpSandboxMode
+            ? 'Access Token sandbox não configurado'
+            : 'Access Token de produção não configurado',
+          422,
+        )
       }
-      const url = `https://api.mercadopago.com/v1/payment_methods`
+      const url = `https://api.mercadopago.com/v1/users/me`
       const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
@@ -111,7 +119,12 @@ export class ClinicService {
         throw new AppError(json.message || 'Token inválido ou sem permissão', 400)
       }
       await this.clinicRepository.updateIntegrations(clinicId, { mpConnected: true })
-      return { ok: true, message: 'Mercado Pago conectado com sucesso' }
+      const mode = (settings as any).mpSandboxMode ? 'Sandbox' : 'Produção'
+      return {
+        ok: true,
+        message: `Conectado · ${json.email ?? ''}`,
+        detail: `Site: ${json.site_id ?? 'N/A'} · Modo: ${mode}`,
+      }
     }
 
     if (type === 'gmail') {

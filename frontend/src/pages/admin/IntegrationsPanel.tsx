@@ -361,10 +361,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     const trimmed = value.trim()
     return trimmed.startsWith('••')
   }
+  const sanitizeMpToken = (v: string) => v.replace(/^\uFEFF/, '').trim()
   const mercadoPagoPayload = {
-    ...(mp.accessToken && !isMaskedCredential(mp.accessToken) ? { accessTokenProd: mp.accessToken } : {}),
-    ...(mp.sandboxToken && !isMaskedCredential(mp.sandboxToken) ? { accessTokenSandbox: mp.sandboxToken } : {}),
-    publicKey: mp.publicKey,
+    ...(mp.accessToken && !isMaskedCredential(mp.accessToken) ? { accessTokenProd: sanitizeMpToken(mp.accessToken) } : {}),
+    ...(mp.sandboxToken && !isMaskedCredential(mp.sandboxToken) ? { accessTokenSandbox: sanitizeMpToken(mp.sandboxToken) } : {}),
+    publicKey: mp.publicKey?.trim() || null,
     sandboxMode: mp.sandboxMode,
   }
 
