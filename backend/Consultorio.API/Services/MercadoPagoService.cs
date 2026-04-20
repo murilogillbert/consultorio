@@ -235,7 +235,7 @@ public class MercadoPagoService
 
     public async Task<MpAccountInfo> TestConnectionAsync(string? accessToken = null)
     {
-        var req = new HttpRequestMessage(HttpMethod.Get, "/v1/users/me");
+        var req = new HttpRequestMessage(HttpMethod.Get, "/users/me");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Resolve(accessToken));
 
         var res = await _http.SendAsync(req);
