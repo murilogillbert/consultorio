@@ -7,6 +7,23 @@ function notifyAuthChange(eventName: string) {
   window.dispatchEvent(new CustomEvent(eventName))
 }
 
+function normalizeStoredToken(rawToken: string | null) {
+  if (!rawToken) return null
+
+  const token = rawToken.trim().replace(/^"+|"+$/g, '')
+
+  // Browsers reject request headers with non-ASCII bytes. A valid JWT only
+  // uses ASCII-safe base64url characters and dots.
+  if (!/^[\x20-\x7E]+$/.test(token)) {
+    localStorage.removeItem('@Consultorio:token')
+    localStorage.removeItem('@Consultorio:user')
+    notifyAuthChange(APP_AUTH_EVENT)
+    return null
+  }
+
+  return token
+}
+
 export const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
@@ -19,7 +36,7 @@ export const api = axios.create({
 // Intercept to add token if exists (don't overwrite if already set, e.g. patient token)
 api.interceptors.request.use((config) => {
   if (!config.headers.Authorization) {
-    const token = localStorage.getItem('@Consultorio:token')
+    const token = normalizeStoredToken(localStorage.getItem('@Consultorio:token'))
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
