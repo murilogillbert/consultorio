@@ -402,6 +402,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           'Ative a Gmail API em "APIs e Serviços"',
           'Crie credenciais OAuth 2.0 (tipo "Aplicativo Web")',
           'Adicione a Redirect URI abaixo nas URIs autorizadas',
+          'Se o app estiver em modo de testes, adicione o e-mail em Tela de consentimento OAuth > Usuários de teste',
           'Copie o Client ID e o Client Secret para os campos abaixo',
         ]} />
 

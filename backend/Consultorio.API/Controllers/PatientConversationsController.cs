@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Consultorio.API.Services;
 using Consultorio.Domain.Models;
 using Consultorio.Infra.Context;
 
@@ -16,7 +17,13 @@ namespace Consultorio.API.Controllers;
 public class PatientConversationsController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public PatientConversationsController(AppDbContext db) => _db = db;
+    private readonly GmailInboxSyncService _gmailInboxSync;
+
+    public PatientConversationsController(AppDbContext db, GmailInboxSyncService gmailInboxSync)
+    {
+        _db = db;
+        _gmailInboxSync = gmailInboxSync;
+    }
 
     private Guid GetClinicId() =>
         Guid.TryParse(User.FindFirst("clinicId")?.Value, out var id) ? id : Guid.Empty;
@@ -32,6 +39,15 @@ public class PatientConversationsController : ControllerBase
         var clinicId = GetClinicId();
         if (clinicId == Guid.Empty)
             return BadRequest(new { message = "Clínica não identificada." });
+
+        try
+        {
+            await _gmailInboxSync.SyncRecentInboxAsync(clinicId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Gmail Sync] Falha ao sincronizar a clinica {clinicId}: {ex.Message}");
+        }
 
         var conversations = await _db.PatientMessages
             .Where(m => m.ClinicId == clinicId)
@@ -134,8 +150,37 @@ public class PatientConversationsController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Content))
             return BadRequest(new { message = "Mensagem não pode estar vazia." });
 
-        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.Id == patientId && p.ClinicId == clinicId);
+        var patient = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == patientId && p.ClinicId == clinicId);
         if (patient == null) return NotFound(new { message = "Paciente não encontrado." });
+
+        var source = await _db.PatientMessages
+            .Where(m => m.PatientId == patientId && m.ClinicId == clinicId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => m.Source)
+            .FirstOrDefaultAsync() ?? "APP";
+
+        if (string.Equals(source, "EMAIL", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(patient.User?.Email))
+                return BadRequest(new { message = "Paciente sem e-mail cadastrado para resposta." });
+
+            try
+            {
+                var clinic = await _db.Clinics.FindAsync(clinicId);
+                var clinicName = string.IsNullOrWhiteSpace(clinic?.Name) ? "Clinica" : clinic.Name.Trim();
+                await _gmailInboxSync.SendEmailReplyAsync(
+                    clinicId,
+                    patient.User.Email,
+                    $"Re: Atendimento {clinicName}",
+                    dto.Content.Trim());
+            }
+            catch (GoogleOAuthException ex)
+            {
+                return StatusCode(ex.StatusCode, new { message = ex.Message });
+            }
+        }
 
         var msg = new PatientMessage
         {
@@ -144,11 +189,7 @@ public class PatientConversationsController : ControllerBase
             ClinicId     = clinicId,
             Content      = dto.Content.Trim(),
             Direction    = "OUT",
-            Source       = await _db.PatientMessages
-                .Where(m => m.PatientId == patientId && m.ClinicId == clinicId)
-                .OrderByDescending(m => m.CreatedAt)
-                .Select(m => m.Source)
-                .FirstOrDefaultAsync() ?? "APP",
+            Source       = source,
             SentByUserId = GetUserId() != Guid.Empty ? GetUserId() : null,
             IsRead       = true,
             CreatedAt    = DateTime.UtcNow,
