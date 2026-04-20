@@ -15,8 +15,9 @@ public class MetricsController : ControllerBase
 
     private Guid GetClinicId()
     {
-        var claim = User.FindFirst("clinicId");
-        return claim != null ? Guid.Parse(claim.Value) : Guid.Empty;
+        return Guid.TryParse(User.FindFirst("clinicId")?.Value, out var clinicId)
+            ? clinicId
+            : Guid.Empty;
     }
 
     private (DateTime start, DateTime end) ParsePeriod(string? period)
@@ -44,6 +45,19 @@ public class MetricsController : ControllerBase
                 break;
         }
         return (start, end);
+    }
+    private static int CountWeekdayOccurrences(DateTime start, DateTime end, int dayOfWeek)
+    {
+        var first = start.Date;
+        var last = end.Date;
+        if (last < first) return 0;
+
+        var target = ((dayOfWeek % 7) + 7) % 7;
+        var offset = (target - (int)first.DayOfWeek + 7) % 7;
+        var firstMatch = first.AddDays(offset);
+        if (firstMatch > last) return 0;
+
+        return 1 + (int)Math.Floor((last - firstMatch).TotalDays / 7);
     }
 
     // =====================================================================
@@ -120,7 +134,7 @@ public class MetricsController : ControllerBase
             foreach (var sched in p.Schedules.Where(s => s.IsActive))
             {
                 var daily = (sched.EndTime - sched.StartTime).TotalMinutes;
-                var occurrences = (int)Math.Ceiling((double)daysInPeriod / 7);
+                var occurrences = CountWeekdayOccurrences(start, end, sched.DayOfWeek);
                 totalMinutesAvailable += daily * occurrences;
             }
             var totalMinutesBooked = appts.Sum(a => (a.EndTime - a.StartTime).TotalMinutes);
@@ -347,14 +361,14 @@ public class MetricsController : ControllerBase
             .Include(p => p.Appointment).ThenInclude(a => a.Service)
             .Where(p => p.Appointment.ClinicId == clinicId
                 && p.Status == "PAID"
-                && p.PaymentDate >= start && p.PaymentDate <= end)
+                && (p.PaymentDate ?? p.CreatedAt) >= start && (p.PaymentDate ?? p.CreatedAt) <= end)
             .ToListAsync();
 
         // Revenue previous period
         var prevPaidPayments = await _db.Payments
             .Where(p => p.Appointment.ClinicId == clinicId
                 && p.Status == "PAID"
-                && p.PaymentDate >= prevStart && p.PaymentDate <= prevEnd)
+                && (p.PaymentDate ?? p.CreatedAt) >= prevStart && (p.PaymentDate ?? p.CreatedAt) <= prevEnd)
             .ToListAsync();
 
         var totalRevenue = paidPayments.Sum(p => p.Amount);
@@ -433,7 +447,7 @@ public class MetricsController : ControllerBase
             var mRev = await _db.Payments
                 .Where(p => p.Appointment.ClinicId == clinicId
                     && p.Status == "PAID"
-                    && p.PaymentDate >= mStart && p.PaymentDate <= mEnd)
+                    && (p.PaymentDate ?? p.CreatedAt) >= mStart && (p.PaymentDate ?? p.CreatedAt) <= mEnd)
                 .SumAsync(p => (decimal?)p.Amount) ?? 0m;
 
             monthlyRevenue.Add(new
@@ -509,23 +523,35 @@ public class MetricsController : ControllerBase
             .ToList();
 
         // Appointments by day of week
-        var byDayOfWeek = appts
+        var dayOrder = new[]
+        {
+            DayOfWeek.Sunday,
+            DayOfWeek.Monday,
+            DayOfWeek.Tuesday,
+            DayOfWeek.Wednesday,
+            DayOfWeek.Thursday,
+            DayOfWeek.Friday,
+            DayOfWeek.Saturday
+        };
+        var dayLabels = new Dictionary<DayOfWeek, string>
+        {
+            [DayOfWeek.Sunday] = "Dom",
+            [DayOfWeek.Monday] = "Seg",
+            [DayOfWeek.Tuesday] = "Ter",
+            [DayOfWeek.Wednesday] = "Qua",
+            [DayOfWeek.Thursday] = "Qui",
+            [DayOfWeek.Friday] = "Sex",
+            [DayOfWeek.Saturday] = "Sab"
+        };
+        var dayCounts = appts
             .GroupBy(a => a.StartTime.DayOfWeek)
-            .Select(g => new
+            .ToDictionary(g => g.Key, g => g.Count());
+        var byDayOfWeek = dayOrder
+            .Select(day => new
             {
-                day = g.Key switch
-                {
-                    DayOfWeek.Monday => "Seg",
-                    DayOfWeek.Tuesday => "Ter",
-                    DayOfWeek.Wednesday => "Qua",
-                    DayOfWeek.Thursday => "Qui",
-                    DayOfWeek.Friday => "Sex",
-                    DayOfWeek.Saturday => "Sab",
-                    _ => "Dom"
-                },
-                count = g.Count()
+                day = dayLabels[day],
+                count = dayCounts.TryGetValue(day, out var count) ? count : 0
             })
-            .OrderBy(x => x.day)
             .ToList();
 
         // New patients this period
@@ -578,7 +604,7 @@ public class MetricsController : ControllerBase
         var prevDate = targetDate.AddDays(-7);
         var prevEnd = prevDate.AddDays(1).AddSeconds(-1);
 
-        // ── All appointments on target date ──
+        // -- All appointments on target date --
         var appts = await _db.Appointments
             .Include(a => a.Payment)
             .Include(a => a.Service)
@@ -593,19 +619,19 @@ public class MetricsController : ControllerBase
             .Where(a => a.ClinicId == clinicId && a.StartTime >= prevDate && a.StartTime <= prevEnd)
             .ToListAsync();
 
-        // ── Summary metrics ──
+        // -- Summary metrics --
         var total = appts.Count;
-        var confirmed = appts.Count(a => a.Status == "CONFIRMED" || a.Status == "IN_PROGRESS" || a.Status == "COMPLETED");
+        var confirmed = appts.Count(a => a.Status == "CONFIRMED");
         var completed = appts.Count(a => a.Status == "COMPLETED");
         var inProgress = appts.Count(a => a.Status == "IN_PROGRESS");
         var cancelled = appts.Count(a => a.Status == "CANCELLED");
         var scheduled = appts.Count(a => a.Status == "SCHEDULED");
-        var showRate = total > 0 ? (int)Math.Round((double)confirmed / total * 100) : 0;
+        var showRate = total > 0 ? (int)Math.Round((double)(total - cancelled) / total * 100) : 0;
 
         var prevTotal = prevAppts.Count;
         var prevCompleted = prevAppts.Count(a => a.Status == "COMPLETED");
 
-        // ── Revenue ──
+        // -- Revenue --
         var revenueToday = appts
             .Where(a => a.Payment != null && a.Payment.Status == "PAID")
             .Sum(a => a.Payment!.Amount);
@@ -616,18 +642,18 @@ public class MetricsController : ControllerBase
             .Where(a => a.Payment != null && a.Payment.Status == "PAID")
             .Sum(a => a.Payment!.Amount);
 
-        // ── New patients registered on this date ──
+        // -- New patients registered on this date --
         var newPatients = await _db.Patients
             .CountAsync(p => p.ClinicId == clinicId
                 && p.CreatedAt >= targetDate && p.CreatedAt <= dayEnd);
 
-        // ── Messages today ──
+        // -- Messages today --
         var messagesCount = await _db.PatientMessages
             .Include(m => m.Patient)
             .CountAsync(m => m.Patient.ClinicId == clinicId
                 && m.CreatedAt >= targetDate && m.CreatedAt <= dayEnd);
 
-        // ── Revenue by payment method ──
+        // -- Revenue by payment method --
         var revenueByMethod = appts
             .Where(a => a.Payment != null && a.Payment.Status == "PAID")
             .GroupBy(a => a.Payment!.PaymentMethod ?? "Outro")
@@ -635,7 +661,7 @@ public class MetricsController : ControllerBase
             .OrderByDescending(x => x.value)
             .ToList();
 
-        // ── Hourly distribution (7h–21h) ──
+        // -- Hourly distribution (7h-21h) --
         var hourlyDistribution = Enumerable.Range(7, 15)
             .Select(h => new
             {
@@ -646,7 +672,7 @@ public class MetricsController : ControllerBase
             })
             .ToList();
 
-        // ── Status breakdown (for donut/pie) ──
+        // -- Status breakdown (for donut/pie) --
         var statusBreakdown = appts
             .GroupBy(a => a.Status)
             .Select(g => new
@@ -671,7 +697,7 @@ public class MetricsController : ControllerBase
             .OrderByDescending(x => x.count)
             .ToList();
 
-        // ── Per-professional summary ──
+        // -- Per-professional summary --
         var byProfessional = appts
             .GroupBy(a => a.ProfessionalId)
             .Select(g =>
@@ -707,7 +733,7 @@ public class MetricsController : ControllerBase
             .OrderByDescending(x => x.total)
             .ToList();
 
-        // ── Activity timeline (events derived from appointments) ──
+        // -- Activity timeline (events derived from appointments) --
         var events = new List<object>();
         foreach (var a in appts)
         {
@@ -719,11 +745,11 @@ public class MetricsController : ControllerBase
             // Main event based on current status
             var (type, desc, icon) = a.Status switch
             {
-                "COMPLETED" => ("arrival", $"{patName} — {svcName} (concluído)", "CHECK_IN"),
-                "IN_PROGRESS" => ("arrival", $"{patName} — {svcName} (em andamento)", "CHECK_IN"),
-                "CONFIRMED" => ("arrival", $"{patName} — {svcName} (confirmado)", "NEW_APPOINTMENT"),
-                "CANCELLED" => ("cancel", $"{patName} — {svcName} ({(string.IsNullOrWhiteSpace(a.CancellationSource) ? "cancelado" : a.CancellationSource == "PATIENT" ? "cancelado pelo paciente" : "cancelado pela recepção")})", "APPOINTMENT_CANCELLED"),
-                _ => ("arrival", $"{patName} — {svcName} (agendado)", "NEW_APPOINTMENT")
+                "COMPLETED" => ("arrival", $"{patName} · {svcName} (concluído)", "CHECK_IN"),
+                "IN_PROGRESS" => ("arrival", $"{patName} · {svcName} (em andamento)", "CHECK_IN"),
+                "CONFIRMED" => ("arrival", $"{patName} · {svcName} (confirmado)", "NEW_APPOINTMENT"),
+                "CANCELLED" => ("cancel", $"{patName} · {svcName} ({(string.IsNullOrWhiteSpace(a.CancellationSource) ? "cancelado" : a.CancellationSource == "PATIENT" ? "cancelado pelo paciente" : "cancelado pela recepção")})", "APPOINTMENT_CANCELLED"),
+                _ => ("arrival", $"{patName} · {svcName} (agendado)", "NEW_APPOINTMENT")
             };
 
             events.Add(new { time, type, description = desc, professional = proName, icon });
@@ -737,7 +763,7 @@ public class MetricsController : ControllerBase
                 {
                     time = payTime,
                     type = "payment",
-                    description = $"Pagamento {method}: R$ {a.Payment.Amount:F2} — {patName}",
+                    description = $"Pagamento {method}: R$ {a.Payment.Amount:F2} · {patName}",
                     professional = proName,
                     icon = "PAYMENT_CONFIRMED"
                 });
@@ -770,7 +796,7 @@ public class MetricsController : ControllerBase
             .OrderByDescending(e => ((dynamic)e).time.ToString())
             .ToList();
 
-        // ── Upcoming appointments (not yet completed/cancelled) ──
+        // -- Upcoming appointments (not yet completed/cancelled) --
         var now = DateTime.UtcNow;
         var upcoming = appts
             .Where(a => a.StartTime > now && (a.Status == "SCHEDULED" || a.Status == "CONFIRMED"))
@@ -788,7 +814,7 @@ public class MetricsController : ControllerBase
             })
             .ToList();
 
-        // ── Trends (vs same weekday last week) ──
+        // -- Trends (vs same weekday last week) --
         var apptsTrend = prevTotal > 0
             ? (int)Math.Round(((double)total - prevTotal) / prevTotal * 100)
             : (total > 0 ? 100 : 0);
