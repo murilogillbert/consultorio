@@ -25,6 +25,7 @@ public class GmailPubSubService
     private readonly IConfiguration _config;
     private readonly HttpClient _http;
     private readonly ILogger<GmailPubSubService> _logger;
+    private readonly LegacyIntegrationBridge _legacyBridge;
 
     public GmailPubSubService(
         AppDbContext db,
@@ -32,7 +33,8 @@ public class GmailPubSubService
         GmailInboxSyncService gmailInboxSync,
         IConfiguration config,
         HttpClient http,
-        ILogger<GmailPubSubService> logger)
+        ILogger<GmailPubSubService> logger,
+        LegacyIntegrationBridge legacyBridge)
     {
         _db = db;
         _googleOAuth = googleOAuth;
@@ -40,6 +42,7 @@ public class GmailPubSubService
         _config = config;
         _http = http;
         _logger = logger;
+        _legacyBridge = legacyBridge;
     }
 
     public async Task<GmailWatchActivationResult> EnsureWatchAsync(
@@ -73,6 +76,10 @@ public class GmailPubSubService
         clinic.GmailConnected = true;
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
+        await _legacyBridge.TrySyncClinicAsync(
+            clinic,
+            LegacyIntegrationGroup.Gmail | LegacyIntegrationGroup.PubSub,
+            cancellationToken);
 
         return new GmailWatchActivationResult
         {
@@ -130,6 +137,7 @@ public class GmailPubSubService
 
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
+        await _legacyBridge.TrySyncClinicAsync(clinic, LegacyIntegrationGroup.PubSub, cancellationToken);
     }
 
     public async Task<int> ProcessPushNotificationAsync(
@@ -180,6 +188,7 @@ public class GmailPubSubService
         clinic.GmailWatchHistoryId = notification.HistoryId;
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
+        await _legacyBridge.TrySyncClinicAsync(clinic, LegacyIntegrationGroup.PubSub, cancellationToken);
 
         var imported = await _gmailInboxSync.SyncRecentInboxAsync(clinicId, maxResults: 25);
         _logger.LogInformation(
@@ -226,6 +235,15 @@ public class GmailPubSubService
         var clinic = await _db.Clinics.FindAsync([clinicId], cancellationToken);
         if (clinic == null)
             throw new GmailPubSubException("Clinica nao encontrada", StatusCodes.Status404NotFound);
+
+        if (await _legacyBridge.TryBackfillClinicAsync(
+                clinic,
+                LegacyIntegrationGroup.Gmail | LegacyIntegrationGroup.PubSub,
+                cancellationToken))
+        {
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
 
         return clinic;
     }

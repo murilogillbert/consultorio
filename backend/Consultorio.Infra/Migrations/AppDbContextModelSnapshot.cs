@@ -470,6 +470,39 @@ namespace Consultorio.Infra.Migrations
                     b.Property<DateTime?>("PubsubWatchExpiresAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("WaAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WaAppSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("WaConnected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("WaPhoneNumberId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WaVerifyToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WaWabaId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IgAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IgAccountId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IgConnected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("IgPageId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("IgTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
