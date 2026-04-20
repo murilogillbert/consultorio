@@ -16,13 +16,15 @@ public class ClinicsController : ControllerBase
     private readonly AppDbContext        _db;
     private readonly MercadoPagoService  _mp;
     private readonly GoogleOAuthService  _googleOAuth;
+    private readonly WhatsAppCloudService _whatsApp;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth)
+    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp)
     {
         _db = db;
         _mp = mp;
         _googleOAuth = googleOAuth;
+        _whatsApp = whatsApp;
     }
 
     private static string? Mask(string? token) =>
@@ -38,16 +40,32 @@ public class ClinicsController : ControllerBase
         return clean == "" ? null : clean;
     }
 
+    private static string? MaskSafe(string? token) =>
+        string.IsNullOrEmpty(token) ? null
+            : "******************" + token[^Math.Min(6, token.Length)..];
+
+    private static bool IsMasked(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        (value.TrimStart().StartsWith("*", StringComparison.Ordinal) ||
+         value.TrimStart().StartsWith("â€¢", StringComparison.Ordinal) ||
+         value.TrimStart().StartsWith("•", StringComparison.Ordinal));
+
     private static IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic) => new()
     {
         GmailClientId = clinic.GmailClientId,
         GmailClientSecret = clinic.GmailClientSecret,
         GmailConnected = clinic.GmailConnected,
-        AccessTokenProdMasked = Mask(clinic.MpAccessTokenProd),
-        AccessTokenSandboxMasked = Mask(clinic.MpAccessTokenSandbox),
+        AccessTokenProdMasked = MaskSafe(clinic.MpAccessTokenProd),
+        AccessTokenSandboxMasked = MaskSafe(clinic.MpAccessTokenSandbox),
         PublicKey = clinic.MpPublicKey,
         SandboxMode = clinic.MpSandboxMode,
         Connected = clinic.MpConnected,
+        WaPhoneNumberId = clinic.WaPhoneNumberId,
+        WaWabaId = clinic.WaWabaId,
+        WaAccessTokenMasked = MaskSafe(clinic.WaAccessToken),
+        WaVerifyTokenMasked = MaskSafe(clinic.WaVerifyToken),
+        WaAppSecretMasked = MaskSafe(clinic.WaAppSecret),
+        WaConnected = clinic.WaConnected,
     };
 
     // GET /api/clinics
@@ -186,6 +204,13 @@ public class ClinicsController : ControllerBase
         if (dto.SandboxMode.HasValue)       clinic.MpSandboxMode        = dto.SandboxMode.Value;
         if (dto.Connected.HasValue)         clinic.MpConnected          = dto.Connected.Value;
 
+        if (dto.WaPhoneNumberId != null) clinic.WaPhoneNumberId = dto.WaPhoneNumberId.Trim() == "" ? null : dto.WaPhoneNumberId.Trim();
+        if (dto.WaWabaId        != null) clinic.WaWabaId        = dto.WaWabaId.Trim() == "" ? null : dto.WaWabaId.Trim();
+        if (dto.WaAccessToken   != null && !IsMasked(dto.WaAccessToken)) clinic.WaAccessToken = WhatsAppCloudService.SanitizeSecret(dto.WaAccessToken);
+        if (dto.WaVerifyToken   != null && !IsMasked(dto.WaVerifyToken)) clinic.WaVerifyToken = WhatsAppCloudService.SanitizeSecret(dto.WaVerifyToken);
+        if (dto.WaAppSecret     != null && !IsMasked(dto.WaAppSecret))   clinic.WaAppSecret   = WhatsAppCloudService.SanitizeSecret(dto.WaAppSecret);
+        if (dto.WaConnected.HasValue) clinic.WaConnected = dto.WaConnected.Value;
+
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -251,6 +276,49 @@ public class ClinicsController : ControllerBase
             clinic.UpdatedAt   = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
+            return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/settings/integrations/whatsapp/test")]
+    [Authorize]
+    public async Task<ActionResult> TestWhatsApp(Guid id)
+    {
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+            return NotFound(new { message = "ClÃ­nica nÃ£o encontrada." });
+
+        try
+        {
+            var info = await _whatsApp.TestConnectionAsync(id);
+
+            clinic.WaConnected = true;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var label = string.IsNullOrWhiteSpace(info.VerifiedName)
+                ? info.DisplayPhoneNumber
+                : $"{info.VerifiedName} · {info.DisplayPhoneNumber}";
+
+            return Ok(new
+            {
+                ok = true,
+                message = string.IsNullOrWhiteSpace(label) ? "WhatsApp conectado com sucesso" : $"WhatsApp conectado · {label}",
+                detail = $"Phone Number ID: {info.PhoneNumberId}",
+            });
+        }
+        catch (WhatsAppCloudException ex)
+        {
+            clinic.WaConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return StatusCode(ex.StatusCode, new { ok = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            clinic.WaConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
             return Ok(new { ok = false, message = ex.Message });
         }
     }

@@ -18,6 +18,9 @@ export interface IntegrationSettings {
   waAccessToken?: string
   waVerifyToken?: string
   waAppSecret?: string
+  waAccessTokenMasked?: string
+  waVerifyTokenMasked?: string
+  waAppSecretMasked?: string
   igAccountId?: string
   igPageId?: string
   igAccessToken?: string

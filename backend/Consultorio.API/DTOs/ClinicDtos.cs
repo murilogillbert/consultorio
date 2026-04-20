@@ -14,6 +14,12 @@ public class IntegrationSettingsResponseDto
     public string? PublicKey                { get; set; }  // public — no masking needed
     public bool    SandboxMode              { get; set; }
     public bool    Connected                { get; set; }
+    public string? WaPhoneNumberId          { get; set; }
+    public string? WaWabaId                 { get; set; }
+    public string? WaAccessTokenMasked      { get; set; }
+    public string? WaVerifyTokenMasked      { get; set; }
+    public string? WaAppSecretMasked        { get; set; }
+    public bool    WaConnected              { get; set; }
 }
 
 public class UpdateIntegrationSettingsDto
@@ -28,6 +34,12 @@ public class UpdateIntegrationSettingsDto
     public string? PublicKey          { get; set; }
     public bool?   SandboxMode        { get; set; }
     public bool?   Connected          { get; set; }
+    public string? WaPhoneNumberId    { get; set; }
+    public string? WaWabaId           { get; set; }
+    public string? WaAccessToken      { get; set; }
+    public string? WaVerifyToken      { get; set; }
+    public string? WaAppSecret        { get; set; }
+    public bool?   WaConnected        { get; set; }
 }
 
 

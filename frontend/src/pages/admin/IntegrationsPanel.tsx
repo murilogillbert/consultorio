@@ -279,9 +279,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       setWhatsapp({
         phoneId: existingSettings.waPhoneNumberId || '',
         wabaId: existingSettings.waWabaId || '',
-        accessToken: existingSettings.waAccessToken || '',
-        verifyToken: existingSettings.waVerifyToken || '',
-        appSecret: existingSettings.waAppSecret || '',
+        accessToken: existingSettings.waAccessToken || existingSettings.waAccessTokenMasked || '',
+        verifyToken: existingSettings.waVerifyToken || existingSettings.waVerifyTokenMasked || '',
+        appSecret: existingSettings.waAppSecret || existingSettings.waAppSecretMasked || '',
       })
       setInstagram({
         accountId: existingSettings.igAccountId || '',
@@ -361,10 +361,14 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     const trimmed = value.trim()
     return trimmed.startsWith('••')
   }
+  const isMaskedCredentialSafe = (value: string) => {
+    const trimmed = value.trim()
+    return isMaskedCredential(value) || trimmed.startsWith('**') || trimmed.startsWith('••')
+  }
   const sanitizeMpToken = (v: string) => v.replace(/^\uFEFF/, '').trim()
   const mercadoPagoPayload = {
-    ...(mp.accessToken && !isMaskedCredential(mp.accessToken) ? { accessTokenProd: sanitizeMpToken(mp.accessToken) } : {}),
-    ...(mp.sandboxToken && !isMaskedCredential(mp.sandboxToken) ? { accessTokenSandbox: sanitizeMpToken(mp.sandboxToken) } : {}),
+    ...(mp.accessToken && !isMaskedCredentialSafe(mp.accessToken) ? { accessTokenProd: sanitizeMpToken(mp.accessToken) } : {}),
+    ...(mp.sandboxToken && !isMaskedCredentialSafe(mp.sandboxToken) ? { accessTokenSandbox: sanitizeMpToken(mp.sandboxToken) } : {}),
     publicKey: mp.publicKey?.trim() || null,
     sandboxMode: mp.sandboxMode,
   }

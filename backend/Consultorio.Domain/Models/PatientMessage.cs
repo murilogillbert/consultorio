@@ -12,6 +12,12 @@ public class PatientMessage
     public string Source { get; set; } = "APP";
     /// <summary>Null when sent by patient; set when a staff member replies.</summary>
     public Guid? SentByUserId { get; set; }
+    /// <summary>Provider message id, used to prevent duplicated webhook imports.</summary>
+    public string? ExternalMessageId { get; set; }
+    /// <summary>Provider delivery status, e.g. sent, delivered, read or failed.</summary>
+    public string? ExternalStatus { get; set; }
+    public DateTime? ExternalTimestamp { get; set; }
+    public string? ExternalProvider { get; set; }
     public bool IsRead { get; set; } = false;
     public DateTime CreatedAt { get; set; }
 

@@ -44,6 +44,14 @@ public class Clinic
     public bool    MpSandboxMode        { get; set; } = true;
     public bool    MpConnected          { get; set; } = false;
 
+    // WhatsApp Cloud API credentials per clinic
+    public string? WaPhoneNumberId { get; set; }
+    public string? WaWabaId        { get; set; }
+    public string? WaAccessToken   { get; set; }
+    public string? WaVerifyToken   { get; set; }
+    public string? WaAppSecret     { get; set; }
+    public bool    WaConnected     { get; set; } = false;
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

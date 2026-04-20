@@ -18,11 +18,13 @@ public class PatientConversationsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly GmailInboxSyncService _gmailInboxSync;
+    private readonly WhatsAppCloudService _whatsApp;
 
-    public PatientConversationsController(AppDbContext db, GmailInboxSyncService gmailInboxSync)
+    public PatientConversationsController(AppDbContext db, GmailInboxSyncService gmailInboxSync, WhatsAppCloudService whatsApp)
     {
         _db = db;
         _gmailInboxSync = gmailInboxSync;
+        _whatsApp = whatsApp;
     }
 
     private Guid GetClinicId() =>
@@ -182,6 +184,22 @@ public class PatientConversationsController : ControllerBase
             }
         }
 
+        WhatsAppSendResult? whatsAppResult = null;
+        if (string.Equals(source, "WHATSAPP", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(patient.Phone))
+                return BadRequest(new { message = "Paciente sem telefone cadastrado para resposta por WhatsApp." });
+
+            try
+            {
+                whatsAppResult = await _whatsApp.SendTextMessageAsync(clinicId, patient.Phone, dto.Content.Trim());
+            }
+            catch (WhatsAppCloudException ex)
+            {
+                return StatusCode(ex.StatusCode, new { message = ex.Message });
+            }
+        }
+
         var msg = new PatientMessage
         {
             Id           = Guid.NewGuid(),
@@ -191,6 +209,9 @@ public class PatientConversationsController : ControllerBase
             Direction    = "OUT",
             Source       = source,
             SentByUserId = GetUserId() != Guid.Empty ? GetUserId() : null,
+            ExternalMessageId = whatsAppResult?.MessageId,
+            ExternalStatus = whatsAppResult?.Status,
+            ExternalProvider = whatsAppResult == null ? null : "WHATSAPP",
             IsRead       = true,
             CreatedAt    = DateTime.UtcNow,
         };
