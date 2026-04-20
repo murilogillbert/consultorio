@@ -375,7 +375,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const baseUrl = (api.defaults.baseURL || `${window.location.origin}/api`).replace(/\/$/, '')
   const isMaskedCredential = (value: string) => {
     const trimmed = value.trim()
-    return trimmed.startsWith('••')
+    return /^[•*]{4,}/.test(trimmed)
   }
   const sanitizeMpToken = (v: string) => v.replace(/^\uFEFF/, '').trim()
   const mercadoPagoPayload = {
@@ -393,8 +393,8 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       <div className="intg-info-banner" style={{ marginBottom: 20 }}>
         <AlertTriangle size={18} />
         <div>
-          <strong>Estado atual das integrações</strong>
-          <p>Hoje os e-mails automáticos do sistema usam SMTP ou Ethereal no backend. Gmail, Pub/Sub e Instagram ainda estão em etapa parcial de construção.</p>
+          <strong>Migração de integrações em andamento</strong>
+          <p>Os dados desta tela agora são lidos do backend principal e, quando necessário, importados automaticamente do legado para evitar que credenciais antigas pareçam vazias.</p>
         </div>
       </div>
 
@@ -409,8 +409,8 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <div className="intg-info-banner">
           <AlertTriangle size={18} />
           <div>
-            <strong>O que essa seção faz hoje</strong>
-            <p>O callback OAuth do Google já está ativo para conexão da conta. O recebimento de e-mails por webhook/PubSub ainda continua como etapa futura.</p>
+            <strong>Como essa seção funciona agora</strong>
+            <p>O OAuth do Google já conecta a conta e a recepção usa essa autenticação para sincronizar mensagens. O Pub/Sub continua opcional e melhora o tempo real.</p>
           </div>
         </div>
         <InstructionBox steps={[
