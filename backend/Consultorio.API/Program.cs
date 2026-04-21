@@ -79,6 +79,7 @@ builder.Services.AddHttpClient<GoogleOAuthService>();
 builder.Services.AddHttpClient<GmailInboxSyncService>();
 builder.Services.AddHttpClient<MercadoPagoService>();
 builder.Services.AddHttpClient<WhatsAppCloudService>();
+builder.Services.AddHttpClient<InstagramService>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 

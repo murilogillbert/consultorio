@@ -20,6 +20,10 @@ public class IntegrationSettingsResponseDto
     public string? WaVerifyTokenMasked      { get; set; }
     public string? WaAppSecretMasked        { get; set; }
     public bool    WaConnected              { get; set; }
+    public string? IgAccountId             { get; set; }
+    public string? IgPageId                { get; set; }
+    public string? IgAccessTokenMasked     { get; set; }
+    public bool    IgConnected             { get; set; }
 }
 
 public class UpdateIntegrationSettingsDto
@@ -40,6 +44,10 @@ public class UpdateIntegrationSettingsDto
     public string? WaVerifyToken      { get; set; }
     public string? WaAppSecret        { get; set; }
     public bool?   WaConnected        { get; set; }
+    public string? IgAccountId        { get; set; }
+    public string? IgPageId           { get; set; }
+    public string? IgAccessToken      { get; set; }
+    public bool?   IgConnected        { get; set; }
 }
 
 

@@ -204,10 +204,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const waStatus: ConnectionStatus = existingSettings?.waConnected ? 'connected' : 'disconnected'
   const igStatus: ConnectionStatus = existingSettings?.igConnected
     ? 'connected'
-    : existingSettings?.igAccessToken
+    : existingSettings?.igAccessTokenMasked
       ? 'error'
       : 'disconnected'
-  const mpStatus: ConnectionStatus = (existingSettings?.mpConnected ?? existingSettings?.connected) ? 'connected' : 'disconnected'
+  const mpStatus: ConnectionStatus = existingSettings?.connected ? 'connected' : 'disconnected'
 
   /* Toast system */
   const [toasts, setToasts] = useState<ToastMsg[]>([])
@@ -279,14 +279,14 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       setWhatsapp({
         phoneId: existingSettings.waPhoneNumberId || '',
         wabaId: existingSettings.waWabaId || '',
-        accessToken: existingSettings.waAccessToken || existingSettings.waAccessTokenMasked || '',
-        verifyToken: existingSettings.waVerifyToken || existingSettings.waVerifyTokenMasked || '',
-        appSecret: existingSettings.waAppSecret || existingSettings.waAppSecretMasked || '',
+        accessToken: existingSettings.waAccessTokenMasked || '',
+        verifyToken: existingSettings.waVerifyTokenMasked || '',
+        appSecret: existingSettings.waAppSecretMasked || '',
       })
       setInstagram({
         accountId: existingSettings.igAccountId || '',
         pageId: existingSettings.igPageId || '',
-        pageToken: existingSettings.igAccessToken || '',
+        pageToken: existingSettings.igAccessTokenMasked || '',
       })
       setMp({
         accessToken:  existingSettings.accessTokenProdMasked    || '',
@@ -652,9 +652,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             await updateMutation.mutateAsync({
               clinicId,
               data: {
-                igAccountId: instagram.accountId,
-                igPageId: instagram.pageId,
-                igAccessToken: instagram.pageToken
+                igAccountId:  instagram.accountId,
+                igPageId:     instagram.pageId,
+                igAccessToken: instagram.pageToken,
               }
             })
             addToast(

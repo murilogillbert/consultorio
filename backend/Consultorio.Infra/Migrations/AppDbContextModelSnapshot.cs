@@ -471,6 +471,18 @@ namespace Consultorio.Infra.Migrations
                     b.Property<string>("Vision")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("IgAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IgAccountId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IgConnected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("IgPageId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("WaAccessToken")
                         .HasColumnType("nvarchar(max)");
 
@@ -679,6 +691,9 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("IgUserId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");

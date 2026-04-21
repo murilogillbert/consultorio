@@ -2,42 +2,35 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 export interface IntegrationSettings {
-  id?: string
-  clinicId?: string
-
-  // ── Node.js backend field names ──
+  // ── Gmail ──
   gmailClientId?: string
   gmailClientSecret?: string
-  gmailAccessToken?: string
-  gmailRefreshToken?: string
-  pubsubProjectId?: string
-  pubsubTopicName?: string
-  pubsubServiceAccount?: string
-  waPhoneNumberId?: string
-  waWabaId?: string
-  waAccessToken?: string
-  waVerifyToken?: string
-  waAppSecret?: string
-  waAccessTokenMasked?: string
-  waVerifyTokenMasked?: string
-  waAppSecretMasked?: string
-  igAccountId?: string
-  igPageId?: string
-  igAccessToken?: string
-  mpAccessTokenProd?: string
-  mpAccessTokenSandbox?: string
-  mpPublicKeyProd?: string
-  mpConnected?: boolean
   gmailConnected?: boolean
-  waConnected?: boolean
-  igConnected?: boolean
 
-  // ── .NET backend field names (masked tokens — read-only display) ──
+  // ── Mercado Pago ──
   accessTokenProdMasked?: string
   accessTokenSandboxMasked?: string
   publicKey?: string           // MP public key (unmasked — safe to display)
   sandboxMode?: boolean        // true = sandbox, false = production
-  connected?: boolean          // .NET equivalent of mpConnected
+  connected?: boolean          // mpConnected
+
+  // ── WhatsApp ──
+  waPhoneNumberId?: string
+  waWabaId?: string
+  waAccessTokenMasked?: string  // leitura: retornado mascarado pelo backend
+  waVerifyTokenMasked?: string
+  waAppSecretMasked?: string
+  waAccessToken?: string        // escrita: enviado ao backend (plain ou masked)
+  waVerifyToken?: string
+  waAppSecret?: string
+  waConnected?: boolean
+
+  // ── Instagram ──
+  igAccountId?: string
+  igPageId?: string
+  igAccessTokenMasked?: string  // leitura: retornado mascarado pelo backend
+  igAccessToken?: string        // escrita: enviado ao backend (plain ou masked)
+  igConnected?: boolean
 }
 
 export function useIntegrations(clinicId?: string) {
@@ -48,9 +41,6 @@ export function useIntegrations(clinicId?: string) {
         const { data } = await api.get<IntegrationSettings>(`/clinics/${clinicId}/settings/integrations`)
         return data
       } catch (error: any) {
-        // Return null gracefully for any client error (4xx) so the UI
-        // degrades without crashing — the endpoint may not exist yet or
-        // the record may not have been created.
         const status = error?.response?.status
         if (status && status >= 400 && status < 500) {
           return null
@@ -59,9 +49,9 @@ export function useIntegrations(clinicId?: string) {
       }
     },
     enabled: !!clinicId,
-    staleTime: 0,       // always fetch fresh data when component mounts
-    gcTime: 1000 * 60 * 10, // keep in cache for 10 min between mounts
-    retry: false,       // don't retry — endpoint may not exist in current backend
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    retry: false,
   })
 }
 
@@ -74,9 +64,6 @@ export function useUpdateIntegrations() {
       return result as IntegrationSettings
     },
     onSuccess: (savedData, variables) => {
-      // Immediately update the cache with the full record returned by the
-      // server (Prisma upsert returns all fields). This updates the form
-      // right away without waiting for an extra refetch.
       queryClient.setQueryData(['integrations', variables.clinicId], savedData)
     },
   })

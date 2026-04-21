@@ -13,18 +13,20 @@ namespace Consultorio.API.Controllers;
 [Route("api/[controller]")]
 public class ClinicsController : ControllerBase
 {
-    private readonly AppDbContext        _db;
-    private readonly MercadoPagoService  _mp;
-    private readonly GoogleOAuthService  _googleOAuth;
+    private readonly AppDbContext         _db;
+    private readonly MercadoPagoService   _mp;
+    private readonly GoogleOAuthService   _googleOAuth;
     private readonly WhatsAppCloudService _whatsApp;
+    private readonly InstagramService     _instagram;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp)
+    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp, InstagramService instagram)
     {
         _db = db;
         _mp = mp;
         _googleOAuth = googleOAuth;
         _whatsApp = whatsApp;
+        _instagram = instagram;
     }
 
     private static string? Mask(string? token) =>
@@ -66,6 +68,10 @@ public class ClinicsController : ControllerBase
         WaVerifyTokenMasked = MaskSafe(clinic.WaVerifyToken),
         WaAppSecretMasked = MaskSafe(clinic.WaAppSecret),
         WaConnected = clinic.WaConnected,
+        IgAccountId = clinic.IgAccountId,
+        IgPageId = clinic.IgPageId,
+        IgAccessTokenMasked = MaskSafe(clinic.IgAccessToken),
+        IgConnected = clinic.IgConnected,
     };
 
     // GET /api/clinics
@@ -211,6 +217,12 @@ public class ClinicsController : ControllerBase
         if (dto.WaAppSecret     != null && !IsMasked(dto.WaAppSecret))   clinic.WaAppSecret   = WhatsAppCloudService.SanitizeSecret(dto.WaAppSecret);
         if (dto.WaConnected.HasValue) clinic.WaConnected = dto.WaConnected.Value;
 
+        if (dto.IgAccountId   != null) clinic.IgAccountId  = dto.IgAccountId.Trim()  == "" ? null : dto.IgAccountId.Trim();
+        if (dto.IgPageId      != null) clinic.IgPageId     = dto.IgPageId.Trim()     == "" ? null : dto.IgPageId.Trim();
+        if (dto.IgAccessToken != null && !IsMasked(dto.IgAccessToken))
+            clinic.IgAccessToken = WhatsAppCloudService.SanitizeSecret(dto.IgAccessToken);
+        if (dto.IgConnected.HasValue) clinic.IgConnected = dto.IgConnected.Value;
+
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -318,6 +330,50 @@ public class ClinicsController : ControllerBase
         {
             clinic.WaConnected = false;
             clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/settings/integrations/instagram/test")]
+    [Authorize]
+    public async Task<ActionResult> TestInstagram(Guid id)
+    {
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+            return NotFound(new { message = "Clínica não encontrada." });
+
+        try
+        {
+            var info = await _instagram.TestConnectionAsync(id);
+
+            // Update IgAccountId if the API returned one and we didn't have it
+            if (!string.IsNullOrWhiteSpace(info.IgAccountId) && string.IsNullOrWhiteSpace(clinic.IgAccountId))
+                clinic.IgAccountId = info.IgAccountId;
+
+            clinic.IgConnected = true;
+            clinic.UpdatedAt   = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var label = string.IsNullOrWhiteSpace(info.IgUsername) ? info.PageName : $"@{info.IgUsername} · {info.PageName}";
+            return Ok(new
+            {
+                ok      = true,
+                message = $"Instagram conectado · {label}",
+                detail  = $"Page ID: {info.PageId}",
+            });
+        }
+        catch (InstagramException ex)
+        {
+            clinic.IgConnected = false;
+            clinic.UpdatedAt   = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return StatusCode(ex.StatusCode, new { ok = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            clinic.IgConnected = false;
+            clinic.UpdatedAt   = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return Ok(new { ok = false, message = ex.Message });
         }

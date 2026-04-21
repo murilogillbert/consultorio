@@ -13,6 +13,8 @@ public class Patient
     public string? State { get; set; }
     public string? PostalCode { get; set; }
     public string? Notes { get; set; }
+    // Instagram user ID — populated when a patient first contacts via Instagram DM
+    public string? IgUserId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

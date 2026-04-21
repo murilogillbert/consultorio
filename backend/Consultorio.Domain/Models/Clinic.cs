@@ -52,6 +52,12 @@ public class Clinic
     public string? WaAppSecret     { get; set; }
     public bool    WaConnected     { get; set; } = false;
 
+    // Instagram Direct API credentials per clinic
+    public string? IgAccountId    { get; set; }
+    public string? IgPageId       { get; set; }
+    public string? IgAccessToken  { get; set; }
+    public bool    IgConnected    { get; set; } = false;
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
