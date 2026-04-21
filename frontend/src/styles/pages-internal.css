@@ -1519,7 +1519,9 @@
   }
 
   .metric-card {
-    width: fit-content;
+    width: -webkit-fill-available;
+    width: -moz-available;
+    width: stretch;
     min-width: 30%;
     max-width: calc(100vw - 2 * var(--space-4));
     margin-left: 0;
