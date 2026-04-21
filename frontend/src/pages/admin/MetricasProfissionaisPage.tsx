@@ -53,6 +53,69 @@ export default function MetricasProfissionaisPage() {
   // Profissional destaque
   const sorted = [...professionals].sort((a, b) => b.revenue - a.revenue)
   const topPro = sorted[0]
+  const exportRows = sorted.map((p, i) => ({
+    Ranking: i + 1,
+    Profissional: p.name,
+    Especialidade: p.specialty,
+    Atendimentos: p.appointments,
+    Concluidos: p.completedCount,
+    Cancelados: p.cancelledCount,
+    NoShow: p.noShowCount,
+    OcupacaoPct: p.occupancy,
+    Receita: p.revenue,
+    TicketMedio: p.appointments > 0 ? p.revenue / p.appointments : 0,
+    CancelamentoPct: p.cancellationRate,
+    NovosPacientes: p.newPatients,
+    PacientesRetorno: p.returningPatients,
+    Repasse: p.netPayout,
+    ComissaoPct: p.commissionPct,
+    Avaliacao: p.rating,
+    TendenciaReceitaPct: p.revenueTrend,
+    Status: p.status,
+  }))
+  const csvEscape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+  const downloadCsv = () => {
+    const headers = Object.keys(exportRows[0] || { Relatorio: 'Sem dados' })
+    const rows = exportRows.length > 0 ? exportRows : [{ Relatorio: 'Sem dados' }]
+    const csv = [headers.join(';'), ...rows.map(row => headers.map(h => csvEscape((row as any)[h])).join(';'))].join('\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `metricas-profissionais-${period.replace(/\s+/g, '-').toLowerCase()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const openPdf = () => {
+    const rows = sorted.map((p, i) => `
+      <tr>
+        <td>${i + 1}</td><td>${p.name}</td><td>${p.appointments}</td><td>${p.completedCount}</td>
+        <td>${fmt(p.revenue)}</td><td>${fmt(p.appointments > 0 ? p.revenue / p.appointments : 0)}</td>
+        <td>${p.occupancy}%</td><td>${p.cancellationRate}%</td><td>${fmt(p.netPayout)}</td><td>${p.status}</td>
+      </tr>
+    `).join('')
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(`
+      <html><head><title>Métricas de Profissionais</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:24px;color:#1f2937} h1{font-size:22px;margin:0 0 4px}
+        .meta{color:#6b7280;margin-bottom:18px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+        .card{border:1px solid #ddd;padding:10px;border-radius:6px}.label{font-size:11px;color:#6b7280}.value{font-size:18px;font-weight:700}
+        table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #ddd;padding:6px;text-align:left} th{background:#f3f4f6}
+      </style></head><body>
+      <h1>Métricas de Profissionais</h1><div class="meta">Período: ${period}</div>
+      <div class="cards">
+        <div class="card"><div class="label">Atendimentos</div><div class="value">${totalAppointments}</div></div>
+        <div class="card"><div class="label">Receita Total</div><div class="value">${fmt(totalRevenue)}</div></div>
+        <div class="card"><div class="label">Mais Rentável</div><div class="value">${topPro?.name || '-'}</div></div>
+        <div class="card"><div class="label">R$/Hora Média</div><div class="value">${fmt(professionals.length > 0 ? professionals.reduce((s, p) => s + p.revenuePerHour, 0) / professionals.length : 0)}</div></div>
+      </div>
+      <table><thead><tr><th>#</th><th>Profissional</th><th>Atend.</th><th>Concl.</th><th>Receita</th><th>Ticket</th><th>Ocup.</th><th>Cancel.</th><th>Repasse</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="10">Sem dados</td></tr>'}</tbody></table>
+      <script>window.onload=()=>{window.print()}</script></body></html>
+    `)
+    win.document.close()
+  }
 
   return (
     <div className="animate-fade-in">
@@ -65,8 +128,8 @@ export default function MetricasProfissionaisPage() {
             ))}
           </div>
           <div className="export-btns">
-            <button className="btn btn-secondary btn-sm"><Download size={14} /> CSV</button>
-            <button className="btn btn-secondary btn-sm"><Download size={14} /> PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={downloadCsv}><Download size={14} /> CSV</button>
+            <button className="btn btn-secondary btn-sm" onClick={openPdf}><Download size={14} /> PDF</button>
           </div>
         </div>
       </div>

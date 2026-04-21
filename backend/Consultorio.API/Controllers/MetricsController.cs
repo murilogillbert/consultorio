@@ -90,8 +90,23 @@ public class MetricsController : ControllerBase
             .ToListAsync();
 
         var prevAppointments = await _db.Appointments
-            .Include(a => a.Payment)
             .Where(a => a.ClinicId == clinicId && a.StartTime >= prevStart && a.StartTime <= prevEnd)
+            .ToListAsync();
+
+        var paidPayments = await _db.Payments
+            .Include(p => p.Appointment)
+            .Where(p => p.Appointment.ClinicId == clinicId
+                && p.Status == "PAID"
+                && (p.PaymentDate ?? p.CreatedAt) >= start
+                && (p.PaymentDate ?? p.CreatedAt) <= end)
+            .ToListAsync();
+
+        var prevPaidPayments = await _db.Payments
+            .Include(p => p.Appointment)
+            .Where(p => p.Appointment.ClinicId == clinicId
+                && p.Status == "PAID"
+                && (p.PaymentDate ?? p.CreatedAt) >= prevStart
+                && (p.PaymentDate ?? p.CreatedAt) <= prevEnd)
             .ToListAsync();
 
         // First appointment per patient-professional pair (for new patient detection)
@@ -106,15 +121,34 @@ public class MetricsController : ControllerBase
             x => x.First
         );
 
-        var prevByPro = prevAppointments
-            .GroupBy(a => a.ProfessionalId)
+        var paidByPro = paidPayments
+            .GroupBy(p => p.Appointment.ProfessionalId)
             .ToDictionary(
                 g => g.Key,
                 g => new
                 {
                     Count = g.Count(),
-                    Revenue = g.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m)
+                    Revenue = g.Sum(p => p.Amount),
+                    Minutes = g.Sum(p => (p.Appointment.EndTime - p.Appointment.StartTime).TotalMinutes)
                 }
+            );
+
+        var prevPaidByPro = prevPaidPayments
+            .GroupBy(p => p.Appointment.ProfessionalId)
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    Count = g.Count(),
+                    Revenue = g.Sum(p => p.Amount)
+                }
+            );
+
+        var prevApptCountByPro = prevAppointments
+            .GroupBy(a => a.ProfessionalId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Count()
             );
 
         var result = professionals.Select(p =>
@@ -125,7 +159,8 @@ public class MetricsController : ControllerBase
             var cancelled = appts.Count(a => a.Status == "CANCELLED");
             var cancelledByPatient = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "PATIENT");
             var cancelledByReception = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "RECEPTION");
-            var revenue = appts.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m);
+            paidByPro.TryGetValue(p.Id, out var paid);
+            var revenue = paid?.Revenue ?? 0m;
 
             var cancellationRate = total > 0 ? (int)Math.Round((double)cancelled / total * 100) : 0;
             var attended = total - cancelled;
@@ -166,9 +201,9 @@ public class MetricsController : ControllerBase
             }
 
             // Trend
-            prevByPro.TryGetValue(p.Id, out var prev);
+            prevPaidByPro.TryGetValue(p.Id, out var prev);
+            prevApptCountByPro.TryGetValue(p.Id, out var prevCnt);
             var prevRev = prev != null ? (double)prev.Revenue : 0;
-            var prevCnt = prev?.Count ?? 0;
             var revenueTrend = prevRev > 0 ? (int)Math.Round(((double)revenue - prevRev) / prevRev * 100) : (revenue > 0 ? 100 : 0);
             var appointmentsTrend = prevCnt > 0 ? (int)Math.Round(((double)total - prevCnt) / prevCnt * 100) : (total > 0 ? 100 : 0);
 
@@ -243,19 +278,53 @@ public class MetricsController : ControllerBase
             .ToListAsync();
 
         var prevAppts = await _db.Appointments
-            .Include(a => a.Payment)
             .Where(a => a.ClinicId == clinicId && a.StartTime >= prevStart && a.StartTime <= prevEnd)
             .ToListAsync();
 
-        var prevByService = prevAppts
-            .GroupBy(a => a.ServiceId)
+        var paidPayments = await _db.Payments
+            .Include(p => p.Appointment).ThenInclude(a => a.Service)
+            .Where(p => p.Appointment.ClinicId == clinicId
+                && p.Status == "PAID"
+                && (p.PaymentDate ?? p.CreatedAt) >= start
+                && (p.PaymentDate ?? p.CreatedAt) <= end)
+            .ToListAsync();
+
+        var prevPaidPayments = await _db.Payments
+            .Include(p => p.Appointment)
+            .Where(p => p.Appointment.ClinicId == clinicId
+                && p.Status == "PAID"
+                && (p.PaymentDate ?? p.CreatedAt) >= prevStart
+                && (p.PaymentDate ?? p.CreatedAt) <= prevEnd)
+            .ToListAsync();
+
+        var paidByService = paidPayments
+            .GroupBy(p => p.Appointment.ServiceId)
             .ToDictionary(
                 g => g.Key,
                 g => new
                 {
                     Count = g.Count(),
-                    Revenue = g.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m)
+                    Revenue = g.Sum(p => p.Amount),
+                    Minutes = g.Sum(p => (p.Appointment.EndTime - p.Appointment.StartTime).TotalMinutes)
                 }
+            );
+
+        var prevPaidByService = prevPaidPayments
+            .GroupBy(p => p.Appointment.ServiceId)
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    Count = g.Count(),
+                    Revenue = g.Sum(p => p.Amount)
+                }
+            );
+
+        var prevApptCountByService = prevAppts
+            .GroupBy(a => a.ServiceId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Count()
             );
 
         var result = services.Select(s =>
@@ -266,8 +335,10 @@ public class MetricsController : ControllerBase
             var cancelled = appts.Count(a => a.Status == "CANCELLED");
             var cancelledByPatient = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "PATIENT");
             var cancelledByReception = appts.Count(a => a.Status == "CANCELLED" && a.CancellationSource == "RECEPTION");
-            var revenue = appts.Sum(a => a.Payment != null && a.Payment.Status == "PAID" ? a.Payment.Amount : 0m);
-            var avgPrice = completed > 0 ? revenue / completed : s.Price;
+            paidByService.TryGetValue(s.Id, out var paid);
+            var revenue = paid?.Revenue ?? 0m;
+            var paidCount = paid?.Count ?? 0;
+            var avgPrice = paidCount > 0 ? revenue / paidCount : s.Price;
 
             var cancellationRate = total > 0 ? (int)Math.Round((double)cancelled / total * 100) : 0;
 
@@ -284,7 +355,7 @@ public class MetricsController : ControllerBase
                 : 0;
 
             // Revenue per hour
-            var durationHours = (double)(s.DurationMinutes * completed) / 60;
+            var durationHours = (paid?.Minutes ?? 0) / 60;
             var revenuePerHour = durationHours > 0 ? (int)Math.Round((double)revenue / durationHours) : 0;
 
             // Top professional — null-safe: some appointments may not have Professional loaded
@@ -296,9 +367,9 @@ public class MetricsController : ControllerBase
                 .FirstOrDefault() ?? "—";
 
             // Trend
-            prevByService.TryGetValue(s.Id, out var prev);
+            prevPaidByService.TryGetValue(s.Id, out var prev);
+            prevApptCountByService.TryGetValue(s.Id, out var prevCnt);
             var prevRev = prev != null ? (double)prev.Revenue : 0;
-            var prevCnt = prev?.Count ?? 0;
             var revenueTrend = prevRev > 0 ? (int)Math.Round(((double)revenue - prevRev) / prevRev * 100) : (revenue > 0 ? 100 : 0);
             var countTrend = prevCnt > 0 ? (int)Math.Round(((double)total - prevCnt) / prevCnt * 100) : (total > 0 ? 100 : 0);
 

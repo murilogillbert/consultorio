@@ -59,6 +59,71 @@ export default function MetricasServicosPage() {
 
   const sorted = [...services].sort((a, b) => b.revenue - a.revenue)
   const topService = sorted[0]
+  const exportRows = sorted.map((s, i) => ({
+    Ranking: i + 1,
+    Servico: s.name,
+    Categoria: s.category,
+    DuracaoMin: s.duration,
+    Agendamentos: s.totalAppointments,
+    Concluidos: s.completedCount,
+    Cancelados: s.cancelledCount,
+    NoShow: s.noShowCount,
+    Receita: s.revenue,
+    TicketMedio: s.avgPrice,
+    CancelamentoPct: s.cancellationRate,
+    PacientesUnicos: s.uniquePatients,
+    PacientesRetorno: s.returningPatients,
+    RetornoPct: s.returnRate,
+    ConvenioPct: s.insurancePct,
+    ReceitaPorHora: s.revenuePerHour,
+    Profissionais: s.proCount,
+    ProfissionalMaisFrequente: s.topProfessional,
+    TendenciaReceitaPct: s.revenueTrend,
+    Status: s.status,
+  }))
+  const csvEscape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+  const downloadCsv = () => {
+    const headers = Object.keys(exportRows[0] || { Relatorio: 'Sem dados' })
+    const rows = exportRows.length > 0 ? exportRows : [{ Relatorio: 'Sem dados' }]
+    const csv = [headers.join(';'), ...rows.map(row => headers.map(h => csvEscape((row as any)[h])).join(';'))].join('\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `metricas-servicos-${period.replace(/\s+/g, '-').toLowerCase()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const openPdf = () => {
+    const rows = sorted.map((s, i) => `
+      <tr>
+        <td>${i + 1}</td><td>${s.name}</td><td>${s.completedCount}/${s.totalAppointments}</td>
+        <td>${fmt(s.revenue)}</td><td>${fmt(s.avgPrice)}</td><td>${s.cancellationRate}%</td>
+        <td>${s.uniquePatients}</td><td>${s.returnRate}%</td><td>${fmt(s.revenuePerHour)}</td><td>${s.status}</td>
+      </tr>
+    `).join('')
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(`
+      <html><head><title>Métricas de Serviços</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:24px;color:#1f2937} h1{font-size:22px;margin:0 0 4px}
+        .meta{color:#6b7280;margin-bottom:18px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+        .card{border:1px solid #ddd;padding:10px;border-radius:6px}.label{font-size:11px;color:#6b7280}.value{font-size:18px;font-weight:700}
+        table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #ddd;padding:6px;text-align:left} th{background:#f3f4f6}
+      </style></head><body>
+      <h1>Métricas de Serviços</h1><div class="meta">Período: ${period}</div>
+      <div class="cards">
+        <div class="card"><div class="label">Concluídos</div><div class="value">${totalCompleted}</div></div>
+        <div class="card"><div class="label">Receita Total</div><div class="value">${fmt(totalRevenue)}</div></div>
+        <div class="card"><div class="label">Mais Rentável</div><div class="value">${topService?.name || '-'}</div></div>
+        <div class="card"><div class="label">R$/Hora Médio</div><div class="value">${fmt(avgRevenuePerHour)}</div></div>
+      </div>
+      <table><thead><tr><th>#</th><th>Serviço</th><th>Concl./Agend.</th><th>Receita</th><th>Ticket</th><th>Cancel.</th><th>Pacientes</th><th>Retorno</th><th>R$/Hora</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="10">Sem dados</td></tr>'}</tbody></table>
+      <script>window.onload=()=>{window.print()}</script></body></html>
+    `)
+    win.document.close()
+  }
 
   return (
     <div className="animate-fade-in">
@@ -71,8 +136,8 @@ export default function MetricasServicosPage() {
             ))}
           </div>
           <div className="export-btns">
-            <button className="btn btn-secondary btn-sm"><Download size={14} /> CSV</button>
-            <button className="btn btn-secondary btn-sm"><Download size={14} /> PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={downloadCsv}><Download size={14} /> CSV</button>
+            <button className="btn btn-secondary btn-sm" onClick={openPdf}><Download size={14} /> PDF</button>
           </div>
         </div>
       </div>

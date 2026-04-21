@@ -45,6 +45,74 @@ export default function FaturamentoPage() {
   const latestMonth = monthlyRevenue[monthlyRevenue.length - 1]
   const latestVsAverage = monthlyAverage > 0 && latestMonth ? Math.round((latestMonth.revenue / monthlyAverage - 1) * 100) : 0
   const maxMonthlyRevenue = Math.max(...monthlyRevenue.map(d => d.revenue)) || 1
+  const csvEscape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+  const downloadCsv = () => {
+    const summaryRows = [
+      { Indicador: 'Receita Bruta', Valor: totalRevenue },
+      { Indicador: 'Repasses', Valor: totalPayout },
+      { Indicador: 'Receita Liquida', Valor: receitaLiquida },
+      { Indicador: 'Atendimentos', Valor: totalAppointments },
+      { Indicador: 'Concluidos', Valor: completedAppts },
+      { Indicador: 'Ticket Medio', Valor: ticketMedio },
+      { Indicador: 'Inadimplencia', Valor: totalDelinquency },
+    ]
+    const payoutRows = payouts.map(p => ({
+      Profissional: p.name,
+      Especialidade: p.specialty,
+      Atendimentos: p.appointments,
+      ReceitaBruta: p.gross,
+      Comissao: p.pct,
+      Repasse: p.net,
+    }))
+    const sections = [
+      'Resumo',
+      'Indicador;Valor',
+      ...summaryRows.map(r => `${csvEscape(r.Indicador)};${csvEscape(r.Valor)}`),
+      '',
+      'Repasses',
+      'Profissional;Especialidade;Atendimentos;ReceitaBruta;Comissao;Repasse',
+      ...payoutRows.map(r => `${csvEscape(r.Profissional)};${csvEscape(r.Especialidade)};${csvEscape(r.Atendimentos)};${csvEscape(r.ReceitaBruta)};${csvEscape(r.Comissao)};${csvEscape(r.Repasse)}`),
+      '',
+      'Receita por Canal',
+      'Canal;Valor',
+      ...revenueByChannel.map(r => `${csvEscape(r.name)};${csvEscape(r.value)}`),
+    ].join('\n')
+    const blob = new Blob([`\uFEFF${sections}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `faturamento-${period.replace(/\s+/g, '-').toLowerCase()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const openPdf = () => {
+    const payoutRows = payouts.map(p => `<tr><td>${p.name}</td><td>${p.appointments}</td><td>${fmt(p.gross)}</td><td>${p.pct}</td><td>${fmt(p.net)}</td></tr>`).join('')
+    const channelRows = revenueByChannel.map(ch => `<tr><td>${ch.name}</td><td>${fmt(ch.value)}</td></tr>`).join('')
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(`
+      <html><head><title>Faturamento</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:24px;color:#1f2937} h1{font-size:22px;margin:0 0 4px}
+        h2{font-size:15px;margin-top:22px}.meta{color:#6b7280;margin-bottom:18px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+        .card{border:1px solid #ddd;padding:10px;border-radius:6px}.label{font-size:11px;color:#6b7280}.value{font-size:18px;font-weight:700}
+        table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #ddd;padding:6px;text-align:left} th{background:#f3f4f6}
+      </style></head><body>
+      <h1>Faturamento</h1><div class="meta">Período: ${period}</div>
+      <div class="cards">
+        <div class="card"><div class="label">Receita Bruta</div><div class="value">${fmt(totalRevenue)}</div></div>
+        <div class="card"><div class="label">Repasses</div><div class="value">${fmt(totalPayout)}</div></div>
+        <div class="card"><div class="label">Receita Líquida</div><div class="value">${fmt(receitaLiquida)}</div></div>
+        <div class="card"><div class="label">Ticket Médio</div><div class="value">${fmt(ticketMedio)}</div></div>
+      </div>
+      <h2>Repasses por Profissional</h2>
+      <table><thead><tr><th>Profissional</th><th>Atend.</th><th>Receita Bruta</th><th>Comissão</th><th>Repasse</th></tr></thead><tbody>${payoutRows || '<tr><td colspan="5">Sem dados</td></tr>'}</tbody></table>
+      <h2>Receita por Canal</h2>
+      <table><thead><tr><th>Canal</th><th>Valor</th></tr></thead><tbody>${channelRows || '<tr><td colspan="2">Sem dados</td></tr>'}</tbody></table>
+      <script>window.onload=()=>{window.print()}</script></body></html>
+    `)
+    win.document.close()
+  }
 
   return (
     <div className="animate-fade-in">
@@ -57,8 +125,8 @@ export default function FaturamentoPage() {
             ))}
           </div>
           <div className="export-btns">
-            <button className="btn btn-secondary btn-sm"><Download size={14} /> CSV</button>
-            <button className="btn btn-secondary btn-sm"><Download size={14} /> PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={downloadCsv}><Download size={14} /> CSV</button>
+            <button className="btn btn-secondary btn-sm" onClick={openPdf}><Download size={14} /> PDF</button>
           </div>
         </div>
       </div>
