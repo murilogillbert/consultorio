@@ -1518,6 +1518,14 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .metric-card {
+    width: fit-content;
+    min-width: 60%;
+    max-width: 100%;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+
   .reception-dashboard-page .metric-card,
   .admin-dashboard-page .metric-card {
     padding: var(--space-4);
