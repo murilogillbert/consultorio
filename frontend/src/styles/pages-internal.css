@@ -1674,6 +1674,15 @@
   .chart-card {
     padding: var(--space-4);
   }
+  /* Analytics bar charts with many data points scroll horizontally */
+  .admin-analytics-page .chart-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Prevent page-level horizontal scroll on analytics pages */
+  .admin-analytics-page {
+    overflow-x: hidden;
+  }
   .chart-placeholder {
     height: 200px;
     overflow-x: auto;
@@ -1735,6 +1744,11 @@
     width: 100%;
     flex-direction: row;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .settings-tabs-vertical::-webkit-scrollbar {
+    display: none;
   }
   .form-2col {
     grid-template-columns: 1fr;
@@ -1816,6 +1830,11 @@
   .reception-dashboard-page .alert-row .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  /* ---- Admin analytics: tables have many columns, enforce min-width for scroll ---- */
+  .admin-analytics-page .data-table {
+    min-width: 680px;
   }
 
   /* ---- Admin CRUD: tables → mobile cards ---- */
@@ -2316,6 +2335,16 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* Faturamento: mini-metric cards inside chart-card → 2-col instead of 1-col */
+  .chart-card .admin-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Movimento: date input full-width */
+  .metrics-header-actions .input-field[type="date"] {
+    width: 100%;
+  }
+
   /* Agenda: show FAB, hide desktop "Novo Agendamento" button */
   .agenda-fab {
     display: flex;
@@ -2428,6 +2457,11 @@
   /* Dashboard: back to 1-col on very small screens */
   .reception-dashboard-page .metrics-row,
   .admin-dashboard-page .metrics-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Analytics pages: 1-col on very small phones */
+  .admin-analytics-page .metrics-row {
     grid-template-columns: 1fr;
   }
 
