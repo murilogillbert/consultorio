@@ -1519,9 +1519,11 @@
   }
 
   .metric-card {
-    width: fit-content;
-    min-width: 60%;
-    max-width: 100%;
+    width: -webkit-fill-available;
+    width: -moz-available;
+    width: stretch;
+    min-width: 30%;
+    max-width: calc(100vw - 2 * var(--space-4));
     margin-left: 0;
     margin-right: auto;
     box-sizing: border-box;
@@ -1686,6 +1688,12 @@
   }
   .chart-card {
     padding: var(--space-4);
+    width: fit-content;
+    min-width: 30%;
+    max-width: calc(100vw - 2 * var(--space-4));
+    margin-left: 0;
+    margin-right: auto;
+    box-sizing: border-box;
   }
   /* Analytics bar charts with many data points scroll horizontally */
   .admin-analytics-page .chart-card {
@@ -1808,9 +1816,31 @@
   }
   .card:has(.data-table),
   .admin-table-card {
-    max-width: 100%;
+    width: 100%;
+    max-width: calc(100vw - 2 * var(--space-4));
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+    padding: var(--space-4); /* inline style={{ padding: 0 }} overrides when needed */
   }
+
+  /* Tighter table title on mobile */
+  .admin-table-card > h3 {
+    font-size: var(--text-body);
+    margin-bottom: var(--space-3);
+  }
+
+  /* Compact cell padding + smaller font so table fits better before scrolling */
+  .admin-table-card .data-table th {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-caption);
+    white-space: nowrap;
+  }
+  .admin-table-card .data-table td {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+  }
+
   /* allow tables to scroll horizontally instead of overflowing hidden */
   .service-table-wrapper {
     overflow-x: auto !important;
