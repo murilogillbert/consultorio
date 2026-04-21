@@ -67,6 +67,8 @@ export default function AgendaPage() {
   const dayAppts = appointments.filter(
     a => showCancelled || a.status !== 'CANCELLED'
   )
+  const calendarColumnCount = Math.max(1, displayedProfs.length)
+  const calendarMinWidth = Math.max(720, 60 + calendarColumnCount * 180)
   const selectedPaymentStatus = selectedAppointment?.paymentStatus
   const selectedIsPaid = selectedPaymentStatus === 'PAID'
   const selectedIsOnline = !!selectedAppointment?.service?.onlineBooking
@@ -215,9 +217,17 @@ export default function AgendaPage() {
 
       {/* Calendar Grid — Day View */}
       <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, position: 'relative' }}>
-        <div className="calendar-grid" style={{ flex: 1, minWidth: 0 }}>
+        <div
+          className="calendar-grid"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            '--cols': calendarColumnCount,
+            '--calendar-min-width': `${calendarMinWidth}px`,
+          } as React.CSSProperties}
+        >
           {/* Header */}
-          <div className="calendar-header" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>
+          <div className="calendar-header">
             <div className="calendar-header-cell" style={{ width: 60 }}>Hora</div>
             {displayedProfs.length > 0
               ? displayedProfs.map((p, i) => (
@@ -229,7 +239,7 @@ export default function AgendaPage() {
           {/* Time rows */}
           <div className="calendar-body" style={{ position: 'relative' }}>
             {timeSlots.map((time, ri) => (
-              <div key={ri} className="calendar-row" style={{ '--cols': Math.max(1, displayedProfs.length) } as React.CSSProperties}>
+              <div key={ri} className="calendar-row">
                 <div className="calendar-time-label">{time}</div>
                 {displayedProfs.map((p, ci) => (
                   <div key={ci} className="calendar-cell" onClick={() => handleCellClick(p.id, time)} />

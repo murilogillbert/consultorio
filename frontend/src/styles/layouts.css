@@ -751,6 +751,13 @@ body.mobile-menu-open {
   border-top: 1px solid rgba(255,255,255,0.08);
   padding-bottom: env(safe-area-inset-bottom);
   box-sizing: content-box;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.mobile-bottombar::-webkit-scrollbar {
+  display: none;
 }
 
 .mobile-bottombar a,
@@ -766,6 +773,16 @@ body.mobile-menu-open {
   border: none;
   cursor: pointer;
   transition: color var(--transition-fast);
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.mobile-bottombar span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-bottombar a.active,

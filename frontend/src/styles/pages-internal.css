@@ -298,6 +298,8 @@
 .agenda-main-layout {
   display: flex;
   gap: 0;
+  width: 100%;
+  min-width: 0;
   /* overflow intentionally not set — calendar-grid handles its own scroll */
 }
 
@@ -340,13 +342,17 @@
 .calendar-grid {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 .calendar-header {
   display: grid;
-  grid-template-columns: 60px repeat(var(--cols, 1), 1fr);
+  grid-template-columns: 60px repeat(var(--cols, 1), minmax(180px, 1fr));
   border-bottom: 1px solid var(--color-border-default);
+  min-width: var(--calendar-min-width, 720px);
 }
 
 .calendar-header-cell {
@@ -364,6 +370,7 @@
 
 .calendar-body {
   position: relative;
+  min-width: var(--calendar-min-width, 720px);
 }
 
 .calendar-time-col {
@@ -382,9 +389,10 @@
 
 .calendar-row {
   display: grid;
-  grid-template-columns: 60px repeat(var(--cols, 1), 1fr);
+  grid-template-columns: 60px repeat(var(--cols, 1), minmax(180px, 1fr));
   height: 48px;
   border-bottom: 1px solid var(--color-border-default);
+  min-width: var(--calendar-min-width, 720px);
 }
 
 .calendar-cell {
@@ -1756,7 +1764,7 @@
     max-width: none;
   }
   .availability-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .settings-layout {
     flex-direction: column;
@@ -1800,11 +1808,12 @@
     overflow-x: auto;
   }
   .calendar-body {
-    overflow-x: auto;
+    overflow-x: visible;
   }
   .calendar-header,
+  .calendar-body,
   .calendar-row {
-    min-width: 720px;
+    min-width: var(--calendar-min-width, 720px);
   }
   .appointment-drawer {
     width: 100%;
@@ -1923,6 +1932,11 @@
   .admin-svc-card-list { display: flex; }
 
   /* ---- Settings: tabs → horizontal scroll bar ---- */
+  .patient-table-wrapper { display: none; }
+  .patient-card-list { display: flex; }
+  .service-table-wrapper { display: none; }
+  .service-card-list { display: flex; }
+
   .settings-tabs-vertical .settings-tab {
     width: auto;
     white-space: nowrap;
@@ -2390,12 +2404,13 @@
   /* Shrink min-width so the calendar is still scrollable below 640px
      (the 768px rule sets 720px — here we pull it down for phones) */
   .calendar-header,
+  .calendar-body,
   .calendar-row {
-    min-width: 480px;
+    min-width: var(--calendar-min-width, 720px);
   }
   /* Ensure agenda layout never clips the horizontal scrollbar */
   .agenda-main-layout {
-    overflow-x: auto;
+    overflow-x: visible;
   }
 }
 
