@@ -19,12 +19,18 @@ public class PatientConversationsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly GmailInboxSyncService _gmailInboxSync;
     private readonly WhatsAppCloudService _whatsApp;
+    private readonly InstagramService _instagram;
 
-    public PatientConversationsController(AppDbContext db, GmailInboxSyncService gmailInboxSync, WhatsAppCloudService whatsApp)
+    public PatientConversationsController(
+        AppDbContext db,
+        GmailInboxSyncService gmailInboxSync,
+        WhatsAppCloudService whatsApp,
+        InstagramService instagram)
     {
         _db = db;
         _gmailInboxSync = gmailInboxSync;
         _whatsApp = whatsApp;
+        _instagram = instagram;
     }
 
     private Guid GetClinicId() =>
@@ -185,6 +191,7 @@ public class PatientConversationsController : ControllerBase
         }
 
         WhatsAppSendResult? whatsAppResult = null;
+        InstagramSendResult? instagramResult = null;
         if (string.Equals(source, "WHATSAPP", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(patient.Phone))
@@ -200,6 +207,21 @@ public class PatientConversationsController : ControllerBase
             }
         }
 
+        if (string.Equals(source, "INSTAGRAM", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(patient.IgUserId))
+                return BadRequest(new { message = "Paciente sem ID do Instagram para resposta." });
+
+            try
+            {
+                instagramResult = await _instagram.SendTextMessageAsync(clinicId, patient.IgUserId, dto.Content.Trim());
+            }
+            catch (InstagramException ex)
+            {
+                return StatusCode(ex.StatusCode, new { message = ex.Message });
+            }
+        }
+
         var msg = new PatientMessage
         {
             Id           = Guid.NewGuid(),
@@ -209,9 +231,9 @@ public class PatientConversationsController : ControllerBase
             Direction    = "OUT",
             Source       = source,
             SentByUserId = GetUserId() != Guid.Empty ? GetUserId() : null,
-            ExternalMessageId = whatsAppResult?.MessageId,
-            ExternalStatus = whatsAppResult?.Status,
-            ExternalProvider = whatsAppResult == null ? null : "WHATSAPP",
+            ExternalMessageId = whatsAppResult?.MessageId ?? instagramResult?.MessageId,
+            ExternalStatus = whatsAppResult?.Status ?? instagramResult?.Status,
+            ExternalProvider = whatsAppResult != null ? "WHATSAPP" : instagramResult != null ? "INSTAGRAM" : null,
             IsRead       = true,
             CreatedAt    = DateTime.UtcNow,
         };

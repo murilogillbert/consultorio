@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Consultorio.Infra.Context;
 
@@ -9,6 +10,12 @@ public class InstagramAccountInfo
     public string PageName     { get; init; } = "";
     public string IgAccountId  { get; init; } = "";
     public string IgUsername   { get; init; } = "";
+}
+
+public class InstagramSendResult
+{
+    public string MessageId { get; init; } = "";
+    public string Status    { get; init; } = "";
 }
 
 public class InstagramException : Exception
@@ -111,6 +118,61 @@ public class InstagramService
             IgAccountId = igId,
             IgUsername  = igUsername,
         };
+    }
+
+    public async Task<InstagramSendResult> SendTextMessageAsync(Guid clinicId, string igUserId, string message)
+    {
+        var clinic = await _db.Clinics.FindAsync(clinicId)
+            ?? throw new InstagramException(404, "ClÃ­nica nÃ£o encontrada.");
+
+        EnsureConfigured(clinic.IgAccessToken, clinic.IgPageId);
+
+        var token = SanitizeToken(clinic.IgAccessToken);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InstagramException(422,
+                "Access Token do Instagram contÃ©m apenas caracteres invÃ¡lidos apÃ³s sanitizaÃ§Ã£o. Reconfigure a credencial.");
+
+        if (string.IsNullOrWhiteSpace(igUserId))
+            throw new InstagramException(422, "Paciente sem ID do Instagram para resposta.");
+
+        if (string.IsNullOrWhiteSpace(message))
+            throw new InstagramException(422, "Mensagem nÃ£o pode estar vazia.");
+
+        var body = new
+        {
+            messaging_type = "RESPONSE",
+            recipient = new
+            {
+                id = igUserId.Trim(),
+            },
+            message = new
+            {
+                text = message.Trim(),
+            },
+        };
+
+        // Graph API aceita access_token na query. Mantemos o padrÃ£o usado no teste
+        // da integraÃ§Ã£o para evitar ambientes que filtram o header Authorization.
+        var url = $"/{_graphVersion}/{clinic.IgPageId}/messages?access_token={Uri.EscapeDataString(token)}";
+        var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        var res = await _http.SendAsync(req);
+        var raw = await res.Content.ReadAsStringAsync();
+
+        if (!res.IsSuccessStatusCode)
+            throw new InstagramException((int)res.StatusCode, ParseGraphError(raw) ?? $"Instagram send error {res.StatusCode}: {raw}");
+
+        using var doc = JsonDocument.Parse(raw);
+        var root = doc.RootElement;
+
+        var messageId = "";
+        if (root.TryGetProperty("message_id", out var messageIdEl))
+            messageId = messageIdEl.GetString() ?? "";
+        else if (root.TryGetProperty("id", out var idEl))
+            messageId = idEl.GetString() ?? "";
+
+        return new InstagramSendResult { MessageId = messageId, Status = "sent" };
     }
 
     private static string? ParseGraphError(string raw)

@@ -208,6 +208,10 @@ public class InstagramWebhookController : ControllerBase
                 if (string.IsNullOrWhiteSpace(content))
                     content = "[Mensagem Instagram não textual]";
 
+                var externalTimestamp = event_.TryGetProperty("timestamp", out var timestampEl)
+                    ? ParseMetaTimestamp(timestampEl)
+                    : null;
+
                 var patient = await FindOrCreatePatientByIgSenderAsync(clinic, senderId);
 
                 _db.PatientMessages.Add(new PatientMessage
@@ -222,7 +226,8 @@ public class InstagramWebhookController : ControllerBase
                     ExternalMessageId = messageId,
                     ExternalStatus    = "received",
                     ExternalProvider  = "INSTAGRAM",
-                    CreatedAt         = DateTime.UtcNow,
+                    ExternalTimestamp = externalTimestamp,
+                    CreatedAt         = externalTimestamp ?? DateTime.UtcNow,
                 });
 
                 _logger.LogInformation(
@@ -311,9 +316,43 @@ public class InstagramWebhookController : ControllerBase
         {
             var first = attachments[0];
             var type = first.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "arquivo";
-            return $"[Anexo Instagram: {type}]";
+            var url = first.TryGetProperty("payload", out var payloadEl) &&
+                      payloadEl.TryGetProperty("url", out var urlEl)
+                ? urlEl.GetString()
+                : null;
+            return string.IsNullOrWhiteSpace(url)
+                ? $"[Anexo Instagram: {type}]"
+                : $"[Anexo Instagram: {type}] {url}";
         }
 
         return null;
+    }
+
+    private static DateTime? ParseMetaTimestamp(JsonElement timestamp)
+    {
+        long value;
+        if (timestamp.ValueKind == JsonValueKind.Number)
+        {
+            if (!timestamp.TryGetInt64(out value)) return null;
+        }
+        else if (timestamp.ValueKind == JsonValueKind.String)
+        {
+            if (!long.TryParse(timestamp.GetString(), out value)) return null;
+        }
+        else
+        {
+            return null;
+        }
+
+        try
+        {
+            return value > 9_999_999_999
+                ? DateTimeOffset.FromUnixTimeMilliseconds(value).UtcDateTime
+                : DateTimeOffset.FromUnixTimeSeconds(value).UtcDateTime;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
