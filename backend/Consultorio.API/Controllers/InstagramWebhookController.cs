@@ -37,7 +37,7 @@ public class InstagramWebhookController : ControllerBase
             string.IsNullOrWhiteSpace(verifyToken) ||
             string.IsNullOrWhiteSpace(challenge))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         // Reutiliza o WaVerifyToken da clínica como token de verificação do Instagram.
@@ -48,7 +48,7 @@ public class InstagramWebhookController : ControllerBase
             c.WaVerifyToken != null &&
             c.WaVerifyToken == token);
 
-        return exists ? Content(challenge, "text/plain", Encoding.UTF8) : Forbid();
+        return exists ? Content(challenge, "text/plain", Encoding.UTF8) : StatusCode(StatusCodes.Status403Forbidden);
     }
 
     // ─── POST: Receive messages and status updates from Meta ──────────────────
@@ -76,6 +76,18 @@ public class InstagramWebhookController : ControllerBase
         {
             _logger.LogWarning("Instagram webhook ignored: page id {PageId} is not configured.", pageId);
             return Ok();
+        }
+
+        // Instagram reuses the WhatsApp App Secret when both products live under the
+        // same Meta App (the common case). If the admin configured only Instagram
+        // without WhatsApp, surface that as the first diagnostic hint.
+        if (string.IsNullOrWhiteSpace(clinic.WaAppSecret))
+        {
+            _logger.LogWarning(
+                "Instagram webhook rejected for clinic {ClinicId}: App Secret is not configured. " +
+                "Instagram shares the WhatsApp App Secret field in the current integration layout.",
+                clinic.Id);
+            return Unauthorized();
         }
 
         if (!ValidateSignature(rawBody, clinic.WaAppSecret, Request.Headers["X-Hub-Signature-256"].FirstOrDefault()))

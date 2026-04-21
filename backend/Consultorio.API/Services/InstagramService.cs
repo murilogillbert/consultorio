@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text.Json;
 using Consultorio.Infra.Context;
 
@@ -60,12 +59,17 @@ public class InstagramService
 
         EnsureConfigured(clinic.IgAccessToken, clinic.IgPageId);
 
-        var token = SanitizeToken(clinic.IgAccessToken)!;
+        var token = SanitizeToken(clinic.IgAccessToken);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InstagramException(422,
+                "Access Token do Instagram contém apenas caracteres inválidos após sanitização. Reconfigure a credencial.");
+
+        // Graph API accepts access_token as a query parameter. Keeping it in the URL
+        // avoids edge cases where middleware strips Authorization headers.
         var fields = Uri.EscapeDataString("id,name,instagram_business_account{id,username}");
-        var url = $"/{_graphVersion}/{clinic.IgPageId}?fields={fields}&access_token={token}";
+        var url = $"/{_graphVersion}/{clinic.IgPageId}?fields={fields}&access_token={Uri.EscapeDataString(token)}";
 
         var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var res = await _http.SendAsync(req);
         var raw = await res.Content.ReadAsStringAsync();
@@ -79,12 +83,25 @@ public class InstagramService
         var pageId   = root.TryGetProperty("id",   out var idEl)   ? idEl.GetString()   ?? "" : "";
         var pageName = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() ?? "" : "";
 
-        var igId       = "";
-        var igUsername = "";
-        if (root.TryGetProperty("instagram_business_account", out var igEl))
+        // Explicitly reject pages without a linked Instagram Business account.
+        // Without this, we'd return 200 OK with an empty label, which looks like success
+        // but leaves the integration unusable for DMs.
+        if (!root.TryGetProperty("instagram_business_account", out var igEl) ||
+            igEl.ValueKind != JsonValueKind.Object)
         {
-            igId       = igEl.TryGetProperty("id",       out var igIdEl)   ? igIdEl.GetString()   ?? "" : "";
-            igUsername = igEl.TryGetProperty("username", out var igUserEl) ? igUserEl.GetString() ?? "" : "";
+            throw new InstagramException(422,
+                "A Página do Facebook informada não tem uma conta Instagram Business vinculada. " +
+                "Vincule pelo Meta Business Suite e tente novamente.");
+        }
+
+        var igId       = igEl.TryGetProperty("id",       out var igIdEl)   ? igIdEl.GetString()   ?? "" : "";
+        var igUsername = igEl.TryGetProperty("username", out var igUserEl) ? igUserEl.GetString() ?? "" : "";
+
+        if (string.IsNullOrWhiteSpace(igId))
+        {
+            throw new InstagramException(422,
+                "A API do Meta não retornou o ID da conta Instagram Business. " +
+                "Verifique se o Page Access Token tem as permissões instagram_basic e instagram_manage_messages.");
         }
 
         return new InstagramAccountInfo

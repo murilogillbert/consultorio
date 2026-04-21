@@ -37,8 +37,10 @@ public class ClinicsController : ControllerBase
     // stored value is always safe to use in an Authorization header.
     private static string? SanitizeToken(string? raw)
     {
-        if (string.IsNullOrEmpty(raw)) return null;
-        var clean = raw.TrimStart('\uFEFF').Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var clean = new string(raw.TrimStart('\uFEFF').Trim()
+            .Where(c => c >= 0x20 && c <= 0x7E)
+            .ToArray());
         return clean == "" ? null : clean;
     }
 
@@ -200,12 +202,14 @@ public class ClinicsController : ControllerBase
         if (dto.GmailRefreshToken != null) clinic.GmailRefreshToken = dto.GmailRefreshToken == "" ? null : dto.GmailRefreshToken;
         if (dto.GmailConnected.HasValue)   clinic.GmailConnected    = dto.GmailConnected.Value;
 
-        // Only overwrite if the client sent a non-null value.
-        // Sending "" explicitly clears the field.
-        // Sanitize tokens: strip BOM and surrounding whitespace to prevent
-        // "Request headers must contain only ASCII characters" on next API call.
-        if (dto.AccessTokenProd    != null) clinic.MpAccessTokenProd    = SanitizeToken(dto.AccessTokenProd);
-        if (dto.AccessTokenSandbox != null) clinic.MpAccessTokenSandbox = SanitizeToken(dto.AccessTokenSandbox);
+        // MP tokens: only overwrite if the client sent a non-null, non-masked value.
+        // Empty string "" still clears the field. Sanitization strips BOM, whitespace
+        // and non-ASCII to prevent "Request headers must contain only ASCII characters"
+        // when the token is used later as a Bearer credential.
+        if (dto.AccessTokenProd    != null && (dto.AccessTokenProd    == "" || !IsMasked(dto.AccessTokenProd)))
+            clinic.MpAccessTokenProd    = SanitizeToken(dto.AccessTokenProd);
+        if (dto.AccessTokenSandbox != null && (dto.AccessTokenSandbox == "" || !IsMasked(dto.AccessTokenSandbox)))
+            clinic.MpAccessTokenSandbox = SanitizeToken(dto.AccessTokenSandbox);
         if (dto.PublicKey          != null) clinic.MpPublicKey          = dto.PublicKey == "" ? null : dto.PublicKey;
         if (dto.SandboxMode.HasValue)       clinic.MpSandboxMode        = dto.SandboxMode.Value;
         if (dto.Connected.HasValue)         clinic.MpConnected          = dto.Connected.Value;
@@ -298,7 +302,7 @@ public class ClinicsController : ControllerBase
     {
         var clinic = await _db.Clinics.FindAsync(id);
         if (clinic == null)
-            return NotFound(new { message = "ClÃ­nica nÃ£o encontrada." });
+            return NotFound(new { message = "Clínica não encontrada." });
 
         try
         {
@@ -347,19 +351,29 @@ public class ClinicsController : ControllerBase
         {
             var info = await _instagram.TestConnectionAsync(id);
 
-            // Update IgAccountId if the API returned one and we didn't have it
-            if (!string.IsNullOrWhiteSpace(info.IgAccountId) && string.IsNullOrWhiteSpace(clinic.IgAccountId))
+            // The Graph API is the source of truth for IgAccountId.
+            // Always overwrite so a typo in the form auto-corrects after a successful test.
+            if (!string.IsNullOrWhiteSpace(info.IgAccountId))
                 clinic.IgAccountId = info.IgAccountId;
 
             clinic.IgConnected = true;
             clinic.UpdatedAt   = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            var label = string.IsNullOrWhiteSpace(info.IgUsername) ? info.PageName : $"@{info.IgUsername} · {info.PageName}";
+            string message;
+            if (!string.IsNullOrWhiteSpace(info.IgUsername) && !string.IsNullOrWhiteSpace(info.PageName))
+                message = $"Instagram conectado · @{info.IgUsername} · {info.PageName}";
+            else if (!string.IsNullOrWhiteSpace(info.IgUsername))
+                message = $"Instagram conectado · @{info.IgUsername}";
+            else if (!string.IsNullOrWhiteSpace(info.PageName))
+                message = $"Instagram conectado · {info.PageName}";
+            else
+                message = "Instagram conectado com sucesso";
+
             return Ok(new
             {
                 ok      = true,
-                message = $"Instagram conectado · {label}",
+                message,
                 detail  = $"Page ID: {info.PageId}",
             });
         }

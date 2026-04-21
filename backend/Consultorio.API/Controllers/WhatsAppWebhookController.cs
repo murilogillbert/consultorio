@@ -36,7 +36,7 @@ public class WhatsAppWebhookController : ControllerBase
             string.IsNullOrWhiteSpace(verifyToken) ||
             string.IsNullOrWhiteSpace(challenge))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var token = WhatsAppCloudService.SanitizeSecret(verifyToken);
@@ -45,7 +45,7 @@ public class WhatsAppWebhookController : ControllerBase
             c.WaVerifyToken != null &&
             c.WaVerifyToken == token);
 
-        return exists ? Content(challenge, "text/plain", Encoding.UTF8) : Forbid();
+        return exists ? Content(challenge, "text/plain", Encoding.UTF8) : StatusCode(StatusCodes.Status403Forbidden);
     }
 
     [HttpPost]

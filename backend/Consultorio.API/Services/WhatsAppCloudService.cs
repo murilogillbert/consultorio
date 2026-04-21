@@ -87,8 +87,12 @@ public class WhatsAppCloudService
     private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, Clinic clinic)
     {
         EnsureConfigured(clinic);
+        var token = SanitizeSecret(clinic.WaAccessToken);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new WhatsAppCloudException(422,
+                "Access Token do WhatsApp contém apenas caracteres inválidos após sanitização. Reconfigure a credencial.");
         var req = new HttpRequestMessage(method, url);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", SanitizeSecret(clinic.WaAccessToken));
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return req;
     }
 
