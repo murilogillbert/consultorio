@@ -113,7 +113,7 @@ export default function MetricasProfissionaisPage() {
     <div className="animate-fade-in">
       <div className="metrics-header">
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Métricas de Profissionais</h2>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        <div className="metrics-header-actions">
           <div className="date-presets">
             {periods.map(p => (
               <button key={p} className={`date-preset${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
@@ -177,7 +177,7 @@ export default function MetricasProfissionaisPage() {
       </div>
 
       {/* Gráficos lado a lado */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}>
+      <div className="admin-grid-2" style={{ marginTop: 'var(--space-6)' }}>
         {/* Gráfico de Ocupação */}
         <div className="chart-card">
           <h3>Ocupação por Profissional</h3>
@@ -229,7 +229,7 @@ export default function MetricasProfissionaisPage() {
       </div>
 
       {/* Tabela de Ranking */}
-      <div className="card" style={{ padding: 0, overflow: 'auto', marginTop: 'var(--space-6)' }}>
+      <div className="card admin-table-card" style={{ padding: 0, marginTop: 'var(--space-6)' }}>
         <table className="data-table">
           <thead>
             <tr>

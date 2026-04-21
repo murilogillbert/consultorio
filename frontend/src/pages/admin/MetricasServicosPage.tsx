@@ -121,7 +121,7 @@ export default function MetricasServicosPage() {
     <div className="animate-fade-in">
       <div className="metrics-header">
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Métricas de Serviços</h2>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        <div className="metrics-header-actions">
           <div className="date-presets">
             {periods.map(p => (
               <button key={p} className={`date-preset${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
@@ -189,7 +189,7 @@ export default function MetricasServicosPage() {
       <div className="charts-row" style={{ marginTop: 'var(--space-6)' }}>
         <div className="chart-card">
           <h3><Clock size={16} style={{ display: 'inline', marginRight: 8 }} />Horários de Pico</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, margin: '12px 0 16px' }}>
+          <div className="admin-grid-3 admin-grid-compact">
             <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
               <span className="metric-label">Total no período</span>
               <span className="metric-value" style={{ fontSize: 20 }}>{peakTotal}</span>
@@ -282,7 +282,7 @@ export default function MetricasServicosPage() {
       </div>
 
       {/* Tabela */}
-      <div className="card" style={{ padding: 0, overflow: 'auto', marginTop: 'var(--space-6)' }}>
+      <div className="card admin-table-card" style={{ padding: 0, marginTop: 'var(--space-6)' }}>
         <table className="data-table">
           <thead>
             <tr>

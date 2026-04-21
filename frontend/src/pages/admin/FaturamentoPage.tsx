@@ -110,7 +110,7 @@ export default function FaturamentoPage() {
     <div className="animate-fade-in">
       <div className="metrics-header">
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Faturamento</h2>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        <div className="metrics-header-actions">
           <div className="date-presets">
             {periods.map(p => (
               <button key={p} className={`date-preset${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
@@ -161,7 +161,7 @@ export default function FaturamentoPage() {
           </span>
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{delinquency.length} pagamento(s) pendente(s)</span>
         </div>
-        <div className="metric-card" style={{ gridColumn: 'span 2' }}>
+        <div className="metric-card admin-grid-span-2">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CreditCard size={14} /> Receita por Canal</span>
           <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 8, flexWrap: 'wrap' }}>
             {revenueByChannel.length === 0 && <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Sem dados</span>}
@@ -200,7 +200,7 @@ export default function FaturamentoPage() {
 
         <div className="chart-card">
           <h3>Faturamento Mensal (12 meses)</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, margin: '12px 0 16px' }}>
+          <div className="admin-grid-4 admin-grid-compact">
             <div className="metric-card" style={{ padding: 12, minHeight: 'auto' }}>
               <span className="metric-label">Média mensal</span>
               <span className="metric-value" style={{ fontSize: 20 }}>{fmt(monthlyAverage)}</span>
@@ -277,7 +277,7 @@ export default function FaturamentoPage() {
       </div>
 
       {/* Tabela Repasses */}
-      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+      <div className="card admin-table-card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
           Repasses por Profissional
         </h3>

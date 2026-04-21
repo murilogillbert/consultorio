@@ -51,7 +51,7 @@ export default function MarketingPage() {
     <div className="animate-fade-in">
       <div className="metrics-header">
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Marketing</h2>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        <div className="metrics-header-actions">
           <div className="date-presets">
             {periods.map(p => (
               <button key={p} className={`date-preset${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
@@ -97,9 +97,9 @@ export default function MarketingPage() {
           <span className="metric-value">{fmt(completedAppointments > 0 ? revenue / completedAppointments : 0)}</span>
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>por atendimento</span>
         </div>
-        <div className="metric-card" style={{ gridColumn: 'span 2' }}>
+        <div className="metric-card admin-grid-span-2">
           <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={14} /> Funil de Conversão</span>
-          <div style={{ display: 'flex', gap: 'var(--space-6)', marginTop: 8 }}>
+          <div className="admin-flow-row admin-flow-row-wrap" style={{ marginTop: 8 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700 }}>{funnel.agendados}</div>
               <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Agendados</div>
@@ -168,7 +168,7 @@ export default function MarketingPage() {
       </div>
 
       {/* Top Serviços por Receita */}
-      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+      <div className="card admin-table-card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
           Top Serviços por Receita
         </h3>

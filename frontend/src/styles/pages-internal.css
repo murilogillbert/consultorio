@@ -2,6 +2,79 @@
    PAGE STYLES — Reception & Admin
    ============================================ */
 
+.animate-fade-in,
+.animate-fade-in > *,
+.admin-page,
+.admin-content,
+.admin-header,
+.card,
+.input-group,
+.input-field,
+.progress-bar,
+.data-table,
+.service-list-card,
+.professional-profile-card,
+.availability-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-page,
+.admin-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.admin-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  line-height: var(--leading-tight);
+}
+
+.admin-subtitle {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-3);
+}
+
+.search-box input {
+  min-width: 0;
+  width: 100%;
+  height: var(--input-height);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+.data-list {
+  min-width: 0;
+}
+
+.data-list-item {
+  min-width: 0;
+}
+
 /* ---- Dashboard Metric Cards ---- */
 .reception-dashboard-page,
 .admin-dashboard-page {
@@ -13,9 +86,10 @@
 
 .metrics-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-6);
   margin-bottom: var(--space-6);
+  min-width: 0;
 }
 
 .metric-card {
@@ -30,6 +104,7 @@
   border-top: 3px solid var(--color-accent-gold);
   box-shadow: var(--shadow-card);
   transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+  max-width: 100%;
 }
 
 .metric-card:hover {
@@ -41,6 +116,8 @@
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-weight: var(--weight-medium);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .metric-card .metric-value {
@@ -48,6 +125,7 @@
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .metric-card .metric-change {
@@ -694,7 +772,7 @@
 /* ---- Reception: Professional Availability Grid ---- */
 .availability-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
 }
 
@@ -900,9 +978,10 @@
 /* ---- Admin: Executive Charts ---- */
 .charts-row {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--space-6);
   margin-bottom: var(--space-6);
+  min-width: 0;
 }
 
 .chart-card {
@@ -910,6 +989,8 @@
   border-radius: var(--radius-md);
   padding: var(--space-6);
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .chart-card h3 {
@@ -964,18 +1045,21 @@
   margin-bottom: var(--space-6);
   flex-wrap: wrap;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .crud-filters {
   display: flex;
   gap: var(--space-3);
   align-items: center;
+  min-width: 0;
 }
 
 /* ---- Admin: Settings Tabs ---- */
 .settings-layout {
   display: flex;
   gap: var(--space-6);
+  min-width: 0;
 }
 
 .settings-tabs-vertical {
@@ -1022,6 +1106,14 @@
   background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
   padding: var(--space-8);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-content .data-table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ---- Metrics pages ---- */
@@ -1032,11 +1124,29 @@
   margin-bottom: var(--space-6);
   flex-wrap: wrap;
   gap: var(--space-4);
+  min-width: 0;
+}
+
+.metrics-header > * {
+  min-width: 0;
+}
+
+.metrics-header-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .date-presets {
   display: flex;
   gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .date-preset {
@@ -1059,6 +1169,57 @@
 .export-btns {
   display: flex;
   gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.admin-grid-2,
+.admin-grid-3,
+.admin-grid-4 {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.admin-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admin-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.admin-milestone-grid {
+  grid-template-columns: minmax(88px, 100px) minmax(0, 1fr);
+}
+
+.admin-grid-compact {
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.admin-grid-span-2 {
+  grid-column: span 2;
+}
+
+.admin-flow-row {
+  display: flex;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.admin-flow-row-wrap {
+  flex-wrap: wrap;
+}
+
+.admin-responsive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.admin-table-card,
+.card:has(.data-table) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ---- Marketing specific ---- */
@@ -1145,7 +1306,7 @@
 /* ---- Two column form ---- */
 .form-2col {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
 }
 
@@ -1277,6 +1438,11 @@
     border-radius: var(--radius-md);
   }
 
+  .admin-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .reception-dashboard-page .announcement-feed-header,
   .reception-dashboard-page .announcement-meta,
   .admin-dashboard-page .announcement-publisher h3,
@@ -1298,7 +1464,7 @@
 
   .reception-dashboard-page .metrics-row,
   .admin-dashboard-page .metrics-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .reception-dashboard-page .metric-card,
@@ -1402,7 +1568,25 @@
     min-width: 0;
   }
   .metrics-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-grid-2,
+  .admin-grid-3,
+  .admin-grid-4,
+  .admin-milestone-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-grid-span-2 {
+    grid-column: auto;
+  }
+  .admin-flow-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  .admin-responsive-header {
+    flex-direction: column;
+    align-items: stretch;
   }
   .metrics-header {
     flex-direction: column;
@@ -1415,6 +1599,23 @@
   .metrics-header > div {
     width: 100%;
     flex-wrap: wrap;
+  }
+  .metrics-header-actions,
+  .metrics-header-actions > *,
+  .export-btns,
+  .date-presets {
+    width: 100%;
+  }
+  .metrics-header-actions .input-field,
+  .metrics-header-actions .btn,
+  .export-btns .btn,
+  .crud-filters .input-field,
+  .crud-filters .btn {
+    min-width: 0;
+  }
+  .metrics-header-actions .input-field,
+  .metrics-header-actions .btn {
+    width: 100% !important;
   }
   .charts-row {
     grid-template-columns: 1fr;
@@ -1496,6 +1697,11 @@
   .crud-filters {
     width: 100%;
     flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .crud-filters > * {
+    flex: 1 1 100%;
+    min-width: 0;
   }
   .service-list-header,
   .service-list-meta,
@@ -1521,6 +1727,11 @@
   }
   .data-table {
     min-width: 760px;
+  }
+  .card:has(.data-table),
+  .admin-table-card {
+    max-width: 100%;
+    overflow-x: auto;
   }
   /* allow tables to scroll horizontally instead of overflowing hidden */
   .service-table-wrapper {
@@ -1572,6 +1783,23 @@
 
   /* ---- Recrutamento: detail panel → bottom-sheet ---- */
   .recrutamento-layout.has-detail { grid-template-columns: 1fr; }
+  .recrutamento-layout .card > div:first-child {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .recrutamento-layout .card > div:first-child .input-field,
+  .recrutamento-layout .card > div:first-child .search-box {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .recrutamento-layout .data-list-item {
+    align-items: flex-start !important;
+    gap: var(--space-3);
+  }
+  .recrutamento-layout .data-list-item,
+  .recrutamento-layout .data-list-item > div {
+    min-width: 0;
+  }
   .recrutamento-backdrop {
     display: block;
     position: fixed;
@@ -1689,14 +1917,24 @@
   /* ---- Metrics: 1-col cards at 480px ---- */
   .metrics-row {
     grid-template-columns: 1fr;
+    gap: var(--space-3);
   }
 
   /* ---- Date presets: wrap + smaller pills ---- */
+  .metrics-header-actions,
+  .export-btns {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .metrics-header-actions .btn,
+  .export-btns .btn {
+    width: 100%;
+  }
   .date-presets { flex-wrap: wrap; }
   .date-preset {
     font-size: 11px;
     padding: var(--space-1) var(--space-2);
-    flex: 1 1 auto;
+    flex: 1 1 calc(50% - var(--space-2));
     text-align: center;
   }
 
@@ -2019,12 +2257,12 @@
   /* Dashboard: 2-col metrics on medium phones */
   .reception-dashboard-page .metrics-row,
   .admin-dashboard-page .metrics-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   /* Profissionais: 2-col grid on medium phones */
   .availability-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   /* Agenda: show FAB, hide desktop "Novo Agendamento" button */

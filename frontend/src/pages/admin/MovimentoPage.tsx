@@ -84,7 +84,7 @@ export default function MovimentoPage() {
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Movimento</h2>
           <span style={{ fontSize: 13, color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>{dateLabel}</span>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        <div className="metrics-header-actions">
           <input
             type="date"
             className="input-field"
@@ -245,7 +245,7 @@ export default function MovimentoPage() {
       </div>
 
       {/* -- Tabela: Profissionais do Dia -- */}
-      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+      <div className="card admin-table-card" style={{ marginTop: 'var(--space-6)' }}>
         <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
           Resumo por Profissional
         </h3>
@@ -286,7 +286,7 @@ export default function MovimentoPage() {
       </div>
 
       {/* -- Timeline de Eventos -- */}
-      <div className="card" style={{ marginTop: 'var(--space-6)', padding: 0 }}>
+      <div className="card admin-table-card" style={{ marginTop: 'var(--space-6)', padding: 0 }}>
         <div style={{ padding: 'var(--space-4) var(--space-5)', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
           <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Activity size={16} /> Timeline de Eventos

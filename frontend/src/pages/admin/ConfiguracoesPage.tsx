@@ -607,7 +607,7 @@ export default function ConfiguracoesPage() {
 
           {activeTab === 'users' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+              <div className="admin-responsive-header" style={{ marginBottom: 'var(--space-6)' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)' }}>Usuários do Sistema</h3>
                 <button className="btn btn-primary btn-sm" onClick={() => { setEditingUserId('new'); setUserForm({ name: '', email: '', role: 'RECEPTIONIST', active: true, permissions: {} }) }}>
                   <Plus size={14} /> Novo Usuário
@@ -974,7 +974,7 @@ export default function ConfiguracoesPage() {
                   <Shield size={16} color="var(--color-accent-gold)" />
                   Missao, Visao e Valores
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-5)' }}>
+                <div className="admin-grid-2" style={{ gap: 'var(--space-5)' }}>
                   <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                     <label className="input-label">Missao</label>
                     <textarea className="input-field" style={{ minHeight: 90 }} value={aboutForm.mission} onChange={e => setAboutForm({ ...aboutForm, mission: e.target.value })} placeholder="Proporcionar saude e bem-estar com atendimento humanizado..." />
@@ -1028,7 +1028,7 @@ export default function ConfiguracoesPage() {
                   padding: 'var(--space-4)', background: 'var(--color-bg-secondary)',
                   borderRadius: 'var(--radius-sm)', border: '1px dashed var(--color-border-default)',
                 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                  <div className="admin-grid-2 admin-milestone-grid" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                     <div className="input-group">
                       <label className="input-label">Ano</label>
                       <input className="input-field" placeholder="2004" value={newMilestone.year} onChange={e => setNewMilestone({ ...newMilestone, year: e.target.value })} />
@@ -1058,7 +1058,7 @@ export default function ConfiguracoesPage() {
 
               {/* ---- Galeria de Imagens ---- */}
               <div className="card" style={{ marginBottom: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
+                <div className="admin-responsive-header" style={{ marginBottom: 'var(--space-5)' }}>
                   <h4 style={{ fontSize: 'var(--text-ui)', fontWeight: 'var(--weight-medium)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}>
                     <Camera size={16} color="var(--color-accent-gold)" />
                     Galeria de Imagens
