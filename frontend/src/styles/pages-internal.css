@@ -614,24 +614,14 @@
   }
 
   .messages-list-panel {
-    --messages-list-header-height: 73px;
-    --messages-list-controls-height: 64px;
-    --messages-list-row-height: 82px;
-    max-height: calc(
-      var(--messages-list-header-height) +
-      var(--messages-list-controls-height) +
-      (var(--messages-list-row-height) * 5)
-    );
+    max-height: 92vh;
     overflow: hidden;
     align-self: flex-start;
   }
 
   .messages-list-body {
-    flex: 0 1 auto;
-    max-height: calc(
-      var(--messages-list-controls-height) +
-      (var(--messages-list-row-height) * 5)
-    );
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -642,7 +632,7 @@
     max-height: calc(
       var(--chat-header-height) +
       var(--chat-input-height) +
-      (var(--chat-message-row-height) * 8)
+      (var(--chat-message-row-height) * 10)
     );
     overflow: hidden;
     align-self: flex-start;
@@ -650,7 +640,7 @@
 
   .chat-messages {
     flex: 0 1 auto;
-    max-height: calc(var(--chat-message-row-height) * 8);
+    max-height: calc(var(--chat-message-row-height) * 10);
     overflow-y: auto;
   }
 }
@@ -1732,10 +1722,11 @@
   }
   .messages-list-panel {
     width: 100%;
-    max-height: 40vh;
+    max-height: 92vh;
   }
   .chat-panel {
     min-height: 60vh;
+    max-height: 92vh;
   }
   .chat-channels-panel {
     display: none;
@@ -2521,6 +2512,7 @@
   .messages-list-panel {
     width: 100%;
     flex-shrink: 1;
+    max-height: 92vh;
   }
   .messages-layout[data-mobile-view="list"] .chat-panel {
     display: none;
@@ -2530,6 +2522,7 @@
   }
   .messages-layout[data-mobile-view="chat"] .chat-panel {
     min-height: calc(100dvh - 120px);
+    max-height: 92vh;
     width: 100%;
   }
   .messages-layout {
