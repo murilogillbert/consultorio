@@ -287,7 +287,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         accountId: existingSettings.igAccountId || '',
         pageId: existingSettings.igPageId || '',
         pageToken: existingSettings.igAccessTokenMasked || '',
-        verifyToken: existingSettings.igVerifyTokenMasked || '',
+        verifyToken: existingSettings.igVerifyToken || '',
       })
       setMp({
         accessToken:  existingSettings.accessTokenProdMasked    || '',
