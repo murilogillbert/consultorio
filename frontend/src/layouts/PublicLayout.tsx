@@ -249,8 +249,8 @@ export default function PublicLayout() {
             </div>
             <div className="footer-col">
               <h4>Legal</h4>
-              <a href="#">Política de Privacidade</a>
-              <a href="#">Termos de Uso</a>
+              <Link to="/legal/politica-de-privacidade">Política de Privacidade</Link>
+              <Link to="/legal/termos-de-uso">Termos de Uso</Link>
               <p style={{ marginTop: '8px', fontSize: '12px' }}>CNPJ: {clinic?.cnpj || '12.345.678/0001-99'}</p>
               <p style={{ fontSize: '12px' }}>Site oficial da sua clínica.</p>
             </div>

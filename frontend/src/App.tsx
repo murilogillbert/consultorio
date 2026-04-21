@@ -7,6 +7,8 @@ import ServicosPage from './pages/public/ServicosPage'
 import ProfissionaisPage from './pages/public/ProfissionaisPage'
 import SobrePage from './pages/public/SobrePage'
 import TrabalheConoscoPage from './pages/public/TrabalheConoscoPage'
+import PoliticaPrivacidadePage from './pages/public/PoliticaPrivacidadePage'
+import TermosUsoPage from './pages/public/TermosUsoPage'
 import AgendamentoPage from './pages/public/AgendamentoPage'
 import MinhasConsultasPage from './pages/public/MinhasConsultasPage'
 import ProfessionalDashboardPage from './pages/public/ProfessionalDashboardPage'
@@ -42,6 +44,8 @@ export default function App() {
         <Route path="/profissionais" element={<ProfissionaisPage />} />
         <Route path="/sobre" element={<SobrePage />} />
         <Route path="/trabalhe-conosco" element={<TrabalheConoscoPage />} />
+        <Route path="/legal/politica-de-privacidade" element={<PoliticaPrivacidadePage />} />
+        <Route path="/legal/termos-de-uso" element={<TermosUsoPage />} />
         <Route path="/agendar" element={<AgendamentoPage />} />
         <Route path="/minhas-consultas" element={<MinhasConsultasPage />} />
       </Route>
