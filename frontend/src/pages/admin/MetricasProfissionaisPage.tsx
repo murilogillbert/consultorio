@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Download, TrendingUp, TrendingDown, Minus, Users, DollarSign, UserCheck, BarChart3, Star, AlertTriangle, XCircle, CheckCircle } from 'lucide-react'
 import { useProfessionalMetrics, type ProfessionalMetric } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
+import { downloadTextFile, handleExportClick, openPrintableReport } from '../../utils/exportReport'
 
 const periods = ['Hoje', '7 dias', '30 dias', '3 meses', '12 meses']
 
@@ -78,13 +79,7 @@ export default function MetricasProfissionaisPage() {
     const headers = Object.keys(exportRows[0] || { Relatorio: 'Sem dados' })
     const rows = exportRows.length > 0 ? exportRows : [{ Relatorio: 'Sem dados' }]
     const csv = [headers.join(';'), ...rows.map(row => headers.map(h => csvEscape((row as any)[h])).join(';'))].join('\n')
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `metricas-profissionais-${period.replace(/\s+/g, '-').toLowerCase()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadTextFile(`metricas-profissionais-${period.replace(/\s+/g, '-').toLowerCase()}.csv`, `\uFEFF${csv}`, 'text/csv;charset=utf-8;')
   }
   const openPdf = () => {
     const rows = sorted.map((p, i) => `
@@ -94,9 +89,7 @@ export default function MetricasProfissionaisPage() {
         <td>${p.occupancy}%</td><td>${p.cancellationRate}%</td><td>${fmt(p.netPayout)}</td><td>${p.status}</td>
       </tr>
     `).join('')
-    const win = window.open('', '_blank')
-    if (!win) return
-    win.document.write(`
+    openPrintableReport(`metricas-profissionais-${period.replace(/\s+/g, '-').toLowerCase()}.pdf`, `
       <html><head><title>Métricas de Profissionais</title>
       <style>
         body{font-family:Arial,sans-serif;padding:24px;color:#1f2937} h1{font-size:22px;margin:0 0 4px}
@@ -114,7 +107,6 @@ export default function MetricasProfissionaisPage() {
       <table><thead><tr><th>#</th><th>Profissional</th><th>Atend.</th><th>Concl.</th><th>Receita</th><th>Ticket</th><th>Ocup.</th><th>Cancel.</th><th>Repasse</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="10">Sem dados</td></tr>'}</tbody></table>
       <script>window.onload=()=>{window.print()}</script></body></html>
     `)
-    win.document.close()
   }
 
   return (
@@ -128,8 +120,8 @@ export default function MetricasProfissionaisPage() {
             ))}
           </div>
           <div className="export-btns">
-            <button className="btn btn-secondary btn-sm" onClick={downloadCsv}><Download size={14} /> CSV</button>
-            <button className="btn btn-secondary btn-sm" onClick={openPdf}><Download size={14} /> PDF</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => handleExportClick(e, downloadCsv)}><Download size={14} /> CSV</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => handleExportClick(e, openPdf)}><Download size={14} /> PDF</button>
           </div>
         </div>
       </div>

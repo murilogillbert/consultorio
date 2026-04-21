@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { TrendingUp, TrendingDown, Minus, Download, DollarSign, CreditCard, AlertTriangle, Users, CheckCircle, BarChart3 } from 'lucide-react'
 import { useBillingData } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
+import { downloadTextFile, handleExportClick, openPrintableReport } from '../../utils/exportReport'
 
 const periods = ['Hoje', '7 dias', '30 dias', '3 meses', '12 meses']
 
@@ -77,20 +78,12 @@ export default function FaturamentoPage() {
       'Canal;Valor',
       ...revenueByChannel.map(r => `${csvEscape(r.name)};${csvEscape(r.value)}`),
     ].join('\n')
-    const blob = new Blob([`\uFEFF${sections}`], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `faturamento-${period.replace(/\s+/g, '-').toLowerCase()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadTextFile(`faturamento-${period.replace(/\s+/g, '-').toLowerCase()}.csv`, `\uFEFF${sections}`, 'text/csv;charset=utf-8;')
   }
   const openPdf = () => {
     const payoutRows = payouts.map(p => `<tr><td>${p.name}</td><td>${p.appointments}</td><td>${fmt(p.gross)}</td><td>${p.pct}</td><td>${fmt(p.net)}</td></tr>`).join('')
     const channelRows = revenueByChannel.map(ch => `<tr><td>${ch.name}</td><td>${fmt(ch.value)}</td></tr>`).join('')
-    const win = window.open('', '_blank')
-    if (!win) return
-    win.document.write(`
+    openPrintableReport(`faturamento-${period.replace(/\s+/g, '-').toLowerCase()}.pdf`, `
       <html><head><title>Faturamento</title>
       <style>
         body{font-family:Arial,sans-serif;padding:24px;color:#1f2937} h1{font-size:22px;margin:0 0 4px}
@@ -111,7 +104,6 @@ export default function FaturamentoPage() {
       <table><thead><tr><th>Canal</th><th>Valor</th></tr></thead><tbody>${channelRows || '<tr><td colspan="2">Sem dados</td></tr>'}</tbody></table>
       <script>window.onload=()=>{window.print()}</script></body></html>
     `)
-    win.document.close()
   }
 
   return (
@@ -125,8 +117,8 @@ export default function FaturamentoPage() {
             ))}
           </div>
           <div className="export-btns">
-            <button className="btn btn-secondary btn-sm" onClick={downloadCsv}><Download size={14} /> CSV</button>
-            <button className="btn btn-secondary btn-sm" onClick={openPdf}><Download size={14} /> PDF</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => handleExportClick(e, downloadCsv)}><Download size={14} /> CSV</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => handleExportClick(e, openPdf)}><Download size={14} /> PDF</button>
           </div>
         </div>
       </div>

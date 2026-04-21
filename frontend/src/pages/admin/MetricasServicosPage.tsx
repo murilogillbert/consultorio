@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Download, Clock, TrendingUp, TrendingDown, Minus, DollarSign, BarChart3, Users, AlertTriangle, XCircle, CheckCircle, ArrowUpRight } from 'lucide-react'
 import { useServiceMetrics, type ServiceMetric } from '../../hooks/useDashboard'
 import { useAuth } from '../../contexts/AuthContext'
+import { downloadTextFile, handleExportClick, openPrintableReport } from '../../utils/exportReport'
 
 const periods = ['Hoje', '7 dias', '30 dias', '3 meses', '12 meses']
 
@@ -86,13 +87,7 @@ export default function MetricasServicosPage() {
     const headers = Object.keys(exportRows[0] || { Relatorio: 'Sem dados' })
     const rows = exportRows.length > 0 ? exportRows : [{ Relatorio: 'Sem dados' }]
     const csv = [headers.join(';'), ...rows.map(row => headers.map(h => csvEscape((row as any)[h])).join(';'))].join('\n')
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `metricas-servicos-${period.replace(/\s+/g, '-').toLowerCase()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadTextFile(`metricas-servicos-${period.replace(/\s+/g, '-').toLowerCase()}.csv`, `\uFEFF${csv}`, 'text/csv;charset=utf-8;')
   }
   const openPdf = () => {
     const rows = sorted.map((s, i) => `
@@ -102,9 +97,7 @@ export default function MetricasServicosPage() {
         <td>${s.uniquePatients}</td><td>${s.returnRate}%</td><td>${fmt(s.revenuePerHour)}</td><td>${s.status}</td>
       </tr>
     `).join('')
-    const win = window.open('', '_blank')
-    if (!win) return
-    win.document.write(`
+    openPrintableReport(`metricas-servicos-${period.replace(/\s+/g, '-').toLowerCase()}.pdf`, `
       <html><head><title>Métricas de Serviços</title>
       <style>
         body{font-family:Arial,sans-serif;padding:24px;color:#1f2937} h1{font-size:22px;margin:0 0 4px}
@@ -122,7 +115,6 @@ export default function MetricasServicosPage() {
       <table><thead><tr><th>#</th><th>Serviço</th><th>Concl./Agend.</th><th>Receita</th><th>Ticket</th><th>Cancel.</th><th>Pacientes</th><th>Retorno</th><th>R$/Hora</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="10">Sem dados</td></tr>'}</tbody></table>
       <script>window.onload=()=>{window.print()}</script></body></html>
     `)
-    win.document.close()
   }
 
   return (
@@ -136,8 +128,8 @@ export default function MetricasServicosPage() {
             ))}
           </div>
           <div className="export-btns">
-            <button className="btn btn-secondary btn-sm" onClick={downloadCsv}><Download size={14} /> CSV</button>
-            <button className="btn btn-secondary btn-sm" onClick={openPdf}><Download size={14} /> PDF</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => handleExportClick(e, downloadCsv)}><Download size={14} /> CSV</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => handleExportClick(e, openPdf)}><Download size={14} /> PDF</button>
           </div>
         </div>
       </div>
