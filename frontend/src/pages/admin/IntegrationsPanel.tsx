@@ -258,7 +258,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [waErrors, setWaErrors] = useState<Record<string, string>>({})
 
   /* Instagram state */
-  const [instagram, setInstagram] = useState({ accountId: '', pageId: '', pageToken: '', verifyToken: '' })
+  const [instagram, setInstagram] = useState({ accountId: '', pageId: '', pageToken: '', appSecret: '', verifyToken: '' })
   const [igErrors, setIgErrors] = useState<Record<string, string>>({})
 
   /* Mercado Pago state */
@@ -287,6 +287,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         accountId: existingSettings.igAccountId || '',
         pageId: existingSettings.igPageId || '',
         pageToken: existingSettings.igAccessTokenMasked || '',
+        appSecret: existingSettings.igAppSecretMasked || '',
         verifyToken: existingSettings.igVerifyTokenMasked || '',
       })
       setMp({
@@ -627,6 +628,16 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             />
           </div>
           <SensitiveField
+            label="App Secret"
+            required
+            placeholder="a1b2c3d4e5f6..."
+            hint="Encontrado em Meta Developer Portal → Seu App → Configurações → Básico → Segredo do Aplicativo"
+            mono
+            value={instagram.appSecret}
+            onChange={v => { setInstagram(p => ({ ...p, appSecret: v })); setIgErrors(p => ({ ...p, appSecret: '' })) }}
+            error={igErrors.appSecret}
+          />
+          <SensitiveField
             label="Verify Token"
             required
             placeholder="meu_token_seguro_123"
@@ -665,6 +676,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
                 igAccountId:   instagram.accountId,
                 igPageId:      instagram.pageId,
                 igAccessToken: instagram.pageToken,
+                igAppSecret:   instagram.appSecret,
                 igVerifyToken: instagram.verifyToken,
               }
             })

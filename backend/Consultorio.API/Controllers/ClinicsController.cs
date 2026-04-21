@@ -73,6 +73,7 @@ public class ClinicsController : ControllerBase
         IgAccountId = clinic.IgAccountId,
         IgPageId = clinic.IgPageId,
         IgAccessTokenMasked = MaskSafe(clinic.IgAccessToken),
+        IgAppSecretMasked = MaskSafe(clinic.IgAppSecret),
         IgVerifyTokenMasked = MaskSafe(clinic.IgVerifyToken),
         IgConnected = clinic.IgConnected,
     };
@@ -226,6 +227,8 @@ public class ClinicsController : ControllerBase
         if (dto.IgPageId      != null) clinic.IgPageId     = dto.IgPageId.Trim()     == "" ? null : dto.IgPageId.Trim();
         if (dto.IgAccessToken != null && !IsMasked(dto.IgAccessToken))
             clinic.IgAccessToken = WhatsAppCloudService.SanitizeSecret(dto.IgAccessToken);
+        if (dto.IgAppSecret != null && !IsMasked(dto.IgAppSecret))
+            clinic.IgAppSecret = WhatsAppCloudService.SanitizeSecret(dto.IgAppSecret);
         if (dto.IgVerifyToken != null && !IsMasked(dto.IgVerifyToken))
             clinic.IgVerifyToken = WhatsAppCloudService.SanitizeSecret(dto.IgVerifyToken);
         if (dto.IgConnected.HasValue) clinic.IgConnected = dto.IgConnected.Value;

@@ -56,6 +56,7 @@ public class Clinic
     public string? IgAccountId    { get; set; }
     public string? IgPageId       { get; set; }
     public string? IgAccessToken  { get; set; }
+    public string? IgAppSecret    { get; set; }
     public string? IgVerifyToken  { get; set; }
     public bool    IgConnected    { get; set; } = false;
 

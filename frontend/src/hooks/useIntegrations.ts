@@ -37,6 +37,8 @@ export interface IntegrationSettings {
   igPageId?: string
   igAccessTokenMasked?: string   // leitura: retornado mascarado pelo backend
   igAccessToken?: string         // escrita: enviado ao backend (plain ou masked)
+  igAppSecretMasked?: string
+  igAppSecret?: string
   igVerifyTokenMasked?: string
   igVerifyToken?: string
   igConnected?: boolean

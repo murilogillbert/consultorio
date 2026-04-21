@@ -77,19 +77,20 @@ public class InstagramWebhookController : ControllerBase
             return Ok();
         }
 
-        // Instagram reuses the WhatsApp App Secret when both products live under the
-        // same Meta App (the common case). If the admin configured only Instagram
-        // without WhatsApp, surface that as the first diagnostic hint.
-        if (string.IsNullOrWhiteSpace(clinic.WaAppSecret))
+        // Usa IgAppSecret dedicado; se não configurado, tenta WaAppSecret (mesmo app Meta).
+        var appSecret = !string.IsNullOrWhiteSpace(clinic.IgAppSecret)
+            ? clinic.IgAppSecret
+            : clinic.WaAppSecret;
+
+        if (string.IsNullOrWhiteSpace(appSecret))
         {
             _logger.LogWarning(
-                "Instagram webhook rejected for clinic {ClinicId}: App Secret is not configured. " +
-                "Instagram shares the WhatsApp App Secret field in the current integration layout.",
+                "Instagram webhook rejected for clinic {ClinicId}: App Secret não configurado (IgAppSecret ou WaAppSecret).",
                 clinic.Id);
             return Unauthorized();
         }
 
-        if (!ValidateSignature(rawBody, clinic.WaAppSecret, Request.Headers["X-Hub-Signature-256"].FirstOrDefault()))
+        if (!ValidateSignature(rawBody, appSecret, Request.Headers["X-Hub-Signature-256"].FirstOrDefault()))
         {
             _logger.LogWarning("Instagram webhook rejected: invalid signature for clinic {ClinicId}.", clinic.Id);
             return Unauthorized();
