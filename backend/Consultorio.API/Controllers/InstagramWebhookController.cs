@@ -63,8 +63,17 @@ public class InstagramWebhookController : ControllerBase
         var root = doc.RootElement;
 
         var recipientIds = ExtractRecipientIdentifiers(root);
+        _logger.LogInformation(
+            "Instagram webhook received. Object: {Object}. Recipient candidates: {RecipientIds}. Signature header present: {HasSignature}",
+            root.TryGetProperty("object", out var objectEl) ? objectEl.GetString() : "(missing)",
+            recipientIds.Count == 0 ? "(none)" : string.Join(", ", recipientIds),
+            !string.IsNullOrWhiteSpace(Request.Headers["X-Hub-Signature-256"].FirstOrDefault()));
+
         if (recipientIds.Count == 0)
+        {
+            _logger.LogWarning("Instagram webhook ignored: payload sem recipient ids identificaveis.");
             return Ok();
+        }
 
         var clinic = await _db.Clinics.FirstOrDefaultAsync(c =>
             c.IsActive &&
@@ -215,6 +224,13 @@ public class InstagramWebhookController : ControllerBase
                     ExternalProvider  = "INSTAGRAM",
                     CreatedAt         = DateTime.UtcNow,
                 });
+
+                _logger.LogInformation(
+                    "Instagram webhook processed message {MessageId} for clinic {ClinicId}. Sender IGSID: {SenderId}. PatientId: {PatientId}",
+                    messageId,
+                    clinic.Id,
+                    senderId,
+                    patient.Id);
             }
         }
 
