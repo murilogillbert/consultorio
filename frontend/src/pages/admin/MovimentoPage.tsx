@@ -78,7 +78,7 @@ export default function MovimentoPage() {
   const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in admin-analytics-page">
       <div className="metrics-header">
         <div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Movimento</h2>

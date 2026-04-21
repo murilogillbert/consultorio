@@ -110,7 +110,7 @@ export default function MetricasProfissionaisPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in admin-analytics-page">
       <div className="metrics-header">
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Métricas de Profissionais</h2>
         <div className="metrics-header-actions">

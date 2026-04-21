@@ -107,7 +107,7 @@ export default function FaturamentoPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in admin-analytics-page">
       <div className="metrics-header">
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)' }}>Faturamento</h2>
         <div className="metrics-header-actions">

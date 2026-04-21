@@ -1127,6 +1127,57 @@
   min-width: 0;
 }
 
+.admin-analytics-page {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: var(--space-2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-analytics-page .metrics-row,
+.admin-analytics-page .charts-row,
+.admin-analytics-page .admin-grid-2,
+.admin-analytics-page .admin-grid-3,
+.admin-analytics-page .admin-grid-4 {
+  width: 100%;
+}
+
+@media (min-width: 769px) {
+  .admin-analytics-page .metrics-row {
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
+    min-width: 1000px;
+  }
+
+  .admin-analytics-page .charts-row,
+  .admin-analytics-page .admin-grid-2 {
+    grid-template-columns: minmax(520px, 2fr) minmax(360px, 1fr);
+    min-width: 960px;
+  }
+
+  .admin-analytics-page .admin-grid-3 {
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+    min-width: 760px;
+  }
+
+  .admin-analytics-page .admin-grid-4 {
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    min-width: 860px;
+  }
+
+  .admin-analytics-page .chart-card {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-analytics-page .chart-placeholder {
+    min-width: 520px;
+  }
+}
+
 .metrics-header > * {
   min-width: 0;
 }
