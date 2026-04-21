@@ -1856,6 +1856,42 @@
   .card {
     border-radius: var(--radius-md);
   }
+
+  /* General card padding reduction on mobile */
+  .card {
+    padding: var(--space-4);
+  }
+
+  /* Professionals availability card — compact on tablets */
+  .availability-card {
+    padding: var(--space-4);
+    gap: var(--space-2);
+  }
+
+  /* Services search bar — full width on mobile */
+  .services-ops-search {
+    width: 100%;
+    margin-bottom: var(--space-4);
+  }
+
+  /* Professionals search — full width on tablets (already @640px, add @768px too) */
+  .profissionais-search-wrapper {
+    max-width: none !important;
+    width: 100%;
+  }
+
+  /* Patient card actions — wrap buttons when space is tight */
+  .patient-card-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* Service card footer buttons — expand to fill row */
+  .service-card-footer .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
   .quick-action-btn {
     width: 100%;
     justify-content: center;
@@ -2511,6 +2547,27 @@
   /* Profissionais: 1-col on very small phones */
   .availability-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Availability card — even tighter on small phones */
+  .availability-card {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  /* Patient/service mobile cards — tighter padding on small phones */
+  .patient-card-mobile {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+  .service-card-mobile {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  /* General card padding even tighter on phones */
+  .card {
+    padding: var(--space-3);
   }
 
   /* Agenda FAB: lower to account for bottom bar */
