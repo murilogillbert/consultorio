@@ -517,6 +517,58 @@
   gap: var(--space-4);
 }
 
+@media (min-width: 769px) {
+  .messages-layout {
+    min-height: 0;
+    align-items: flex-start;
+  }
+
+  .messages-layout-shell {
+    min-height: 0;
+  }
+
+  .messages-list-panel {
+    --messages-list-header-height: 73px;
+    --messages-list-controls-height: 64px;
+    --messages-list-row-height: 82px;
+    max-height: calc(
+      var(--messages-list-header-height) +
+      var(--messages-list-controls-height) +
+      (var(--messages-list-row-height) * 5)
+    );
+    overflow: hidden;
+    align-self: flex-start;
+  }
+
+  .messages-list-body {
+    flex: 0 1 auto;
+    max-height: calc(
+      var(--messages-list-controls-height) +
+      (var(--messages-list-row-height) * 5)
+    );
+    overflow-y: auto;
+  }
+
+  .chat-panel {
+    --chat-header-height: 73px;
+    --chat-input-height: 73px;
+    --chat-message-row-height: 68px;
+    max-height: calc(
+      var(--chat-header-height) +
+      var(--chat-input-height) +
+      (var(--chat-message-row-height) * 8)
+    );
+    overflow: hidden;
+    align-self: flex-start;
+  }
+
+  .chat-messages {
+    flex: 0 1 auto;
+    max-height: calc(var(--chat-message-row-height) * 8);
+    overflow-y: auto;
+  }
+}
+
 .message-bubble {
   max-width: 70%;
   padding: var(--space-3) var(--space-4);
