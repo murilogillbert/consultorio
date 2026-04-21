@@ -37,7 +37,13 @@ public class PatientResponseDto
     public string? City { get; set; }
     public string? State { get; set; }
     public string? Notes { get; set; }
+    public string? IgUserId { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? GeneratedPassword { get; set; }
+}
+
+public class LinkInstagramDto
+{
+    public string? FromPatientId { get; set; }
 }

@@ -95,7 +95,7 @@ public class InstagramWebhookController : ControllerBase
             return Unauthorized();
         }
 
-        await ProcessMessagesAsync(root, clinic.Id);
+        await ProcessMessagesAsync(root, clinic);
 
         return Ok();
     }
@@ -137,7 +137,7 @@ public class InstagramWebhookController : ControllerBase
                CryptographicOperations.FixedTimeEquals(receivedBytes, expectedBytes);
     }
 
-    private async Task ProcessMessagesAsync(JsonElement root, Guid clinicId)
+    private async Task ProcessMessagesAsync(JsonElement root, Clinic clinic)
     {
         if (!root.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array)
             return;
@@ -149,7 +149,6 @@ public class InstagramWebhookController : ControllerBase
 
             foreach (var event_ in messaging.EnumerateArray())
             {
-                // Only process actual messages (skip read receipts, delivery, etc.)
                 if (!event_.TryGetProperty("message", out var messageEl))
                     continue;
 
@@ -157,9 +156,8 @@ public class InstagramWebhookController : ControllerBase
                 if (string.IsNullOrWhiteSpace(messageId))
                     continue;
 
-                // Skip if already imported (idempotency)
                 var alreadyImported = await _db.PatientMessages.AnyAsync(m =>
-                    m.ClinicId == clinicId &&
+                    m.ClinicId == clinic.Id &&
                     m.ExternalMessageId == messageId);
                 if (alreadyImported)
                     continue;
@@ -167,7 +165,6 @@ public class InstagramWebhookController : ControllerBase
                 var senderId = event_.TryGetProperty("sender", out var senderEl) &&
                                senderEl.TryGetProperty("id", out var senderIdEl)
                     ? senderIdEl.GetString() : null;
-
                 if (string.IsNullOrWhiteSpace(senderId))
                     continue;
 
@@ -175,20 +172,13 @@ public class InstagramWebhookController : ControllerBase
                 if (string.IsNullOrWhiteSpace(content))
                     content = "[Mensagem Instagram não textual]";
 
-                var patient = await FindPatientByIgSenderAsync(clinicId, senderId);
-                if (patient == null)
-                {
-                    _logger.LogInformation(
-                        "Instagram message {MessageId} from sender {SenderId} has no matching patient in clinic {ClinicId}.",
-                        messageId, senderId, clinicId);
-                    continue;
-                }
+                var patient = await FindOrCreatePatientByIgSenderAsync(clinic, senderId);
 
                 _db.PatientMessages.Add(new PatientMessage
                 {
                     Id                = Guid.NewGuid(),
                     PatientId         = patient.Id,
-                    ClinicId          = clinicId,
+                    ClinicId          = clinic.Id,
                     Content           = content,
                     Direction         = "IN",
                     Source            = "INSTAGRAM",
@@ -204,14 +194,67 @@ public class InstagramWebhookController : ControllerBase
         await _db.SaveChangesAsync();
     }
 
-    private async Task<Patient?> FindPatientByIgSenderAsync(Guid clinicId, string igSenderId)
+    private async Task<Patient> FindOrCreatePatientByIgSenderAsync(Clinic clinic, string igSenderId)
     {
-        // Match by IgUserId stored on the patient (added separately when a patient
-        // first contacts via Instagram or is manually linked in the UI).
-        return await _db.Patients.FirstOrDefaultAsync(p =>
-            p.ClinicId == clinicId &&
-            p.IsActive &&
-            p.IgUserId == igSenderId);
+        var existing = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.ClinicId == clinic.Id && p.IsActive && p.IgUserId == igSenderId);
+        if (existing != null) return existing;
+
+        // Tenta buscar o nome do remetente via Graph API
+        string? igName = null;
+        if (!string.IsNullOrWhiteSpace(clinic.IgAccessToken))
+            igName = await FetchInstagramUserNameAsync(igSenderId, clinic.IgAccessToken);
+        var displayName = igName ?? $"Instagram {igSenderId[..Math.Min(8, igSenderId.Length)]}";
+
+        var placeholderEmail = $"ig.{igSenderId}@instagram.local";
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == placeholderEmail);
+        if (user == null)
+        {
+            user = new User
+            {
+                Id           = Guid.NewGuid(),
+                Name         = displayName,
+                Email        = placeholderEmail,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
+                IsActive     = true,
+                CreatedAt    = DateTime.UtcNow,
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+
+        var patient = new Patient
+        {
+            Id        = Guid.NewGuid(),
+            ClinicId  = clinic.Id,
+            UserId    = user.Id,
+            IgUserId  = igSenderId,
+            Notes     = "Criado automaticamente via Instagram Direct. Vincule a um paciente existente se necessário.",
+            IsActive  = true,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _db.Patients.Add(patient);
+        await _db.SaveChangesAsync();
+
+        patient.User = user;
+        _logger.LogInformation("Instagram: novo paciente criado automaticamente para sender {SenderId} na clínica {ClinicId}.", igSenderId, clinic.Id);
+        return patient;
+    }
+
+    private static async Task<string?> FetchInstagramUserNameAsync(string igSenderId, string igAccessToken)
+    {
+        try
+        {
+            using var http = new HttpClient();
+            var url = $"https://graph.facebook.com/v19.0/{igSenderId}?fields=name&access_token={igAccessToken}";
+            var resp = await http.GetAsync(url);
+            if (!resp.IsSuccessStatusCode) return null;
+            var json = await resp.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+        }
+        catch { return null; }
     }
 
     private static string? ExtractMessageContent(JsonElement message)

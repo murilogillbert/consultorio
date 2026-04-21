@@ -15,6 +15,7 @@ interface PatientRaw {
   city?: string
   state?: string
   notes?: string
+  igUserId?: string
   isActive: boolean
   createdAt: string
   generatedPassword?: string
@@ -28,6 +29,7 @@ export interface Patient {
   birthDate?: string
   address?: string
   notes?: string
+  igUserId?: string
   generatedPassword?: string
   user?: {
     id: string
@@ -45,6 +47,7 @@ function mapPatient(p: PatientRaw): Patient {
     birthDate: p.birthDate,
     address: p.address,
     notes: p.notes,
+    igUserId: p.igUserId,
     generatedPassword: p.generatedPassword,
     user: {
       id: p.userId,
@@ -105,6 +108,21 @@ export function usePatient(id: string | undefined) {
       return mapPatient(data)
     },
     enabled: !!id
+  })
+}
+
+export function useLinkInstagram() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ targetPatientId, fromPatientId }: { targetPatientId: string; fromPatientId: string }) => {
+      const { data } = await api.put<PatientRaw>(`/patients/${targetPatientId}/link-instagram`, { fromPatientId })
+      return mapPatient(data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversation-messages'] })
+    },
   })
 }
 

@@ -32,6 +32,7 @@ public class PatientsController : ControllerBase
         City = p.City,
         State = p.State,
         Notes = p.Notes,
+        IgUserId = p.IgUserId,
         IsActive = p.IsActive,
         CreatedAt = p.CreatedAt
     };
@@ -43,7 +44,7 @@ public class PatientsController : ControllerBase
         var clinicId = GetClinicId();
         IQueryable<Patient> query = _db.Patients
             .Include(p => p.User)
-            .Where(p => p.ClinicId == clinicId);
+            .Where(p => p.ClinicId == clinicId && p.IsActive);
 
         // Filtro por nome, CPF ou email
         if (!string.IsNullOrWhiteSpace(q))
@@ -165,6 +166,56 @@ public class PatientsController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(ToDto(patient));
+    }
+
+    // PUT /api/patients/{id}/link-instagram
+    [HttpPut("{id}/link-instagram")]
+    public async Task<ActionResult<PatientResponseDto>> LinkInstagram(Guid id, [FromBody] LinkInstagramDto dto)
+    {
+        var clinicId = GetClinicId();
+
+        var target = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == id && p.ClinicId == clinicId);
+        if (target == null)
+            return NotFound(new { message = "Paciente não encontrado." });
+
+        if (!string.IsNullOrWhiteSpace(dto.FromPatientId) && Guid.TryParse(dto.FromPatientId, out var fromId))
+        {
+            var source = await _db.Patients
+                .FirstOrDefaultAsync(p => p.Id == fromId && p.ClinicId == clinicId);
+            if (source != null)
+            {
+                // Herda o IgUserId do paciente auto-criado
+                target.IgUserId = source.IgUserId;
+
+                // Move todas as mensagens para o paciente real
+                var msgs = await _db.PatientMessages
+                    .Where(m => m.PatientId == fromId)
+                    .ToListAsync();
+                foreach (var m in msgs)
+                    m.PatientId = id;
+
+                // Desativa o paciente auto-criado
+                source.IsActive = false;
+                source.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        // Garante que nenhum outro paciente na clínica tenha o mesmo IgUserId
+        if (!string.IsNullOrWhiteSpace(target.IgUserId))
+        {
+            var others = await _db.Patients
+                .Where(p => p.ClinicId == clinicId && p.Id != id && p.IgUserId == target.IgUserId)
+                .ToListAsync();
+            foreach (var o in others)
+                o.IgUserId = null;
+        }
+
+        target.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(target));
     }
 
     private static string GenerateDefaultPassword(string name)
