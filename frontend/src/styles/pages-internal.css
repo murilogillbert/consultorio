@@ -1520,8 +1520,8 @@
 
   .metric-card {
     width: fit-content;
-    min-width: 60%;
-    max-width: 100%;
+    min-width: 30%;
+    max-width: calc(100vw - 2 * var(--space-4));
     margin-left: 0;
     margin-right: auto;
     box-sizing: border-box;
@@ -1686,6 +1686,12 @@
   }
   .chart-card {
     padding: var(--space-4);
+    width: fit-content;
+    min-width: 30%;
+    max-width: calc(100vw - 2 * var(--space-4));
+    margin-left: 0;
+    margin-right: auto;
+    box-sizing: border-box;
   }
   /* Analytics bar charts with many data points scroll horizontally */
   .admin-analytics-page .chart-card {
