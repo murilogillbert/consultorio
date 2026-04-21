@@ -128,15 +128,24 @@ export class ClinicService {
       if (!token || !pageId) {
         throw new AppError('Token ou Page ID nao configurados', 422)
       }
-      const url = `https://graph.facebook.com/v19.0/${pageId}?fields=name,instagram_business_account&access_token=${token}`
+      // Verifica o Page Access Token com campos básicos (sem pages_read_engagement)
+      const url = `https://graph.facebook.com/v19.0/${pageId}?fields=id,name&access_token=${token}`
       const resp = await fetch(url)
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
         await this.clinicRepository.updateIntegrations(clinicId, { igConnected: false })
         throw new AppError(json.error?.message || 'Token invalido ou expirado', 400)
       }
+      // Tenta obter a conta Instagram vinculada (requer pages_read_engagement aprovado no app)
+      let detail = json.name as string
+      const igUrl = `https://graph.facebook.com/v19.0/${pageId}?fields=instagram_business_account&access_token=${token}`
+      const igResp = await fetch(igUrl)
+      const igJson = await igResp.json() as any
+      if (igResp.ok && !igJson.error && igJson.instagram_business_account?.id) {
+        detail = `${json.name} · Instagram ID: ${igJson.instagram_business_account.id}`
+      }
       await this.clinicRepository.updateIntegrations(clinicId, { igConnected: true })
-      return { ok: true, message: 'Credenciais do Instagram validadas com sucesso', detail: json.name }
+      return { ok: true, message: 'Credenciais do Instagram validadas com sucesso', detail }
     }
 
     if (type === 'mercadopago') {
