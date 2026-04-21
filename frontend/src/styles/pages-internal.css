@@ -1522,7 +1522,8 @@
     width: fit-content;
     min-width: 60%;
     max-width: 100%;
-    margin-inline: auto;
+    margin-left: 0;
+    margin-right: auto;
     box-sizing: border-box;
   }
 
@@ -1649,21 +1650,29 @@
   }
   .metrics-header {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
     gap: var(--space-4);
   }
   .metrics-header h2 {
     font-size: var(--text-section);
+    width: fit-content;
+    max-width: 100%;
   }
   .metrics-header > div {
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
     flex-wrap: wrap;
   }
-  .metrics-header-actions,
+  .metrics-header-actions {
+    width: fit-content;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
   .metrics-header-actions > *,
   .export-btns,
   .date-presets {
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
   }
   .metrics-header-actions .input-field,
   .metrics-header-actions .btn,
@@ -1671,10 +1680,6 @@
   .crud-filters .input-field,
   .crud-filters .btn {
     min-width: 0;
-  }
-  .metrics-header-actions .input-field,
-  .metrics-header-actions .btn {
-    width: 100% !important;
   }
   .charts-row {
     grid-template-columns: 1fr;
