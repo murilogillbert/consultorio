@@ -62,18 +62,20 @@ public class InstagramWebhookController : ControllerBase
         using var doc = JsonDocument.Parse(rawBody);
         var root = doc.RootElement;
 
-        // Instagram DM webhooks identify the recipient by the page ID
-        var pageId = ExtractPageId(root);
-        if (string.IsNullOrWhiteSpace(pageId))
+        var recipientIds = ExtractRecipientIdentifiers(root);
+        if (recipientIds.Count == 0)
             return Ok();
 
         var clinic = await _db.Clinics.FirstOrDefaultAsync(c =>
             c.IsActive &&
-            c.IgPageId == pageId);
+            ((c.IgPageId != null && recipientIds.Contains(c.IgPageId)) ||
+             (c.IgAccountId != null && recipientIds.Contains(c.IgAccountId))));
 
         if (clinic == null)
         {
-            _logger.LogWarning("Instagram webhook ignored: page id {PageId} is not configured.", pageId);
+            _logger.LogWarning(
+                "Instagram webhook ignored: nenhum identificador configurado corresponde ao payload. Candidates: {RecipientIds}",
+                string.Join(", ", recipientIds));
             return Ok();
         }
 
@@ -103,18 +105,38 @@ public class InstagramWebhookController : ControllerBase
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private static string? ExtractPageId(JsonElement root)
+    private static List<string> ExtractRecipientIdentifiers(JsonElement root)
     {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+
         if (!root.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array)
-            return null;
+            return ids.ToList();
 
         foreach (var entry in entries.EnumerateArray())
         {
             if (entry.TryGetProperty("id", out var idEl))
-                return idEl.GetString();
+                AddRecipientIdentifier(ids, idEl.GetString());
+
+            if (!entry.TryGetProperty("messaging", out var messaging) || messaging.ValueKind != JsonValueKind.Array)
+                continue;
+
+            foreach (var event_ in messaging.EnumerateArray())
+            {
+                if (event_.TryGetProperty("recipient", out var recipientEl) &&
+                    recipientEl.TryGetProperty("id", out var recipientIdEl))
+                {
+                    AddRecipientIdentifier(ids, recipientIdEl.GetString());
+                }
+            }
         }
 
-        return null;
+        return ids.ToList();
+    }
+
+    private static void AddRecipientIdentifier(ISet<string> ids, string? candidate)
+    {
+        if (!string.IsNullOrWhiteSpace(candidate))
+            ids.Add(candidate);
     }
 
     private static bool ValidateSignature(string rawBody, string? appSecret, string? signatureHeader)
@@ -151,6 +173,10 @@ public class InstagramWebhookController : ControllerBase
             foreach (var event_ in messaging.EnumerateArray())
             {
                 if (!event_.TryGetProperty("message", out var messageEl))
+                    continue;
+
+                if (messageEl.TryGetProperty("is_echo", out var isEchoEl) &&
+                    isEchoEl.ValueKind == JsonValueKind.True)
                     continue;
 
                 var messageId = messageEl.TryGetProperty("mid", out var midEl) ? midEl.GetString() : null;

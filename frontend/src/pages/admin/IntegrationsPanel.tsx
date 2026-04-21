@@ -333,6 +333,8 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!instagram.accountId) e.accountId = 'Account ID é obrigatório'
     if (!instagram.pageId) e.pageId = 'Page ID é obrigatório'
     if (!instagram.pageToken) e.pageToken = 'Page Access Token é obrigatório'
+    if (!instagram.appSecret) e.appSecret = 'App Secret obrigatorio'
+    if (!instagram.verifyToken) e.verifyToken = 'Verify Token obrigatorio'
     setIgErrors(e)
     return Object.keys(e).length === 0
   }
@@ -660,6 +662,22 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
 
         <div className="intg-actions">
           <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+            const valid = validateInstagram()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: {
+                igAccountId: instagram.accountId,
+                igPageId: instagram.pageId,
+                igAccessToken: instagram.pageToken,
+                igAppSecret: instagram.appSecret,
+                igVerifyToken: instagram.verifyToken,
+              }
+            })
+            if (!valid) {
+              addToast('Dados salvos - App Secret e Verify Token sao obrigatorios para o webhook receber DMs.', 'warning')
+              return
+            }
             await handleTest('instagram')
           }} />
           <SaveButton label="Revogar Acesso" icon={<Unplug size={14} />} variant="danger" onClick={async () => {

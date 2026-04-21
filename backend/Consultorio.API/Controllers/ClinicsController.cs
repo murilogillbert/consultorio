@@ -353,6 +353,19 @@ public class ClinicsController : ControllerBase
         if (clinic == null)
             return NotFound(new { message = "Clínica não encontrada." });
 
+        if (string.IsNullOrWhiteSpace(clinic.IgAppSecret) || string.IsNullOrWhiteSpace(clinic.IgVerifyToken))
+        {
+            clinic.IgConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return StatusCode(StatusCodes.Status422UnprocessableEntity, new
+            {
+                ok = false,
+                message = "Instagram parcialmente configurado. Salve tambem App Secret e Verify Token para o webhook receber DMs.",
+            });
+        }
+
         try
         {
             var info = await _instagram.TestConnectionAsync(id);
