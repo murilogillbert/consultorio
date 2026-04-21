@@ -128,8 +128,8 @@ export class ClinicService {
       if (!token || !pageId) {
         throw new AppError('Token ou Page ID nao configurados', 422)
       }
-      // Verifica o Page Access Token com campos básicos (sem pages_read_engagement)
-      const url = `https://graph.facebook.com/v19.0/${pageId}?fields=id,name&access_token=${token}`
+      // /me com Page Access Token retorna dados da própria página sem exigir pages_read_engagement
+      const url = `https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${token}`
       const resp = await fetch(url)
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
