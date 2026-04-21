@@ -5,7 +5,14 @@ export interface IntegrationSettings {
   // ── Gmail ──
   gmailClientId?: string
   gmailClientSecret?: string
+  gmailAccessToken?: string     // escrita: usado para revogar acesso (envia "")
+  gmailRefreshToken?: string    // escrita: usado para revogar acesso (envia "")
   gmailConnected?: boolean
+
+  // ── Pub/Sub (seção do frontend preservada — backend ainda não implementa) ──
+  pubsubProjectId?: string
+  pubsubTopicName?: string
+  pubsubServiceAccount?: string
 
   // ── Mercado Pago ──
   accessTokenProdMasked?: string
