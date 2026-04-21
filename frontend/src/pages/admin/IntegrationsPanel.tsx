@@ -258,7 +258,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [waErrors, setWaErrors] = useState<Record<string, string>>({})
 
   /* Instagram state */
-  const [instagram, setInstagram] = useState({ accountId: '', pageId: '', pageToken: '' })
+  const [instagram, setInstagram] = useState({ accountId: '', pageId: '', pageToken: '', verifyToken: '' })
   const [igErrors, setIgErrors] = useState<Record<string, string>>({})
 
   /* Mercado Pago state */
@@ -287,6 +287,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         accountId: existingSettings.igAccountId || '',
         pageId: existingSettings.igPageId || '',
         pageToken: existingSettings.igAccessTokenMasked || '',
+        verifyToken: existingSettings.igVerifyTokenMasked || '',
       })
       setMp({
         accessToken:  existingSettings.accessTokenProdMasked    || '',
@@ -625,6 +626,15 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               error={igErrors.pageToken}
             />
           </div>
+          <SensitiveField
+            label="Verify Token"
+            required
+            placeholder="meu_token_seguro_123"
+            hint="Defina uma string qualquer — deve ser idêntica ao valor no campo 'Verify Token' do painel Meta (Webhooks)"
+            value={instagram.verifyToken}
+            onChange={v => { setInstagram(p => ({ ...p, verifyToken: v })); setIgErrors(p => ({ ...p, verifyToken: '' })) }}
+            error={igErrors.verifyToken}
+          />
           <WebhookField label="URL do Webhook" url={`${baseUrl}/webhooks/instagram`} />
         </div>
 
@@ -652,9 +662,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             await updateMutation.mutateAsync({
               clinicId,
               data: {
-                igAccountId:  instagram.accountId,
-                igPageId:     instagram.pageId,
+                igAccountId:   instagram.accountId,
+                igPageId:      instagram.pageId,
                 igAccessToken: instagram.pageToken,
+                igVerifyToken: instagram.verifyToken,
               }
             })
             addToast(

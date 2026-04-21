@@ -35,8 +35,10 @@ export interface IntegrationSettings {
   // ── Instagram ──
   igAccountId?: string
   igPageId?: string
-  igAccessTokenMasked?: string  // leitura: retornado mascarado pelo backend
-  igAccessToken?: string        // escrita: enviado ao backend (plain ou masked)
+  igAccessTokenMasked?: string   // leitura: retornado mascarado pelo backend
+  igAccessToken?: string         // escrita: enviado ao backend (plain ou masked)
+  igVerifyTokenMasked?: string
+  igVerifyToken?: string
   igConnected?: boolean
 }
 

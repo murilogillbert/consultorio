@@ -32,16 +32,15 @@ export class InstagramWebhookController {
       return res.status(400).send('Bad Request')
     }
 
-    // Look up the clinic whose Instagram verify token matches
-    const settings = await prisma.integrationSettings.findFirst({
-      where: { igConnected: true },
+    // Look up any clinic whose igVerifyToken matches
+    const matchByVerifyToken = await prisma.integrationSettings.findFirst({
+      where: { igVerifyToken: token },
     })
 
-    // Use the igAccessToken as verify token (or fall back to env var)
     const envVerifyToken = process.env.IG_VERIFY_TOKEN
     const validToken =
-      (envVerifyToken && token === envVerifyToken) ||
-      (settings?.igPageId && token === settings.igPageId)
+      !!matchByVerifyToken ||
+      (!!envVerifyToken && token === envVerifyToken)
 
     if (validToken) {
       console.log('[Instagram Webhook] Verificação bem-sucedida')

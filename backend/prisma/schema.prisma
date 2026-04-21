@@ -621,6 +621,7 @@ model IntegrationSettings {
   igAccountId          String?
   igPageId             String?
   igAccessToken        String?
+  igVerifyToken        String?
   igTokenExpiresAt     DateTime?
   igConnected          Boolean   @default(false)
   mpAccessTokenProd    String?
