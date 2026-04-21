@@ -23,6 +23,7 @@ public class IntegrationSettingsResponseDto
     public string? IgAccountId             { get; set; }
     public string? IgPageId                { get; set; }
     public string? IgAccessTokenMasked     { get; set; }
+    public string? IgVerifyTokenMasked     { get; set; }
     public bool    IgConnected             { get; set; }
 }
 
@@ -47,6 +48,7 @@ public class UpdateIntegrationSettingsDto
     public string? IgAccountId        { get; set; }
     public string? IgPageId           { get; set; }
     public string? IgAccessToken      { get; set; }
+    public string? IgVerifyToken      { get; set; }
     public bool?   IgConnected        { get; set; }
 }
 

@@ -40,13 +40,12 @@ public class InstagramWebhookController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        // Reutiliza o WaVerifyToken da clínica como token de verificação do Instagram.
-        // Se a clínica preferir um token separado, basta trocar por IgVerifyToken futuramente.
+        // Aceita IgVerifyToken dedicado ou, para compatibilidade, WaVerifyToken da clínica.
         var token = InstagramService.SanitizeToken(verifyToken);
         var exists = await _db.Clinics.AnyAsync(c =>
             c.IsActive &&
-            c.WaVerifyToken != null &&
-            c.WaVerifyToken == token);
+            ((c.IgVerifyToken != null && c.IgVerifyToken == token) ||
+             (c.WaVerifyToken != null && c.WaVerifyToken == token)));
 
         return exists ? Content(challenge, "text/plain", Encoding.UTF8) : StatusCode(StatusCodes.Status403Forbidden);
     }
