@@ -144,9 +144,11 @@ public class InstagramService
         if (string.IsNullOrWhiteSpace(token))
             return (false, "Access Token inválido após sanitização.", new List<string>());
 
-        // Campos suportados para Instagram Messaging via Page. 'messages' é o essencial;
-        // os demais habilitam eventos de leitura/reação/postback.
-        var fields = new[] { "messages", "messaging_postbacks", "messaging_reactions", "message_reactions", "messaging_seen" };
+        // Campos suportados para Instagram Messaging via Page → subscribed_apps.
+        // IMPORTANTE: são `message_reactions` e `message_reads` (sem o "-ing")
+        // — a lista válida do Graph API usa prefixo `message_*`, não `messaging_*`.
+        // `messages` é o essencial; os demais habilitam leitura/reação/postback.
+        var fields = new[] { "messages", "messaging_postbacks", "message_reactions", "message_reads" };
         var fieldsParam = Uri.EscapeDataString(string.Join(",", fields));
 
         // POST /{PAGE_ID}/subscribed_apps?subscribed_fields=messages,...&access_token=...

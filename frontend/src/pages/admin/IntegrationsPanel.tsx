@@ -662,7 +662,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <div className="intg-scope-tags">
           <label className="input-label" style={{ marginBottom: 8 }}>Campos subscritos do webhook</label>
           <div className="intg-tags-row">
-            {['messages', 'messaging_postbacks', 'story_mentions', 'message_reactions'].map(s => (
+            {['messages', 'messaging_postbacks', 'message_reactions', 'message_reads'].map(s => (
               <span key={s} className="intg-scope-tag">{s}</span>
             ))}
           </div>
