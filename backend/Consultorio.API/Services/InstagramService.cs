@@ -10,6 +10,11 @@ public class InstagramAccountInfo
     public string PageName     { get; init; } = "";
     public string IgAccountId  { get; init; } = "";
     public string IgUsername   { get; init; } = "";
+
+    // Preenchidos após tentativa de subscrição da página ao app.
+    public bool?                SubscriptionSuccess { get; set; }
+    public string?              SubscriptionDetail  { get; set; }
+    public List<string>         SubscribedFields    { get; set; } = new();
 }
 
 public class InstagramSendResult
@@ -33,11 +38,13 @@ public class InstagramService
     private readonly AppDbContext _db;
     private readonly HttpClient _http;
     private readonly string _graphVersion;
+    private readonly ILogger<InstagramService>? _logger;
 
-    public InstagramService(AppDbContext db, IConfiguration config, HttpClient http)
+    public InstagramService(AppDbContext db, IConfiguration config, HttpClient http, ILogger<InstagramService>? logger = null)
     {
         _db = db;
         _http = http;
+        _logger = logger;
         _http.BaseAddress = new Uri(config["Instagram:GraphBaseUrl"] ?? "https://graph.facebook.com");
         _graphVersion = config["Instagram:GraphVersion"] ?? "v23.0";
     }
@@ -118,6 +125,97 @@ public class InstagramService
             IgAccountId = igId,
             IgUsername  = igUsername,
         };
+    }
+
+    /// <summary>
+    /// Subscribe the Facebook Page to the app for the given fields. Sem isso a Meta NÃO
+    /// envia mensagens pro webhook, mesmo com a URL validada no painel.
+    /// Retorna (success, detalhe_legivel_pro_usuario). Não lança exceção — queremos
+    /// reportar o resultado pro front mesmo se falhar.
+    /// </summary>
+    public async Task<(bool ok, string detail, List<string> subscribedFields)> SubscribePageToAppAsync(Guid clinicId)
+    {
+        var clinic = await _db.Clinics.FindAsync(clinicId)
+            ?? throw new InstagramException(404, "Clínica não encontrada.");
+
+        EnsureConfigured(clinic.IgAccessToken, clinic.IgPageId);
+
+        var token = SanitizeToken(clinic.IgAccessToken);
+        if (string.IsNullOrWhiteSpace(token))
+            return (false, "Access Token inválido após sanitização.", new List<string>());
+
+        // Campos suportados para Instagram Messaging via Page. 'messages' é o essencial;
+        // os demais habilitam eventos de leitura/reação/postback.
+        var fields = new[] { "messages", "messaging_postbacks", "messaging_reactions", "message_reactions", "messaging_seen" };
+        var fieldsParam = Uri.EscapeDataString(string.Join(",", fields));
+
+        // POST /{PAGE_ID}/subscribed_apps?subscribed_fields=messages,...&access_token=...
+        var subscribeUrl = $"/{_graphVersion}/{clinic.IgPageId}/subscribed_apps?subscribed_fields={fieldsParam}&access_token={Uri.EscapeDataString(token)}";
+        var subscribeReq = new HttpRequestMessage(HttpMethod.Post, subscribeUrl);
+
+        try
+        {
+            var subscribeRes = await _http.SendAsync(subscribeReq);
+            var subscribeRaw = await subscribeRes.Content.ReadAsStringAsync();
+
+            _logger?.LogInformation(
+                "[IG-SUBSCRIBE] POST {PageId}/subscribed_apps → {Status}. Body: {Body}",
+                clinic.IgPageId, (int)subscribeRes.StatusCode, subscribeRaw);
+
+            if (!subscribeRes.IsSuccessStatusCode)
+            {
+                var err = ParseGraphError(subscribeRaw) ?? $"Erro {(int)subscribeRes.StatusCode} ao subscrever página.";
+                return (false, err, new List<string>());
+            }
+
+            // Busca estado atual da subscrição pra confirmar quais campos ficaram ativos.
+            var listUrl = $"/{_graphVersion}/{clinic.IgPageId}/subscribed_apps?access_token={Uri.EscapeDataString(token)}";
+            var listReq = new HttpRequestMessage(HttpMethod.Get, listUrl);
+            var listRes = await _http.SendAsync(listReq);
+            var listRaw = await listRes.Content.ReadAsStringAsync();
+
+            _logger?.LogInformation(
+                "[IG-SUBSCRIBE] GET {PageId}/subscribed_apps → {Status}. Body: {Body}",
+                clinic.IgPageId, (int)listRes.StatusCode, listRaw);
+
+            var active = new List<string>();
+            if (listRes.IsSuccessStatusCode)
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(listRaw);
+                    if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var app in data.EnumerateArray())
+                        {
+                            if (app.TryGetProperty("subscribed_fields", out var sf) && sf.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var f in sf.EnumerateArray())
+                                {
+                                    var v = f.GetString();
+                                    if (!string.IsNullOrWhiteSpace(v)) active.Add(v!);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "[IG-SUBSCRIBE] Falha ao parsear resposta de subscribed_apps.");
+                }
+            }
+
+            var detail = active.Count == 0
+                ? "Página subscrita ao app, mas a Meta não retornou os campos ativos (verifique o painel manualmente)."
+                : $"Página subscrita com sucesso. Campos ativos: {string.Join(", ", active)}.";
+
+            return (true, detail, active);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "[IG-SUBSCRIBE] Exceção ao subscrever página {PageId}.", clinic.IgPageId);
+            return (false, $"Exceção ao subscrever página: {ex.Message}", new List<string>());
+        }
     }
 
     public async Task<InstagramSendResult> SendTextMessageAsync(Guid clinicId, string igUserId, string message)

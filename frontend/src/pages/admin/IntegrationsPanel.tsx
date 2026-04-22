@@ -238,11 +238,19 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!clinicId) return
     try {
       const result = await testMutation.mutateAsync({ clinicId, type })
+      const detail = (result as any).detail as string | undefined
       if (!result.ok) {
-        addToast(result.message || 'Falha no teste de conexão', 'error')
+        // Na falha, concatenamos detail também — ele traz a razão exata (ex: subscrição,
+        // campo faltando, etc), que o usuário precisa ver pra saber o próximo passo.
+        const full = detail ? `${result.message || 'Falha no teste de conexão'} — ${detail}` : (result.message || 'Falha no teste de conexão')
+        // Se é Instagram e o problema é só a subscrição da página, usamos warning
+        // (a conexão em si funcionou, o que falta é uma ação manual no painel Meta).
+        const sub = (result as any).subscription as { success?: boolean; hasMessages?: boolean } | undefined
+        const isPartial = type === 'instagram' && sub && sub.success === false
+        addToast(full, isPartial ? 'warning' : 'error')
         return
       }
-      addToast(result.message + ((result as any).detail ? ` — ${(result as any).detail}` : ''), 'success')
+      addToast(result.message + (detail ? ` — ${detail}` : ''), 'success')
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Falha no teste de conexão'
       addToast(msg, 'error')

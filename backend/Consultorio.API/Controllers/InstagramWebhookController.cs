@@ -33,83 +33,164 @@ public class InstagramWebhookController : ControllerBase
         [FromQuery(Name = "hub.verify_token")] string? verifyToken,
         [FromQuery(Name = "hub.challenge")]    string? challenge)
     {
+        _logger.LogInformation(
+            "[IG-WEBHOOK] GET Verify chamado. mode={Mode} verifyToken={VerifyToken} challenge={Challenge}",
+            mode ?? "(null)",
+            string.IsNullOrWhiteSpace(verifyToken) ? "(null)" : (verifyToken.Length > 4 ? verifyToken[..4] + "***" : "***"),
+            string.IsNullOrWhiteSpace(challenge) ? "(null)" : (challenge.Length > 8 ? challenge[..8] + "..." : challenge));
+
         if (!string.Equals(mode, "subscribe", StringComparison.OrdinalIgnoreCase) ||
             string.IsNullOrWhiteSpace(verifyToken) ||
             string.IsNullOrWhiteSpace(challenge))
         {
+            _logger.LogWarning("[IG-WEBHOOK] GET Verify rejeitado: parâmetros hub.* ausentes/inválidos.");
             return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         // Aceita IgVerifyToken dedicado ou, para compatibilidade, WaVerifyToken da clínica.
         var token = InstagramService.SanitizeToken(verifyToken);
-        var exists = await _db.Clinics.AnyAsync(c =>
-            c.IsActive &&
-            ((c.IgVerifyToken != null && c.IgVerifyToken == token) ||
-             (c.WaVerifyToken != null && c.WaVerifyToken == token)));
+        var match = await _db.Clinics
+            .Where(c => c.IsActive &&
+                ((c.IgVerifyToken != null && c.IgVerifyToken == token) ||
+                 (c.WaVerifyToken != null && c.WaVerifyToken == token)))
+            .Select(c => new { c.Id, UsedIg = c.IgVerifyToken == token })
+            .FirstOrDefaultAsync();
 
-        return exists ? Content(challenge, "text/plain", Encoding.UTF8) : StatusCode(StatusCodes.Status403Forbidden);
+        if (match == null)
+        {
+            _logger.LogWarning("[IG-WEBHOOK] GET Verify rejeitado: verify_token não confere com nenhuma clínica ativa.");
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        _logger.LogInformation("[IG-WEBHOOK] GET Verify OK — clínica {ClinicId} (source={Source}).",
+            match.Id, match.UsedIg ? "IgVerifyToken" : "WaVerifyToken");
+        return Content(challenge, "text/plain", Encoding.UTF8);
     }
 
     // ─── POST: Receive messages and status updates from Meta ──────────────────
+    // IMPORTANTE: SEMPRE retornamos 200 OK, mesmo em rejeição. A Meta fica
+    // retentando (com backoff) qualquer resposta não-200 e pode desativar
+    // o webhook após várias falhas. Rejeições são logadas e o retorno é 200.
     [HttpPost]
     public async Task<IActionResult> Receive()
     {
         using var reader = new StreamReader(Request.Body, Encoding.UTF8);
         var rawBody = await reader.ReadToEndAsync();
-        if (string.IsNullOrWhiteSpace(rawBody))
-            return Ok();
 
-        using var doc = JsonDocument.Parse(rawBody);
-        var root = doc.RootElement;
+        // Log inicial: sabemos que o webhook foi *chamado*. Útil pra confirmar
+        // que a Meta está mandando algo (vs "nem chega").
+        var signatureHeader = Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
+        var contentType     = Request.Headers["Content-Type"].FirstOrDefault();
+        var userAgent       = Request.Headers["User-Agent"].FirstOrDefault();
+        var bodyPreview     = string.IsNullOrEmpty(rawBody)
+            ? "(empty)"
+            : rawBody.Length > 2000 ? rawBody[..2000] + "...[truncated]" : rawBody;
 
-        var recipientIds = ExtractRecipientIdentifiers(root);
         _logger.LogInformation(
-            "Instagram webhook received. Object: {Object}. Recipient candidates: {RecipientIds}. Signature header present: {HasSignature}",
-            root.TryGetProperty("object", out var objectEl) ? objectEl.GetString() : "(missing)",
-            recipientIds.Count == 0 ? "(none)" : string.Join(", ", recipientIds),
-            !string.IsNullOrWhiteSpace(Request.Headers["X-Hub-Signature-256"].FirstOrDefault()));
+            "[IG-WEBHOOK] POST received. Body size: {Size}. Content-Type: {ContentType}. User-Agent: {UserAgent}. Signature header: {Signature}. Body preview: {Body}",
+            rawBody?.Length ?? 0,
+            contentType ?? "(none)",
+            userAgent ?? "(none)",
+            string.IsNullOrWhiteSpace(signatureHeader) ? "(missing)" : signatureHeader.Length > 40 ? signatureHeader[..40] + "..." : signatureHeader,
+            bodyPreview);
 
-        if (recipientIds.Count == 0)
+        if (string.IsNullOrWhiteSpace(rawBody))
         {
-            _logger.LogWarning("Instagram webhook ignored: payload sem recipient ids identificaveis.");
+            _logger.LogWarning("[IG-WEBHOOK] Body vazio — retornando 200 OK (Meta test ping?).");
             return Ok();
         }
 
-        var clinic = await _db.Clinics.FirstOrDefaultAsync(c =>
-            c.IsActive &&
-            ((c.IgPageId != null && recipientIds.Contains(c.IgPageId)) ||
-             (c.IgAccountId != null && recipientIds.Contains(c.IgAccountId))));
-
-        if (clinic == null)
+        JsonDocument doc;
+        try
         {
-            _logger.LogWarning(
-                "Instagram webhook ignored: nenhum identificador configurado corresponde ao payload. Candidates: {RecipientIds}",
-                string.Join(", ", recipientIds));
+            doc = JsonDocument.Parse(rawBody);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[IG-WEBHOOK] JSON inválido no corpo do webhook. Body: {Body}", bodyPreview);
+            return Ok(); // 200 para não causar retry
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+
+            var recipientIds = ExtractRecipientIdentifiers(root);
+            _logger.LogInformation(
+                "[IG-WEBHOOK] Object: {Object}. Entry count: {EntryCount}. Recipient candidates: {RecipientIds}",
+                root.TryGetProperty("object", out var objectEl) ? objectEl.GetString() : "(missing)",
+                root.TryGetProperty("entry", out var entryArr) && entryArr.ValueKind == JsonValueKind.Array ? entryArr.GetArrayLength() : 0,
+                recipientIds.Count == 0 ? "(none)" : string.Join(", ", recipientIds));
+
+            if (recipientIds.Count == 0)
+            {
+                _logger.LogWarning("[IG-WEBHOOK] Payload sem recipient ids identificáveis. Retornando 200 OK.");
+                return Ok();
+            }
+
+            var clinic = await _db.Clinics.FirstOrDefaultAsync(c =>
+                c.IsActive &&
+                ((c.IgPageId != null && recipientIds.Contains(c.IgPageId)) ||
+                 (c.IgAccountId != null && recipientIds.Contains(c.IgAccountId))));
+
+            if (clinic == null)
+            {
+                // Dump todas as clínicas ativas com Ig configurado pra facilitar o match manual
+                var configured = await _db.Clinics
+                    .Where(c => c.IsActive && (c.IgPageId != null || c.IgAccountId != null))
+                    .Select(c => new { c.Id, c.IgPageId, c.IgAccountId })
+                    .ToListAsync();
+
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] Nenhuma clínica corresponde ao payload. Payload IDs: [{RecipientIds}]. Clínicas configuradas: [{Configured}]. Retornando 200 OK.",
+                    string.Join(", ", recipientIds),
+                    string.Join(" | ", configured.Select(c => $"clinicId={c.Id} pageId={c.IgPageId ?? "(null)"} accountId={c.IgAccountId ?? "(null)"}")));
+                return Ok();
+            }
+
+            _logger.LogInformation("[IG-WEBHOOK] Match com clínica {ClinicId} (IgPageId={IgPageId}, IgAccountId={IgAccountId}).",
+                clinic.Id, clinic.IgPageId, clinic.IgAccountId);
+
+            // Usa IgAppSecret dedicado; se não configurado, tenta WaAppSecret (mesmo app Meta).
+            var appSecret = !string.IsNullOrWhiteSpace(clinic.IgAppSecret)
+                ? clinic.IgAppSecret
+                : clinic.WaAppSecret;
+
+            var usedWaFallback = string.IsNullOrWhiteSpace(clinic.IgAppSecret) && !string.IsNullOrWhiteSpace(clinic.WaAppSecret);
+
+            if (string.IsNullOrWhiteSpace(appSecret))
+            {
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] Clínica {ClinicId} sem App Secret configurado (IgAppSecret=null e WaAppSecret=null). NÃO valida assinatura. Retornando 200 OK.",
+                    clinic.Id);
+                return Ok();
+            }
+
+            if (usedWaFallback)
+                _logger.LogInformation("[IG-WEBHOOK] Clínica {ClinicId} usando WaAppSecret como fallback (IgAppSecret não configurado).", clinic.Id);
+
+            var (sigValid, sigDetail) = ValidateSignatureDetailed(rawBody, appSecret, signatureHeader);
+            if (!sigValid)
+            {
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] Assinatura inválida para clínica {ClinicId}. Motivo: {Reason}. AppSecret source: {Source}. Retornando 200 OK (para não gerar retry da Meta).",
+                    clinic.Id, sigDetail, usedWaFallback ? "WaAppSecret (fallback)" : "IgAppSecret");
+                return Ok();
+            }
+
+            _logger.LogInformation("[IG-WEBHOOK] Assinatura OK para clínica {ClinicId}. Processando mensagens...", clinic.Id);
+
+            try
+            {
+                await ProcessMessagesAsync(root, clinic);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[IG-WEBHOOK] Erro ao processar mensagens para clínica {ClinicId}.", clinic.Id);
+            }
+
             return Ok();
         }
-
-        // Usa IgAppSecret dedicado; se não configurado, tenta WaAppSecret (mesmo app Meta).
-        var appSecret = !string.IsNullOrWhiteSpace(clinic.IgAppSecret)
-            ? clinic.IgAppSecret
-            : clinic.WaAppSecret;
-
-        if (string.IsNullOrWhiteSpace(appSecret))
-        {
-            _logger.LogWarning(
-                "Instagram webhook rejected for clinic {ClinicId}: App Secret não configurado (IgAppSecret ou WaAppSecret).",
-                clinic.Id);
-            return Unauthorized();
-        }
-
-        if (!ValidateSignature(rawBody, appSecret, Request.Headers["X-Hub-Signature-256"].FirstOrDefault()))
-        {
-            _logger.LogWarning("Instagram webhook rejected: invalid signature for clinic {ClinicId}.", clinic.Id);
-            return Unauthorized();
-        }
-
-        await ProcessMessagesAsync(root, clinic);
-
-        return Ok();
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -148,15 +229,17 @@ public class InstagramWebhookController : ControllerBase
             ids.Add(candidate);
     }
 
-    private static bool ValidateSignature(string rawBody, string? appSecret, string? signatureHeader)
+    private static (bool ok, string detail) ValidateSignatureDetailed(string rawBody, string? appSecret, string? signatureHeader)
     {
         var secret = InstagramService.SanitizeToken(appSecret);
-        if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(signatureHeader))
-            return false;
+        if (string.IsNullOrWhiteSpace(secret))
+            return (false, "App Secret vazio após sanitização.");
+        if (string.IsNullOrWhiteSpace(signatureHeader))
+            return (false, "Header X-Hub-Signature-256 ausente.");
 
         const string prefix = "sha256=";
         if (!signatureHeader.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            return false;
+            return (false, $"Header não começa com 'sha256='. Valor recebido (trunc): {(signatureHeader.Length > 32 ? signatureHeader[..32] + "..." : signatureHeader)}");
 
         var received = signatureHeader[prefix.Length..];
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
@@ -165,8 +248,14 @@ public class InstagramWebhookController : ControllerBase
 
         var receivedBytes = Encoding.UTF8.GetBytes(received.ToLowerInvariant());
         var expectedBytes = Encoding.UTF8.GetBytes(expected);
-        return receivedBytes.Length == expectedBytes.Length &&
-               CryptographicOperations.FixedTimeEquals(receivedBytes, expectedBytes);
+        var ok = receivedBytes.Length == expectedBytes.Length &&
+                 CryptographicOperations.FixedTimeEquals(receivedBytes, expectedBytes);
+
+        if (ok) return (true, "");
+        // Não logamos o secret/HMAC completo por segurança — apenas os primeiros caracteres.
+        var recvPrev = received.Length > 12 ? received[..12] + "..." : received;
+        var expPrev  = expected.Length > 12 ? expected[..12] + "..." : expected;
+        return (false, $"HMAC não bateu. received={recvPrev} expected={expPrev}. Prováveis causas: App Secret errado, body mutilado por proxy, ou Page/App diferentes.");
     }
 
     private async Task ProcessMessagesAsync(JsonElement root, Clinic clinic)

@@ -362,7 +362,7 @@ public class ClinicsController : ControllerBase
             return StatusCode(StatusCodes.Status422UnprocessableEntity, new
             {
                 ok = false,
-                message = "Instagram parcialmente configurado. Salve tambem App Secret e Verify Token para o webhook receber DMs.",
+                message = "Instagram parcialmente configurado. Salve também App Secret e Verify Token para o webhook receber DMs.",
             });
         }
 
@@ -374,6 +374,12 @@ public class ClinicsController : ControllerBase
             // Always overwrite so a typo in the form auto-corrects after a successful test.
             if (!string.IsNullOrWhiteSpace(info.IgAccountId))
                 clinic.IgAccountId = info.IgAccountId;
+
+            // ── Auto-subscribe da página ao app ────────────────────────────────
+            // A Meta exige 2 etapas: (1) webhook do App (configurado no painel) e
+            // (2) Page → subscribed_apps. Sem o #2, as DMs nunca chegam. Então
+            // fazemos a #2 automaticamente aqui e reportamos o resultado.
+            var (subOk, subDetail, subFields) = await _instagram.SubscribePageToAppAsync(id);
 
             clinic.IgConnected = true;
             clinic.UpdatedAt   = DateTime.UtcNow;
@@ -389,11 +395,25 @@ public class ClinicsController : ControllerBase
             else
                 message = "Instagram conectado com sucesso";
 
+            var hasMessages = subFields.Any(f => string.Equals(f, "messages", StringComparison.OrdinalIgnoreCase));
+            var subsBlock = subOk
+                ? (hasMessages
+                    ? $"✓ Subscrição ativa. Campos: {string.Join(", ", subFields)}"
+                    : $"⚠ Página subscrita, mas sem campo 'messages' ativo. Resposta: {subDetail}")
+                : $"⚠ Conexão OK, mas falhou subscrever a página ao app: {subDetail}. No Meta Developer Portal, em Webhooks → Page, adicione esta Página e marque 'messages', 'messaging_postbacks'.";
+
             return Ok(new
             {
-                ok      = true,
+                ok      = subOk && hasMessages,
                 message,
-                detail  = $"Page ID: {info.PageId}",
+                detail  = $"Page ID: {info.PageId} · {subsBlock}",
+                subscription = new
+                {
+                    success = subOk,
+                    hasMessages,
+                    detail = subDetail,
+                    fields = subFields,
+                },
             });
         }
         catch (InstagramException ex)
