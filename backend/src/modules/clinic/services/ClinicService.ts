@@ -111,7 +111,7 @@ export class ClinicService {
       if (!token || !phoneId) {
         throw new AppError('Token ou Phone Number ID nao configurados', 422)
       }
-      const url = `https://graph.facebook.com/v19.0/${phoneId}?access_token=${token}`
+      const url = `https://graph.facebook.com/v19.0/${phoneId}?fields=display_phone_number,verified_name,code_verification_status&access_token=${token}`
       const resp = await fetch(url)
       const json = await resp.json() as any
       if (!resp.ok || json.error) {
