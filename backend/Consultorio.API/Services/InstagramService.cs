@@ -140,9 +140,32 @@ public class InstagramService
 
         EnsureConfigured(clinic.IgAccessToken, clinic.IgPageId);
 
-        var token = SanitizeToken(clinic.IgAccessToken);
-        if (string.IsNullOrWhiteSpace(token))
+        var storedToken = SanitizeToken(clinic.IgAccessToken);
+        if (string.IsNullOrWhiteSpace(storedToken))
             return (false, "Access Token inválido após sanitização.", new List<string>());
+
+        // ── Passo 1: obter um Page Access Token ────────────────────────────────
+        // /subscribed_apps exige (#210) um token DA página, não user/system token.
+        // Se o stored token já é um Page Token, essa chamada também retorna um
+        // access_token (o próprio, ou um derivado válido). Se for User Token
+        // com pages_* permissions, retorna o Page Token correspondente.
+        var pageToken = await FetchPageAccessTokenAsync(clinic.IgPageId!, storedToken);
+        var usingDerivedToken = !string.IsNullOrWhiteSpace(pageToken) && pageToken != storedToken;
+        var tokenForSubscribe = pageToken ?? storedToken;
+
+        if (string.IsNullOrWhiteSpace(pageToken))
+        {
+            _logger?.LogWarning(
+                "[IG-SUBSCRIBE] Não foi possível derivar Page Access Token via GET /{PageId}?fields=access_token. Tentando com o token armazenado mesmo assim (provavelmente vai falhar com erro #210).",
+                clinic.IgPageId);
+        }
+        else
+        {
+            _logger?.LogInformation(
+                "[IG-SUBSCRIBE] Page Access Token {Action} via GET /{PageId}?fields=access_token.",
+                usingDerivedToken ? "derivado do token armazenado" : "idêntico ao armazenado (já era Page Token)",
+                clinic.IgPageId);
+        }
 
         // Campos suportados para Instagram Messaging via Page → subscribed_apps.
         // IMPORTANTE: são `message_reactions` e `message_reads` (sem o "-ing")
@@ -152,7 +175,7 @@ public class InstagramService
         var fieldsParam = Uri.EscapeDataString(string.Join(",", fields));
 
         // POST /{PAGE_ID}/subscribed_apps?subscribed_fields=messages,...&access_token=...
-        var subscribeUrl = $"/{_graphVersion}/{clinic.IgPageId}/subscribed_apps?subscribed_fields={fieldsParam}&access_token={Uri.EscapeDataString(token)}";
+        var subscribeUrl = $"/{_graphVersion}/{clinic.IgPageId}/subscribed_apps?subscribed_fields={fieldsParam}&access_token={Uri.EscapeDataString(tokenForSubscribe)}";
         var subscribeReq = new HttpRequestMessage(HttpMethod.Post, subscribeUrl);
 
         try
@@ -167,11 +190,18 @@ public class InstagramService
             if (!subscribeRes.IsSuccessStatusCode)
             {
                 var err = ParseGraphError(subscribeRaw) ?? $"Erro {(int)subscribeRes.StatusCode} ao subscrever página.";
+                // Se o erro é #210 e não usamos token derivado, damos uma instrução acionável.
+                if (err.Contains("#210") || err.Contains("page access token", StringComparison.OrdinalIgnoreCase))
+                {
+                    err += " → O token salvo não é um Page Access Token. Verifique no Graph API Explorer que ele tem as permissões " +
+                           "`pages_show_list`, `pages_manage_metadata`, `pages_messaging` e `instagram_manage_messages`, " +
+                           "e que foi gerado a partir de um usuário com admin role na Página.";
+                }
                 return (false, err, new List<string>());
             }
 
             // Busca estado atual da subscrição pra confirmar quais campos ficaram ativos.
-            var listUrl = $"/{_graphVersion}/{clinic.IgPageId}/subscribed_apps?access_token={Uri.EscapeDataString(token)}";
+            var listUrl = $"/{_graphVersion}/{clinic.IgPageId}/subscribed_apps?access_token={Uri.EscapeDataString(tokenForSubscribe)}";
             var listReq = new HttpRequestMessage(HttpMethod.Get, listUrl);
             var listRes = await _http.SendAsync(listReq);
             var listRaw = await listRes.Content.ReadAsStringAsync();
@@ -211,12 +241,50 @@ public class InstagramService
                 ? "Página subscrita ao app, mas a Meta não retornou os campos ativos (verifique o painel manualmente)."
                 : $"Página subscrita com sucesso. Campos ativos: {string.Join(", ", active)}.";
 
+            if (usingDerivedToken)
+                detail += " (Page Access Token derivado automaticamente do token salvo.)";
+
             return (true, detail, active);
         }
         catch (Exception ex)
         {
             _logger?.LogError(ex, "[IG-SUBSCRIBE] Exceção ao subscrever página {PageId}.", clinic.IgPageId);
             return (false, $"Exceção ao subscrever página: {ex.Message}", new List<string>());
+        }
+    }
+
+    /// <summary>
+    /// Dado um User/System User Token com permissões em páginas, retorna o
+    /// Page Access Token correspondente. Se o input já for um Page Token,
+    /// a Meta devolve o próprio token no campo `access_token`.
+    /// Retorna null em qualquer falha (token sem permissão, rede, etc).
+    /// </summary>
+    private async Task<string?> FetchPageAccessTokenAsync(string pageId, string currentToken)
+    {
+        try
+        {
+            var url = $"/{_graphVersion}/{pageId}?fields=access_token&access_token={Uri.EscapeDataString(currentToken)}";
+            var res = await _http.GetAsync(url);
+            var raw = await res.Content.ReadAsStringAsync();
+
+            _logger?.LogInformation(
+                "[IG-SUBSCRIBE] GET {PageId}?fields=access_token → {Status}. Body size: {Size}.",
+                pageId, (int)res.StatusCode, raw?.Length ?? 0);
+
+            if (!res.IsSuccessStatusCode) return null;
+
+            using var doc = JsonDocument.Parse(raw!);
+            if (doc.RootElement.TryGetProperty("access_token", out var el))
+            {
+                var v = el.GetString();
+                return string.IsNullOrWhiteSpace(v) ? null : SanitizeToken(v);
+            }
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[IG-SUBSCRIBE] Exceção ao buscar Page Access Token para {PageId}.", pageId);
+            return null;
         }
     }
 
