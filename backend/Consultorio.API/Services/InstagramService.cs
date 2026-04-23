@@ -252,9 +252,9 @@ public class InstagramService
             var igAccountId = clinic.IgAccountId; // populado pelo TestConnectionAsync
             if (!string.IsNullOrWhiteSpace(igAccountId))
             {
-                // Campos válidos para /{ig-user-id}/subscribed_apps.
-                // Nota: neste endpoint os prefixos são messaging_* (diferente do Page).
-                var igFields    = new[] { "messages", "messaging_postbacks", "messaging_seen", "messaging_reactions" };
+                // Campos válidos para /{ig-user-id}/subscribed_apps (confirmados pela API da Meta).
+                // Usar message_reactions (sem "-ing") — messaging_reactions é inválido aqui.
+                var igFields    = new[] { "messages", "messaging_postbacks", "messaging_seen", "message_reactions" };
                 var igFieldsEnc = Uri.EscapeDataString(string.Join(",", igFields));
                 var igSubUrl    = $"/{_graphVersion}/{igAccountId}/subscribed_apps?subscribed_fields={igFieldsEnc}&access_token={Uri.EscapeDataString(tokenForSubscribe)}";
 
