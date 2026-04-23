@@ -204,18 +204,30 @@ public class InstagramWebhookController : ControllerBase
 
         foreach (var entry in entries.EnumerateArray())
         {
+            // entry.id é o Page ID (object=page) ou o IG Business Account ID (object=instagram)
             if (entry.TryGetProperty("id", out var idEl))
                 AddRecipientIdentifier(ids, idEl.GetString());
 
-            if (!entry.TryGetProperty("messaging", out var messaging) || messaging.ValueKind != JsonValueKind.Array)
-                continue;
-
-            foreach (var event_ in messaging.EnumerateArray())
+            // Formato A: Messenger Platform → entry[].messaging[].recipient.id
+            if (entry.TryGetProperty("messaging", out var messaging) && messaging.ValueKind == JsonValueKind.Array)
             {
-                if (event_.TryGetProperty("recipient", out var recipientEl) &&
-                    recipientEl.TryGetProperty("id", out var recipientIdEl))
+                foreach (var event_ in messaging.EnumerateArray())
                 {
-                    AddRecipientIdentifier(ids, recipientIdEl.GetString());
+                    if (event_.TryGetProperty("recipient", out var recipientEl) &&
+                        recipientEl.TryGetProperty("id", out var recipientIdEl))
+                        AddRecipientIdentifier(ids, recipientIdEl.GetString());
+                }
+            }
+
+            // Formato B: Instagram Graph API → entry[].changes[].value.recipient.id
+            if (entry.TryGetProperty("changes", out var changes) && changes.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var change in changes.EnumerateArray())
+                {
+                    if (change.TryGetProperty("value", out var value) &&
+                        value.TryGetProperty("recipient", out var recipientEl) &&
+                        recipientEl.TryGetProperty("id", out var recipientIdEl))
+                        AddRecipientIdentifier(ids, recipientIdEl.GetString());
                 }
             }
         }
@@ -265,70 +277,115 @@ public class InstagramWebhookController : ControllerBase
 
         foreach (var entry in entries.EnumerateArray())
         {
-            if (!entry.TryGetProperty("messaging", out var messaging) || messaging.ValueKind != JsonValueKind.Array)
-                continue;
-
-            foreach (var event_ in messaging.EnumerateArray())
+            // ── Formato A: Messenger Platform (object=page) ────────────────────
+            // entry[].messaging[] → cada elemento é um evento de mensagem diretamente
+            if (entry.TryGetProperty("messaging", out var messaging) && messaging.ValueKind == JsonValueKind.Array)
             {
-                if (!event_.TryGetProperty("message", out var messageEl))
-                    continue;
+                _logger.LogInformation("[IG-WEBHOOK] Entry usando formato Messenger (messaging[]). Count: {Count}", messaging.GetArrayLength());
+                foreach (var event_ in messaging.EnumerateArray())
+                    await ProcessSingleMessageEventAsync(event_, clinic);
+            }
 
-                if (messageEl.TryGetProperty("is_echo", out var isEchoEl) &&
-                    isEchoEl.ValueKind == JsonValueKind.True)
-                    continue;
-
-                var messageId = messageEl.TryGetProperty("mid", out var midEl) ? midEl.GetString() : null;
-                if (string.IsNullOrWhiteSpace(messageId))
-                    continue;
-
-                var alreadyImported = await _db.PatientMessages.AnyAsync(m =>
-                    m.ClinicId == clinic.Id &&
-                    m.ExternalMessageId == messageId);
-                if (alreadyImported)
-                    continue;
-
-                var senderId = event_.TryGetProperty("sender", out var senderEl) &&
-                               senderEl.TryGetProperty("id", out var senderIdEl)
-                    ? senderIdEl.GetString() : null;
-                if (string.IsNullOrWhiteSpace(senderId))
-                    continue;
-
-                var content = ExtractMessageContent(messageEl);
-                if (string.IsNullOrWhiteSpace(content))
-                    content = "[Mensagem Instagram não textual]";
-
-                var externalTimestamp = event_.TryGetProperty("timestamp", out var timestampEl)
-                    ? ParseMetaTimestamp(timestampEl)
-                    : null;
-
-                var patient = await FindOrCreatePatientByIgSenderAsync(clinic, senderId);
-
-                _db.PatientMessages.Add(new PatientMessage
+            // ── Formato B: Instagram Graph API (object=instagram) ──────────────
+            // entry[].changes[] → cada change com field=messages tem o evento em .value
+            if (entry.TryGetProperty("changes", out var changes) && changes.ValueKind == JsonValueKind.Array)
+            {
+                _logger.LogInformation("[IG-WEBHOOK] Entry usando formato Instagram Graph API (changes[]). Count: {Count}", changes.GetArrayLength());
+                foreach (var change in changes.EnumerateArray())
                 {
-                    Id                = Guid.NewGuid(),
-                    PatientId         = patient.Id,
-                    ClinicId          = clinic.Id,
-                    Content           = content,
-                    Direction         = "IN",
-                    Source            = "INSTAGRAM",
-                    IsRead            = false,
-                    ExternalMessageId = messageId,
-                    ExternalStatus    = "received",
-                    ExternalProvider  = "INSTAGRAM",
-                    ExternalTimestamp = externalTimestamp,
-                    CreatedAt         = externalTimestamp ?? DateTime.UtcNow,
-                });
+                    var field = change.TryGetProperty("field", out var fieldEl) ? fieldEl.GetString() : null;
+                    if (!string.Equals(field, "messages", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation("[IG-WEBHOOK] Change ignorado (field={Field}). Só processamos field=messages.", field ?? "(null)");
+                        continue;
+                    }
 
-                _logger.LogInformation(
-                    "Instagram webhook processed message {MessageId} for clinic {ClinicId}. Sender IGSID: {SenderId}. PatientId: {PatientId}",
-                    messageId,
-                    clinic.Id,
-                    senderId,
-                    patient.Id);
+                    if (!change.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    // value tem a mesma estrutura de um evento de messaging
+                    await ProcessSingleMessageEventAsync(value, clinic);
+                }
             }
         }
 
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Processa um único evento de mensagem — funciona tanto com eventos do formato
+    /// Messenger Platform (entry.messaging[i]) quanto do Instagram Graph API
+    /// (entry.changes[i].value), pois ambos têm a mesma estrutura interna.
+    /// NÃO chama SaveChangesAsync — o caller chama uma única vez no final.
+    /// </summary>
+    private async Task ProcessSingleMessageEventAsync(JsonElement event_, Clinic clinic)
+    {
+        if (!event_.TryGetProperty("message", out var messageEl))
+            return;
+
+        // Ignorar echos (mensagens enviadas pela própria página/conta)
+        if (messageEl.TryGetProperty("is_echo", out var isEchoEl) &&
+            isEchoEl.ValueKind == JsonValueKind.True)
+        {
+            _logger.LogInformation("[IG-WEBHOOK] Mensagem ignorada (is_echo=true).");
+            return;
+        }
+
+        var messageId = messageEl.TryGetProperty("mid", out var midEl) ? midEl.GetString() : null;
+        if (string.IsNullOrWhiteSpace(messageId))
+        {
+            _logger.LogWarning("[IG-WEBHOOK] Mensagem sem mid — ignorada.");
+            return;
+        }
+
+        var alreadyImported = await _db.PatientMessages.AnyAsync(m =>
+            m.ClinicId == clinic.Id &&
+            m.ExternalMessageId == messageId);
+        if (alreadyImported)
+        {
+            _logger.LogInformation("[IG-WEBHOOK] Mensagem {MessageId} já importada — ignorada (duplicata).", messageId);
+            return;
+        }
+
+        var senderId = event_.TryGetProperty("sender", out var senderEl) &&
+                       senderEl.TryGetProperty("id", out var senderIdEl)
+            ? senderIdEl.GetString() : null;
+        if (string.IsNullOrWhiteSpace(senderId))
+        {
+            _logger.LogWarning("[IG-WEBHOOK] Mensagem {MessageId} sem sender.id — ignorada.", messageId);
+            return;
+        }
+
+        var content = ExtractMessageContent(messageEl);
+        if (string.IsNullOrWhiteSpace(content))
+            content = "[Mensagem Instagram não textual]";
+
+        var externalTimestamp = event_.TryGetProperty("timestamp", out var timestampEl)
+            ? ParseMetaTimestamp(timestampEl)
+            : null;
+
+        var patient = await FindOrCreatePatientByIgSenderAsync(clinic, senderId);
+
+        _db.PatientMessages.Add(new PatientMessage
+        {
+            Id                = Guid.NewGuid(),
+            PatientId         = patient.Id,
+            ClinicId          = clinic.Id,
+            Content           = content,
+            Direction         = "IN",
+            Source            = "INSTAGRAM",
+            IsRead            = false,
+            ExternalMessageId = messageId,
+            ExternalStatus    = "received",
+            ExternalProvider  = "INSTAGRAM",
+            ExternalTimestamp = externalTimestamp,
+            CreatedAt         = externalTimestamp ?? DateTime.UtcNow,
+        });
+
+        _logger.LogInformation(
+            "[IG-WEBHOOK] Mensagem {MessageId} processada para clínica {ClinicId}. Sender: {SenderId}. PatientId: {PatientId}. Conteúdo: {Preview}",
+            messageId, clinic.Id, senderId, patient.Id,
+            content.Length > 80 ? content[..80] + "..." : content);
     }
 
     private async Task<Patient> FindOrCreatePatientByIgSenderAsync(Clinic clinic, string igSenderId)
