@@ -244,6 +244,61 @@ public class InstagramService
             if (usingDerivedToken)
                 detail += " (Page Access Token derivado automaticamente do token salvo.)";
 
+            // ── Passo 3: subscrever a Conta Instagram Business diretamente ─────────
+            // POST /{PAGE_ID}/subscribed_apps cobre webhooks object=page (Messenger).
+            // Para webhooks object=instagram (Instagram Graph API, formato changes[]),
+            // a Meta exige TAMBÉM POST /{IG_ACCOUNT_ID}/subscribed_apps com o mesmo
+            // Page Access Token. Sem isso, DMs reais não chegam ao webhook.
+            var igAccountId = clinic.IgAccountId; // populado pelo TestConnectionAsync
+            if (!string.IsNullOrWhiteSpace(igAccountId))
+            {
+                // Campos válidos para /{ig-user-id}/subscribed_apps.
+                // Nota: neste endpoint os prefixos são messaging_* (diferente do Page).
+                var igFields    = new[] { "messages", "messaging_postbacks", "messaging_seen", "messaging_reactions" };
+                var igFieldsEnc = Uri.EscapeDataString(string.Join(",", igFields));
+                var igSubUrl    = $"/{_graphVersion}/{igAccountId}/subscribed_apps?subscribed_fields={igFieldsEnc}&access_token={Uri.EscapeDataString(tokenForSubscribe)}";
+
+                try
+                {
+                    var igRes = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Post, igSubUrl));
+                    var igRaw = await igRes.Content.ReadAsStringAsync();
+
+                    _logger?.LogInformation(
+                        "[IG-SUBSCRIBE] POST {IgAccountId}/subscribed_apps → {Status}. Body: {Body}",
+                        igAccountId, (int)igRes.StatusCode, igRaw);
+
+                    if (igRes.IsSuccessStatusCode)
+                    {
+                        detail += $" ✓ Conta Instagram Business ({igAccountId}) subscrita ao app (object=instagram webhooks habilitados).";
+                        _logger?.LogInformation(
+                            "[IG-SUBSCRIBE] Conta Instagram Business {IgAccountId} subscrita com sucesso.",
+                            igAccountId);
+                    }
+                    else
+                    {
+                        var igErr = ParseGraphError(igRaw) ?? $"HTTP {(int)igRes.StatusCode}";
+                        detail += $" ⚠ Falha ao subscrever conta IG diretamente ({igAccountId}): {igErr}. DMs via object=instagram podem não chegar.";
+                        _logger?.LogWarning(
+                            "[IG-SUBSCRIBE] Falha ao subscrever conta IG {IgAccountId}: {Error}",
+                            igAccountId, igErr);
+                    }
+                }
+                catch (Exception igEx)
+                {
+                    detail += $" ⚠ Exceção ao subscrever conta IG ({igAccountId}): {igEx.Message}.";
+                    _logger?.LogWarning(igEx,
+                        "[IG-SUBSCRIBE] Exceção ao subscrever conta IG {IgAccountId}.",
+                        igAccountId);
+                }
+            }
+            else
+            {
+                _logger?.LogWarning(
+                    "[IG-SUBSCRIBE] IgAccountId não disponível — pulando subscrição direta da conta Instagram. " +
+                    "Execute 'Testar conexão' para que o sistema salve o ID automaticamente.");
+                detail += " ⚠ IgAccountId ainda não salvo — clique 'Testar conexão' novamente após este save para habilitar a subscrição object=instagram.";
+            }
+
             return (true, detail, active);
         }
         catch (Exception ex)
