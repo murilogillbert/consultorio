@@ -370,9 +370,11 @@ public class ClinicsController : ControllerBase
         {
             var info = await _instagram.TestConnectionAsync(id);
 
-            // The Graph API is the source of truth for IgAccountId.
-            // Always overwrite so a typo in the form auto-corrects after a successful test.
-            if (!string.IsNullOrWhiteSpace(info.IgAccountId))
+            // Só auto-popula IgAccountId se ele ainda não foi definido no banco.
+            // Quando já existe um valor o usuário pode ter feito override manual —
+            // o entry.id que chega no webhook pode diferir do instagram_business_account.id
+            // retornado pela API (apps diferentes enxergam IDs diferentes para a mesma conta).
+            if (!string.IsNullOrWhiteSpace(info.IgAccountId) && string.IsNullOrWhiteSpace(clinic.IgAccountId))
                 clinic.IgAccountId = info.IgAccountId;
 
             // ── Auto-subscribe da página ao app ────────────────────────────────

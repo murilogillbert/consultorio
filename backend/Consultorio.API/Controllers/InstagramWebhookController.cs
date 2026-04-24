@@ -318,10 +318,110 @@ public class InstagramWebhookController : ControllerBase
     /// (entry.changes[i].value), pois ambos têm a mesma estrutura interna.
     /// NÃO chama SaveChangesAsync — o caller chama uma única vez no final.
     /// </summary>
+    // ─── Busca conteúdo e remetente de uma mensagem via Graph API (mid) ─────────
+    // Necessário para eventos message_edit, que não incluem texto no payload.
+    private static async Task<(string? text, string? senderId, DateTime? timestamp)>
+        FetchMessageInfoByMidAsync(string mid, string accessToken)
+    {
+        try
+        {
+            using var http = new HttpClient();
+            var fields = Uri.EscapeDataString("message,from,created_time");
+            var url = $"https://graph.facebook.com/v25.0/{Uri.EscapeDataString(mid)}?fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
+            var resp = await http.GetAsync(url);
+            if (!resp.IsSuccessStatusCode) return (null, null, null);
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            var root = doc.RootElement;
+            var text     = root.TryGetProperty("message", out var mEl)  ? mEl.GetString()  : null;
+            var senderId = root.TryGetProperty("from",    out var fEl) &&
+                           fEl.TryGetProperty("id",       out var fIdEl) ? fIdEl.GetString() : null;
+            DateTime? ts = null;
+            if (root.TryGetProperty("created_time", out var tsEl) &&
+                DateTime.TryParse(tsEl.GetString(), out var parsed))
+                ts = parsed.ToUniversalTime();
+            return (text, senderId, ts);
+        }
+        catch { return (null, null, null); }
+    }
+
     private async Task ProcessSingleMessageEventAsync(JsonElement event_, Clinic clinic)
     {
+        // ── Formato message_edit com num_edit=0 ───────────────────────────────
+        // Instagram envia um evento message_edit (num_edit=0) para toda mensagem
+        // nova desde que o recurso de edição foi lançado. O texto não vem no payload
+        // — precisamos buscá-lo via Graph API usando o mid.
         if (!event_.TryGetProperty("message", out var messageEl))
+        {
+            if (!event_.TryGetProperty("message_edit", out var editEl))
+            {
+                _logger.LogInformation("[IG-WEBHOOK] Evento sem 'message' nem 'message_edit' — ignorado.");
+                return;
+            }
+
+            var numEdit = editEl.TryGetProperty("num_edit", out var nEl) && nEl.ValueKind == JsonValueKind.Number
+                ? nEl.GetInt32() : -1;
+
+            if (numEdit != 0)
+            {
+                _logger.LogInformation("[IG-WEBHOOK] message_edit ignorado (num_edit={NumEdit}, é edição de mensagem existente).", numEdit);
+                return;
+            }
+
+            var editMid = editEl.TryGetProperty("mid", out var eMidEl) ? eMidEl.GetString() : null;
+            if (string.IsNullOrWhiteSpace(editMid))
+            {
+                _logger.LogWarning("[IG-WEBHOOK] message_edit sem mid — ignorado.");
+                return;
+            }
+
+            // Deduplicação
+            if (await _db.PatientMessages.AnyAsync(m => m.ClinicId == clinic.Id && m.ExternalMessageId == editMid))
+            {
+                _logger.LogInformation("[IG-WEBHOOK] Mensagem {MessageId} já importada (via message_edit) — ignorada.", editMid);
+                return;
+            }
+
+            var token = InstagramService.SanitizeToken(clinic.IgAccessToken);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                _logger.LogWarning("[IG-WEBHOOK] Sem access token para buscar conteúdo do message_edit {Mid}.", editMid);
+                return;
+            }
+
+            _logger.LogInformation("[IG-WEBHOOK] message_edit (num_edit=0) detectado — buscando conteúdo via API para mid {Mid}.", editMid);
+            var (editText, editSenderId, editTs) = await FetchMessageInfoByMidAsync(editMid, token);
+
+            if (string.IsNullOrWhiteSpace(editSenderId))
+            {
+                _logger.LogWarning("[IG-WEBHOOK] Não foi possível obter senderId via API para mid {Mid}. Resposta provavelmente sem permissão.", editMid);
+                return;
+            }
+
+            var editContent = editText ?? "[Mensagem Instagram não textual]";
+            var editPatient = await FindOrCreatePatientByIgSenderAsync(clinic, editSenderId);
+
+            _db.PatientMessages.Add(new PatientMessage
+            {
+                Id                = Guid.NewGuid(),
+                PatientId         = editPatient.Id,
+                ClinicId          = clinic.Id,
+                Content           = editContent,
+                Direction         = "IN",
+                Source            = "INSTAGRAM",
+                IsRead            = false,
+                ExternalMessageId = editMid,
+                ExternalStatus    = "received",
+                ExternalProvider  = "INSTAGRAM",
+                ExternalTimestamp = editTs,
+                CreatedAt         = editTs ?? DateTime.UtcNow,
+            });
+
+            _logger.LogInformation(
+                "[IG-WEBHOOK] Mensagem (message_edit→nova) {MessageId} processada. Clínica {ClinicId}. Sender: {SenderId}. Conteúdo: {Preview}",
+                editMid, clinic.Id, editSenderId,
+                editContent.Length > 80 ? editContent[..80] + "..." : editContent);
             return;
+        }
 
         // Ignorar echos (mensagens enviadas pela própria página/conta)
         if (messageEl.TryGetProperty("is_echo", out var isEchoEl) &&
