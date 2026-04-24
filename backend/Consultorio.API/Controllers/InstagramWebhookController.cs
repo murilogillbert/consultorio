@@ -160,9 +160,20 @@ public class InstagramWebhookController : ControllerBase
 
             if (string.IsNullOrWhiteSpace(appSecret))
             {
+                // ⚠️ MODO SEM VALIDAÇÃO: App Secret não configurado.
+                // Processa as mensagens sem verificar a assinatura HMAC.
+                // Para reativar a validação: configure IgAppSecret (ou WaAppSecret) na clínica.
                 _logger.LogWarning(
-                    "[IG-WEBHOOK] Clínica {ClinicId} sem App Secret configurado (IgAppSecret=null e WaAppSecret=null). NÃO valida assinatura. Retornando 200 OK.",
+                    "[IG-WEBHOOK] Clínica {ClinicId} sem App Secret configurado — HMAC NÃO validado. Processando mensagens no modo bypass.",
                     clinic.Id);
+                try
+                {
+                    await ProcessMessagesAsync(root, clinic);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[IG-WEBHOOK] Erro ao processar mensagens para clínica {ClinicId} (modo bypass).", clinic.Id);
+                }
                 return Ok();
             }
 
