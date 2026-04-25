@@ -161,6 +161,11 @@ public class InstagramWebhookController : ControllerBase
                     "[IG-WEBHOOK] Nenhuma clínica corresponde ao payload. Payload IDs: [{RecipientIds}]. Clínicas configuradas: [{Configured}]. Retornando 200 OK.",
                     string.Join(", ", recipientIds),
                     string.Join(" | ", configured.Select(c => $"clinicId={c.Id} pageId={c.IgPageId ?? "(null)"} accountId={c.IgAccountId ?? "(null)"}")));
+
+                // Meta dashboard test payloads use synthetic IDs, so they do not
+                // match real clinics. Still probe the signature so those tests can
+                // confirm whether this endpoint has the right App Secret configured.
+                await ProbeSignatureAgainstAllSecretsAsync(rawBytes, signatureHeader, "payload-sem-clinica");
                 return Ok();
             }
 
@@ -207,7 +212,7 @@ public class InstagramWebhookController : ControllerBase
                 // Se algum bater, o problema é match de clínica errada.
                 // Se NENHUM bater, é certo que o secret correto NÃO está no banco
                 // (foi regenerado, ou está em outro app, ou body foi modificado por proxy).
-                await TryAllSecretsAsync(rawBytes, signatureHeader);
+                await ProbeSignatureAgainstAllSecretsAsync(rawBytes, signatureHeader, "assinatura-invalida");
 
                 return Ok();
             }
@@ -314,8 +319,10 @@ public class InstagramWebhookController : ControllerBase
     /// NÃO está armazenado em lugar nenhum do banco — então é outro app que assinou,
     /// ou o body foi modificado por um proxy entre Meta e o app.
     /// </summary>
-    private async Task TryAllSecretsAsync(byte[] rawBytes, string? signatureHeader)
+    private async Task ProbeSignatureAgainstAllSecretsAsync(byte[] rawBytes, string? signatureHeader, string reason)
     {
+        _logger.LogInformation("[IG-WEBHOOK] DIAGNOSTICO-HMAC: iniciando probe. Reason={Reason}", reason);
+
         if (string.IsNullOrWhiteSpace(signatureHeader))
         {
             _logger.LogWarning("[IG-WEBHOOK] DIAGNÓSTICO: signatureHeader ausente, brute-force pulado.");
