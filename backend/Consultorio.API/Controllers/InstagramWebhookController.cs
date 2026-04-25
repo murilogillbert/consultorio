@@ -19,11 +19,15 @@ public class InstagramWebhookController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ILogger<InstagramWebhookController> _logger;
+    private readonly string _graphBaseUrl;
+    private readonly string _graphVersion;
 
-    public InstagramWebhookController(AppDbContext db, ILogger<InstagramWebhookController> logger)
+    public InstagramWebhookController(AppDbContext db, ILogger<InstagramWebhookController> logger, IConfiguration config)
     {
         _db = db;
         _logger = logger;
+        _graphBaseUrl = (config["Instagram:GraphBaseUrl"] ?? "https://graph.facebook.com").TrimEnd('/');
+        _graphVersion = config["Instagram:GraphVersion"] ?? "v23.0";
     }
 
     // ─── GET: Meta webhook verification challenge ─────────────────────────────
@@ -486,28 +490,177 @@ public class InstagramWebhookController : ControllerBase
     /// </summary>
     // ─── Busca conteúdo e remetente de uma mensagem via Graph API (mid) ─────────
     // Necessário para eventos message_edit, que não incluem texto no payload.
-    private static async Task<(string? text, string? senderId, DateTime? timestamp)>
-        FetchMessageInfoByMidAsync(string mid, string accessToken)
+    private async Task<(string? text, string? senderId, DateTime? timestamp)>
+        FetchMessageInfoByMidAsync(string mid, string accessToken, string? pageId)
+    {
+        var direct = await FetchMessageInfoByMidDirectAsync(mid, accessToken);
+        if (!string.IsNullOrWhiteSpace(direct.senderId))
+            return direct;
+
+        if (!string.IsNullOrWhiteSpace(pageId))
+        {
+            var fromConversations = await FetchMessageInfoFromRecentConversationsAsync(mid, accessToken, pageId);
+            if (!string.IsNullOrWhiteSpace(fromConversations.senderId))
+                return fromConversations;
+        }
+
+        return direct;
+    }
+
+    private async Task<(string? text, string? senderId, DateTime? timestamp)>
+        FetchMessageInfoByMidDirectAsync(string mid, string accessToken)
     {
         try
         {
             using var http = new HttpClient();
-            var fields = Uri.EscapeDataString("message,from,created_time");
-            var url = $"https://graph.facebook.com/v25.0/{Uri.EscapeDataString(mid)}?fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
+            var fields = Uri.EscapeDataString("id,message,from,to,created_time");
+            var url = $"{_graphBaseUrl}/{_graphVersion}/{Uri.EscapeDataString(mid)}?fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
             var resp = await http.GetAsync(url);
-            if (!resp.IsSuccessStatusCode) return (null, null, null);
-            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            var root = doc.RootElement;
-            var text     = root.TryGetProperty("message", out var mEl)  ? mEl.GetString()  : null;
-            var senderId = root.TryGetProperty("from",    out var fEl) &&
-                           fEl.TryGetProperty("id",       out var fIdEl) ? fIdEl.GetString() : null;
-            DateTime? ts = null;
-            if (root.TryGetProperty("created_time", out var tsEl) &&
-                DateTime.TryParse(tsEl.GetString(), out var parsed))
-                ts = parsed.ToUniversalTime();
-            return (text, senderId, ts);
+            var raw = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] Falha ao buscar message_edit por mid direto. Mid={Mid} Status={Status} Error={Error}",
+                    mid,
+                    (int)resp.StatusCode,
+                    ExtractGraphError(raw));
+                return (null, null, null);
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            var info = ParseGraphMessageInfo(doc.RootElement);
+            if (string.IsNullOrWhiteSpace(info.senderId))
+            {
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] Graph retornou message_edit sem from.id no fetch direto. Mid={Mid} Keys={Keys} HasMessage={HasMessage}",
+                    mid,
+                    string.Join(",", doc.RootElement.EnumerateObject().Select(p => p.Name)),
+                    doc.RootElement.TryGetProperty("message", out _));
+            }
+
+            return info;
         }
-        catch { return (null, null, null); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[IG-WEBHOOK] Excecao ao buscar message_edit por mid direto. Mid={Mid}", mid);
+            return (null, null, null);
+        }
+    }
+
+    private async Task<(string? text, string? senderId, DateTime? timestamp)>
+        FetchMessageInfoFromRecentConversationsAsync(string mid, string accessToken, string pageId)
+    {
+        try
+        {
+            using var http = new HttpClient();
+            var fields = Uri.EscapeDataString("messages.limit(20){id,message,from,to,created_time}");
+            var url = $"{_graphBaseUrl}/{_graphVersion}/{Uri.EscapeDataString(pageId)}/conversations?platform=instagram&limit=20&fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
+            var resp = await http.GetAsync(url);
+            var raw = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] Falha ao buscar message_edit em conversas recentes. Mid={Mid} PageId={PageId} Status={Status} Error={Error}",
+                    mid,
+                    pageId,
+                    (int)resp.StatusCode,
+                    ExtractGraphError(raw));
+                return (null, null, null);
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            if (!doc.RootElement.TryGetProperty("data", out var conversations) ||
+                conversations.ValueKind != JsonValueKind.Array)
+                return (null, null, null);
+
+            foreach (var conversation in conversations.EnumerateArray())
+            {
+                if (!conversation.TryGetProperty("messages", out var messages) ||
+                    !messages.TryGetProperty("data", out var messageItems) ||
+                    messageItems.ValueKind != JsonValueKind.Array)
+                    continue;
+
+                foreach (var message in messageItems.EnumerateArray())
+                {
+                    var id = message.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+                    var itemMid = message.TryGetProperty("mid", out var midEl) ? midEl.GetString() : null;
+                    if (!string.Equals(id, mid, StringComparison.Ordinal) &&
+                        !string.Equals(itemMid, mid, StringComparison.Ordinal))
+                        continue;
+
+                    var info = ParseGraphMessageInfo(message);
+                    _logger.LogInformation("[IG-WEBHOOK] message_edit encontrado em conversas recentes. Mid={Mid}", mid);
+                    return info;
+                }
+            }
+
+            _logger.LogWarning("[IG-WEBHOOK] message_edit nao encontrado nas conversas recentes. Mid={Mid} PageId={PageId}", mid, pageId);
+            return (null, null, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[IG-WEBHOOK] Excecao ao buscar message_edit em conversas recentes. Mid={Mid} PageId={PageId}", mid, pageId);
+            return (null, null, null);
+        }
+    }
+
+    private static (string? text, string? senderId, DateTime? timestamp) ParseGraphMessageInfo(JsonElement message)
+    {
+        var text = message.TryGetProperty("message", out var mEl) ? mEl.GetString() : null;
+        var senderId = TryExtractId(message, "from");
+
+        DateTime? ts = null;
+        if (message.TryGetProperty("created_time", out var tsEl) &&
+            DateTime.TryParse(tsEl.GetString(), out var parsed))
+            ts = parsed.ToUniversalTime();
+
+        return (text, senderId, ts);
+    }
+
+    private static string? TryExtractId(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var value))
+            return null;
+
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            if (value.TryGetProperty("id", out var idEl))
+                return idEl.GetString();
+
+            if (value.TryGetProperty("data", out var dataEl) &&
+                dataEl.ValueKind == JsonValueKind.Array &&
+                dataEl.GetArrayLength() > 0 &&
+                dataEl[0].ValueKind == JsonValueKind.Object &&
+                dataEl[0].TryGetProperty("id", out var dataIdEl))
+                return dataIdEl.GetString();
+        }
+
+        if (value.ValueKind == JsonValueKind.Array &&
+            value.GetArrayLength() > 0 &&
+            value[0].ValueKind == JsonValueKind.Object &&
+            value[0].TryGetProperty("id", out var firstIdEl))
+            return firstIdEl.GetString();
+
+        return value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    }
+
+    private static string ExtractGraphError(string raw)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.TryGetProperty("error", out var err))
+            {
+                var message = err.TryGetProperty("message", out var msgEl) ? msgEl.GetString() : null;
+                var code = err.TryGetProperty("code", out var codeEl) ? codeEl.ToString() : null;
+                return string.IsNullOrWhiteSpace(code) ? message ?? "(sem mensagem)" : $"#{code}: {message}";
+            }
+        }
+        catch
+        {
+        }
+
+        return raw.Length > 300 ? raw[..300] + "..." : raw;
     }
 
     private async Task ProcessSingleMessageEventAsync(JsonElement event_, Clinic clinic)
@@ -555,7 +708,21 @@ public class InstagramWebhookController : ControllerBase
             }
 
             _logger.LogInformation("[IG-WEBHOOK] message_edit (num_edit=0) detectado — buscando conteúdo via API para mid {Mid}.", editMid);
-            var (editText, editSenderId, editTs) = await FetchMessageInfoByMidAsync(editMid, token);
+            var eventSenderId = event_.TryGetProperty("sender", out var editSenderEl) &&
+                                editSenderEl.TryGetProperty("id", out var editSenderIdEl)
+                ? editSenderIdEl.GetString()
+                : null;
+            var eventText = editEl.TryGetProperty("text", out var editTextEl)
+                ? editTextEl.GetString()
+                : null;
+            var eventTs = event_.TryGetProperty("timestamp", out var editTimestampEl)
+                ? ParseMetaTimestamp(editTimestampEl)
+                : null;
+
+            var (fetchedText, fetchedSenderId, fetchedTs) = await FetchMessageInfoByMidAsync(editMid, token, clinic.IgPageId);
+            var editText = eventText ?? fetchedText;
+            var editSenderId = eventSenderId ?? fetchedSenderId;
+            var editTs = eventTs ?? fetchedTs;
 
             if (string.IsNullOrWhiteSpace(editSenderId))
             {
