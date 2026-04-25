@@ -111,6 +111,35 @@ export function usePatient(id: string | undefined) {
   })
 }
 
+export interface PromotePatientPayload {
+  patientId: string
+  name: string
+  email: string
+  cpf?: string
+  phone?: string
+  birthDate?: string
+  address?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  notes?: string
+}
+
+export function usePromotePatient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ patientId, ...rest }: PromotePatientPayload) => {
+      const { data } = await api.put<PatientRaw>(`/patients/${patientId}/promote`, rest)
+      return mapPatient(data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversation-messages'] })
+    },
+  })
+}
+
 export function useLinkInstagram() {
   const queryClient = useQueryClient()
   return useMutation({

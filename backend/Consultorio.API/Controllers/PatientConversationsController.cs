@@ -87,13 +87,15 @@ public class PatientConversationsController : ControllerBase
             patients.TryGetValue(c.patientId, out var p);
             return new
             {
-                patientId     = c.patientId,
-                patientName   = p?.User?.Name ?? "Paciente",
-                patientEmail  = p?.User?.Email,
-                lastMessageAt = c.lastMessageAt,
-                unreadCount   = c.unreadCount,
-                lastMessage   = c.lastMessage,
-                source        = string.IsNullOrWhiteSpace(c.source) ? "APP" : c.source,
+                patientId      = c.patientId,
+                patientName    = p?.User?.Name ?? "Paciente",
+                patientEmail   = p?.User?.Email,
+                patientPhone   = p?.Phone,
+                isProvisional  = IsProvisionalPatient(p),
+                lastMessageAt  = c.lastMessageAt,
+                unreadCount    = c.unreadCount,
+                lastMessage    = c.lastMessage,
+                source         = string.IsNullOrWhiteSpace(c.source) ? "APP" : c.source,
             };
         });
 
@@ -138,13 +140,25 @@ public class PatientConversationsController : ControllerBase
         {
             patient = patient == null ? null : new
             {
-                id    = patient.Id,
-                name  = patient.User?.Name,
-                email = patient.User?.Email,
-                phone = patient.Phone,
+                id            = patient.Id,
+                name          = patient.User?.Name,
+                email         = patient.User?.Email,
+                phone         = patient.Phone,
+                isProvisional = IsProvisionalPatient(patient),
             },
             messages,
         });
+    }
+
+    // A patient is provisional when its User was auto-created by an inbound channel
+    // (WhatsApp / Instagram). We detect that via the placeholder email pattern, which
+    // avoids a schema migration while still letting the UI flag the contact.
+    private static bool IsProvisionalPatient(Patient? patient)
+    {
+        var email = patient?.User?.Email;
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        return email.EndsWith("@whatsapp.local", StringComparison.OrdinalIgnoreCase) ||
+               email.EndsWith("@instagram.local", StringComparison.OrdinalIgnoreCase);
     }
 
     // ─── POST /api/patient-conversations/{patientId}/reply ───────────────────

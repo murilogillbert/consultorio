@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical,
   Hash, Lock, Loader2, MessageCircle, User, ChevronLeft, UserPlus, X, Search,
+  UserCheck, AlertCircle,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChannels } from '../../hooks/useChannels'
@@ -12,7 +13,7 @@ import {
   useSendConversationMessage,
   useMarkConversationRead,
 } from '../../hooks/useConversations'
-import { usePatients, useLinkInstagram } from '../../hooks/usePatients'
+import { usePatients, useLinkInstagram, usePromotePatient } from '../../hooks/usePatients'
 
 // ── Link Instagram Modal ──────────────────────────────────────────────────────
 function LinkInstagramModal({
@@ -245,6 +246,136 @@ function NewConversationModal({
   )
 }
 
+// ── Promote Provisional Contact Modal ────────────────────────────────────────
+function PromotePatientModal({
+  patientId,
+  initialName,
+  initialPhone,
+  onClose,
+  onPromoted,
+}: {
+  patientId: string
+  initialName?: string
+  initialPhone?: string
+  onClose: () => void
+  onPromoted: () => void
+}) {
+  const [name, setName] = useState(initialName ?? '')
+  const [email, setEmail] = useState('')
+  const [cpf, setCpf] = useState('')
+  const [phone, setPhone] = useState(initialPhone ?? '')
+  const [birthDate, setBirthDate] = useState('')
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const promote = usePromotePatient()
+
+  const handleSubmit = async () => {
+    setError(null)
+    if (!name.trim() || !email.trim()) {
+      setError('Nome e email são obrigatórios.')
+      return
+    }
+    try {
+      await promote.mutateAsync({
+        patientId,
+        name: name.trim(),
+        email: email.trim(),
+        cpf: cpf.trim() || undefined,
+        phone: phone.trim() || undefined,
+        birthDate: birthDate || undefined,
+        address: address.trim() || undefined,
+        city: city.trim() || undefined,
+        state: state.trim() || undefined,
+        postalCode: postalCode.trim() || undefined,
+        notes: notes.trim() || undefined,
+      })
+      onPromoted()
+      onClose()
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Falha ao cadastrar paciente.')
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <UserCheck size={18} color="var(--color-accent-emerald)" /> Cadastrar como paciente
+          </h3>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: 0 }}>
+            Este contato foi criado automaticamente a partir de uma mensagem.
+            Preencha os dados abaixo para transformá-lo em um paciente cadastrado —
+            o histórico de mensagens será mantido.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="input-label">Nome completo *</label>
+              <input className="input-field" value={name} onChange={e => setName(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <label className="input-label">Email *</label>
+              <input className="input-field" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">CPF</label>
+              <input className="input-field" value={cpf} onChange={e => setCpf(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Telefone</label>
+              <input className="input-field" value={phone} onChange={e => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Data de nascimento</label>
+              <input className="input-field" type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">CEP</label>
+              <input className="input-field" value={postalCode} onChange={e => setPostalCode(e.target.value)} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="input-label">Endereço</label>
+              <input className="input-field" value={address} onChange={e => setAddress(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Cidade</label>
+              <input className="input-field" value={city} onChange={e => setCity(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Estado</label>
+              <input className="input-field" value={state} onChange={e => setState(e.target.value)} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="input-label">Observações</label>
+              <textarea className="input-field" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
+            </div>
+          </div>
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-accent-red, #dc2626)', fontSize: 13 }}>
+              <AlertCircle size={14} /> {error}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose} disabled={promote.isPending}>Cancelar</button>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={promote.isPending}>
+            {promote.isPending
+              ? <><Loader2 size={14} className="animate-spin" /> Cadastrando...</>
+              : <><UserCheck size={14} /> Cadastrar paciente</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function MensagensPage() {
   const { user } = useAuth()
@@ -259,6 +390,7 @@ export default function MensagensPage() {
   const [message, setMessage] = useState('')
   const [showNewConvoModal, setShowNewConvoModal] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
+  const [showPromoteModal, setShowPromoteModal] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Internal channels
@@ -462,10 +594,28 @@ export default function MensagensPage() {
                   : '#'}
               </div>
                 <div>
-                  <div style={{ fontWeight: 500, fontSize: 14 }}>
+                  <div style={{ fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                     {activeTab === 'patients'
                     ? (selectedConvo?.patientName || convDetail?.patient?.name || 'Selecione uma conversa')
                     : selectedChannel ? `#${selectedChannel.name}` : 'Selecione um canal'}
+                    {activeTab === 'patients' && (selectedConvo?.isProvisional || convDetail?.patient?.isProvisional) && (
+                      <span
+                        title="Contato criado automaticamente — ainda não cadastrado como paciente"
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(234, 179, 8, 0.15)',
+                          color: '#b45309',
+                          border: '1px solid rgba(234, 179, 8, 0.4)',
+                        }}
+                      >
+                        Provisório
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                     {activeTab === 'patients'
@@ -477,6 +627,15 @@ export default function MensagensPage() {
             <div className="chat-header-actions">
               {activeTab === 'patients' && (
                 <>
+                  {(selectedConvo?.isProvisional || convDetail?.patient?.isProvisional) && selectedPatientId && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      title="Converter este contato em um paciente cadastrado"
+                      onClick={() => setShowPromoteModal(true)}
+                    >
+                      <UserCheck size={14} /> Cadastrar
+                    </button>
+                  )}
                   {selectedConvo?.source === 'INSTAGRAM' && selectedPatientId && (
                     <button
                       className="btn btn-secondary btn-sm"
@@ -624,6 +783,17 @@ export default function MensagensPage() {
           fromPatientName={selectedConvo?.patientName || convDetail?.patient?.name || 'este contato'}
           onClose={() => setShowLinkModal(false)}
           onLinked={() => setSelectedPatientId(null)}
+        />
+      )}
+
+      {/* ── Promote Provisional Contact Modal ── */}
+      {showPromoteModal && selectedPatientId && (
+        <PromotePatientModal
+          patientId={selectedPatientId}
+          initialName={selectedConvo?.patientName || convDetail?.patient?.name}
+          initialPhone={selectedConvo?.patientPhone || convDetail?.patient?.phone}
+          onClose={() => setShowPromoteModal(false)}
+          onPromoted={() => { /* invalidations happen inside the hook */ }}
         />
       )}
     </>

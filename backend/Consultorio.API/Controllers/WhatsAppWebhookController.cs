@@ -176,6 +176,9 @@ public class WhatsAppWebhookController : ControllerBase
             if (!value.TryGetProperty("messages", out var messages) || messages.ValueKind != JsonValueKind.Array)
                 continue;
 
+            // Profile names live on `value.contacts[]` keyed by `wa_id` (== sender phone).
+            var profileNames = ExtractProfileNames(value);
+
             foreach (var message in messages.EnumerateArray())
             {
                 var messageId = message.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
@@ -197,12 +200,11 @@ public class WhatsAppWebhookController : ControllerBase
                 if (string.IsNullOrWhiteSpace(content))
                     content = "[Mensagem WhatsApp não textual]";
 
-                var patient = await FindPatientByPhoneAsync(clinicId, normalizedFrom);
-                if (patient == null)
-                {
-                    _logger.LogInformation("WhatsApp message {MessageId} from {Phone} has no matching patient in clinic {ClinicId}.", messageId, normalizedFrom, clinicId);
-                    continue;
-                }
+                profileNames.TryGetValue(from ?? string.Empty, out var profileName);
+
+                // Auto-create a provisional Patient when no match exists so the message
+                // surfaces in /recepcao instead of being silently dropped.
+                var patient = await FindOrCreatePatientByPhoneAsync(clinicId, normalizedFrom, profileName);
 
                 _db.PatientMessages.Add(new PatientMessage
                 {
@@ -226,9 +228,75 @@ public class WhatsAppWebhookController : ControllerBase
         await _db.SaveChangesAsync();
     }
 
+    private static Dictionary<string, string> ExtractProfileNames(JsonElement value)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!value.TryGetProperty("contacts", out var contacts) || contacts.ValueKind != JsonValueKind.Array)
+            return map;
+
+        foreach (var contact in contacts.EnumerateArray())
+        {
+            var waId = contact.TryGetProperty("wa_id", out var waIdEl) ? waIdEl.GetString() : null;
+            var name = contact.TryGetProperty("profile", out var profile) &&
+                       profile.TryGetProperty("name", out var nameEl)
+                ? nameEl.GetString()
+                : null;
+            if (!string.IsNullOrWhiteSpace(waId) && !string.IsNullOrWhiteSpace(name))
+                map[waId] = name!;
+        }
+        return map;
+    }
+
+    private async Task<Patient> FindOrCreatePatientByPhoneAsync(Guid clinicId, string normalizedPhone, string? profileName)
+    {
+        var existing = await FindPatientByPhoneAsync(clinicId, normalizedPhone);
+        if (existing != null)
+            return existing;
+
+        var displayName = !string.IsNullOrWhiteSpace(profileName)
+            ? profileName!
+            : $"WhatsApp {normalizedPhone}";
+
+        var placeholderEmail = $"wa.{normalizedPhone}@whatsapp.local";
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == placeholderEmail);
+        if (user == null)
+        {
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                Name = displayName,
+                Email = placeholderEmail,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
+                Phone = normalizedPhone,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+
+        var patient = new Patient
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            UserId = user.Id,
+            Phone = normalizedPhone,
+            Notes = "Contato provisório criado automaticamente via WhatsApp. Complete o cadastro pela tela de mensagens.",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _db.Patients.Add(patient);
+        await _db.SaveChangesAsync();
+
+        patient.User = user;
+        _logger.LogInformation("WhatsApp: paciente provisório criado para {Phone} na clínica {ClinicId}.", normalizedPhone, clinicId);
+        return patient;
+    }
+
     private async Task<Patient?> FindPatientByPhoneAsync(Guid clinicId, string normalizedPhone)
     {
         var patients = await _db.Patients
+            .Include(p => p.User)
             .Where(p => p.ClinicId == clinicId && p.IsActive && p.Phone != null)
             .ToListAsync();
 

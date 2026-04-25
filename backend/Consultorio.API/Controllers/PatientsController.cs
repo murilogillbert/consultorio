@@ -34,8 +34,16 @@ public class PatientsController : ControllerBase
         Notes = p.Notes,
         IgUserId = p.IgUserId,
         IsActive = p.IsActive,
+        IsProvisional = IsProvisionalEmail(p.User.Email),
         CreatedAt = p.CreatedAt
     };
+
+    private static bool IsProvisionalEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        return email.EndsWith("@whatsapp.local", StringComparison.OrdinalIgnoreCase) ||
+               email.EndsWith("@instagram.local", StringComparison.OrdinalIgnoreCase);
+    }
 
     // GET /api/patients?q=busca
     [HttpGet]
@@ -216,6 +224,59 @@ public class PatientsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(ToDto(target));
+    }
+
+    // PUT /api/patients/{id}/promote
+    // Converte um contato provisório (User com email placeholder @whatsapp.local /
+    // @instagram.local) em um cadastro definitivo: atualiza nome, email real e
+    // dados clínicos do Patient.
+    [HttpPut("{id}/promote")]
+    public async Task<ActionResult<PatientResponseDto>> Promote(Guid id, [FromBody] PromotePatientDto dto)
+    {
+        var clinicId = GetClinicId();
+        if (clinicId == Guid.Empty)
+            return BadRequest(new { message = "Clínica não identificada." });
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { message = "Nome é obrigatório." });
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return BadRequest(new { message = "Email é obrigatório." });
+
+        var patient = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == id && p.ClinicId == clinicId);
+        if (patient == null)
+            return NotFound(new { message = "Paciente não encontrado." });
+
+        if (!IsProvisionalEmail(patient.User.Email))
+            return BadRequest(new { message = "Este paciente já possui cadastro completo." });
+
+        var newEmail = dto.Email.Trim();
+        if (IsProvisionalEmail(newEmail))
+            return BadRequest(new { message = "Email inválido para cadastro." });
+
+        var emailTaken = await _db.Users
+            .AnyAsync(u => u.Id != patient.UserId && u.Email == newEmail);
+        if (emailTaken)
+            return Conflict(new { message = "Email já cadastrado para outro usuário." });
+
+        patient.User.Name  = dto.Name.Trim();
+        patient.User.Email = newEmail;
+        patient.User.Phone = dto.Phone ?? patient.User.Phone;
+        patient.User.UpdatedAt = DateTime.UtcNow;
+
+        patient.CPF        = dto.CPF;
+        patient.Phone      = dto.Phone ?? patient.Phone;
+        patient.BirthDate  = dto.BirthDate;
+        patient.Address    = dto.Address;
+        patient.City       = dto.City;
+        patient.State      = dto.State;
+        patient.PostalCode = dto.PostalCode;
+        patient.Notes      = dto.Notes; // limpa a nota de auto-criação
+        patient.UpdatedAt  = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(ToDto(patient));
     }
 
     private static string GenerateDefaultPassword(string name)

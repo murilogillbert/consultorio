@@ -5,6 +5,8 @@ export interface PatientConversationSummary {
   patientId: string
   patientName: string
   patientEmail?: string
+  patientPhone?: string
+  isProvisional?: boolean
   lastMessageAt: string
   unreadCount: number
   lastMessage?: string
@@ -27,6 +29,7 @@ export interface PatientConversationDetail {
     name: string
     email?: string
     phone?: string
+    isProvisional?: boolean
   } | null
   messages: PatientMessageItem[]
 }
@@ -36,6 +39,8 @@ interface ConversationSummaryRaw {
   patientId: string
   patientName: string
   patientEmail?: string
+  patientPhone?: string
+  isProvisional?: boolean
   lastMessageAt?: string
   unreadCount: number
   lastMessage?: string
@@ -49,6 +54,7 @@ interface ConversationDetailRaw {
     name: string
     email?: string
     phone?: string
+    isProvisional?: boolean
   } | null
   messages: PatientMessageItem[]
 }
@@ -63,6 +69,8 @@ export function useConversations(clinicId?: string) {
         patientId: c.patientId,
         patientName: c.patientName,
         patientEmail: c.patientEmail,
+        patientPhone: c.patientPhone,
+        isProvisional: c.isProvisional,
         lastMessageAt: c.lastMessageAt || new Date().toISOString(),
         unreadCount: c.unreadCount,
         lastMessage: c.lastMessage,
