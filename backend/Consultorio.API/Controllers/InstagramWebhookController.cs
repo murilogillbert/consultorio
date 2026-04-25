@@ -74,27 +74,43 @@ public class InstagramWebhookController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Receive()
     {
-        using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-        var rawBody = await reader.ReadToEndAsync();
+        // ⚠️ IMPORTANTE: lemos o body como bytes BRUTOS (não como string).
+        // O HMAC da Meta é calculado sobre os bytes RAW que ela envia. Se passarmos
+        // por StreamReader UTF-8 e depois Encoding.UTF8.GetBytes(), em casos com
+        // emojis/surrogate pairs/BOM os bytes podem mudar e o HMAC quebra.
+        await using var ms = new MemoryStream();
+        await Request.Body.CopyToAsync(ms);
+        var rawBytes = ms.ToArray();
+        var rawBody  = Encoding.UTF8.GetString(rawBytes);
 
         // Log inicial: sabemos que o webhook foi *chamado*. Útil pra confirmar
         // que a Meta está mandando algo (vs "nem chega").
         var signatureHeader = Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
         var contentType     = Request.Headers["Content-Type"].FirstOrDefault();
         var userAgent       = Request.Headers["User-Agent"].FirstOrDefault();
+        var forwardedFor    = Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var via             = Request.Headers["Via"].FirstOrDefault();
         var bodyPreview     = string.IsNullOrEmpty(rawBody)
             ? "(empty)"
             : rawBody.Length > 2000 ? rawBody[..2000] + "...[truncated]" : rawBody;
 
+        // SHA-256 do body cru (sem secret) — útil para confirmar que os bytes não foram modificados.
+        var bodySha = Convert.ToHexString(SHA256.HashData(rawBytes)).ToLowerInvariant();
+
         _logger.LogInformation(
-            "[IG-WEBHOOK] POST received. Body size: {Size}. Content-Type: {ContentType}. User-Agent: {UserAgent}. Signature header: {Signature}. Body preview: {Body}",
+            "[IG-WEBHOOK] POST received. ContentLength: {ContentLength}. Bytes: {Bytes}. Chars: {Chars}. Body SHA-256: {Sha}. Content-Type: {ContentType}. User-Agent: {UserAgent}. X-Forwarded-For: {Fwd}. Via: {Via}. Signature header: {Signature}. Body preview: {Body}",
+            Request.ContentLength?.ToString() ?? "(null)",
+            rawBytes.Length,
             rawBody?.Length ?? 0,
+            bodySha.Length > 16 ? bodySha[..16] : bodySha,
             contentType ?? "(none)",
             userAgent ?? "(none)",
+            forwardedFor ?? "(none)",
+            via ?? "(none)",
             string.IsNullOrWhiteSpace(signatureHeader) ? "(missing)" : signatureHeader.Length > 40 ? signatureHeader[..40] + "..." : signatureHeader,
             bodyPreview);
 
-        if (string.IsNullOrWhiteSpace(rawBody))
+        if (rawBytes.Length == 0)
         {
             _logger.LogWarning("[IG-WEBHOOK] Body vazio — retornando 200 OK (Meta test ping?).");
             return Ok();
@@ -180,12 +196,19 @@ public class InstagramWebhookController : ControllerBase
             if (usedWaFallback)
                 _logger.LogInformation("[IG-WEBHOOK] Clínica {ClinicId} usando WaAppSecret como fallback (IgAppSecret não configurado).", clinic.Id);
 
-            var (sigValid, sigDetail) = ValidateSignatureDetailed(rawBody, appSecret, signatureHeader);
+            var (sigValid, sigDetail) = ValidateSignatureDetailed(rawBytes, appSecret, signatureHeader);
             if (!sigValid)
             {
                 _logger.LogWarning(
-                    "[IG-WEBHOOK] Assinatura inválida para clínica {ClinicId}. Motivo: {Reason}. AppSecret source: {Source}. Retornando 200 OK (para não gerar retry da Meta).",
+                    "[IG-WEBHOOK] Assinatura inválida para clínica {ClinicId}. Motivo: {Reason}. AppSecret source: {Source}. Iniciando diagnóstico brute-force...",
                     clinic.Id, sigDetail, usedWaFallback ? "WaAppSecret (fallback)" : "IgAppSecret");
+
+                // 🔍 DIAGNÓSTICO: testa o HMAC contra TODOS os secrets do banco.
+                // Se algum bater, o problema é match de clínica errada.
+                // Se NENHUM bater, é certo que o secret correto NÃO está no banco
+                // (foi regenerado, ou está em outro app, ou body foi modificado por proxy).
+                await TryAllSecretsAsync(rawBytes, signatureHeader);
+
                 return Ok();
             }
 
@@ -252,7 +275,7 @@ public class InstagramWebhookController : ControllerBase
             ids.Add(candidate);
     }
 
-    private static (bool ok, string detail) ValidateSignatureDetailed(string rawBody, string? appSecret, string? signatureHeader)
+    private static (bool ok, string detail) ValidateSignatureDetailed(byte[] rawBytes, string? appSecret, string? signatureHeader)
     {
         var secret = InstagramService.SanitizeToken(appSecret);
         if (string.IsNullOrWhiteSpace(secret))
@@ -266,7 +289,8 @@ public class InstagramWebhookController : ControllerBase
 
         var received = signatureHeader[prefix.Length..];
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawBody));
+        // ⚠️ Usa rawBytes diretamente — NÃO re-encoda a partir da string (preserva bytes originais).
+        var hash = hmac.ComputeHash(rawBytes);
         var expected = Convert.ToHexString(hash).ToLowerInvariant();
 
         var receivedBytes = Encoding.UTF8.GetBytes(received.ToLowerInvariant());
@@ -278,7 +302,73 @@ public class InstagramWebhookController : ControllerBase
         // Não logamos o secret/HMAC completo por segurança — apenas os primeiros caracteres.
         var recvPrev = received.Length > 12 ? received[..12] + "..." : received;
         var expPrev  = expected.Length > 12 ? expected[..12] + "..." : expected;
-        return (false, $"HMAC não bateu. received={recvPrev} expected={expPrev}. Prováveis causas: App Secret errado, body mutilado por proxy, ou Page/App diferentes.");
+        var secretLen = secret.Length;
+        var secretPrev = secret.Length > 4 ? secret[..4] + "***" : "***";
+        return (false, $"HMAC não bateu. received={recvPrev} expected={expPrev} secretLen={secretLen} secretPrev={secretPrev}. Prováveis causas: App Secret errado, body mutilado por proxy, ou Page/App diferentes.");
+    }
+
+    /// <summary>
+    /// Brute-force diagnóstico: tenta validar a assinatura HMAC com TODOS os secrets
+    /// (IgAppSecret e WaAppSecret) de TODAS as clínicas no banco. Se algum bater, sabemos
+    /// o segredo está em outra clínica. Se NENHUM bater, sabemos que o secret correto
+    /// NÃO está armazenado em lugar nenhum do banco — então é outro app que assinou,
+    /// ou o body foi modificado por um proxy entre Meta e o app.
+    /// </summary>
+    private async Task TryAllSecretsAsync(byte[] rawBytes, string? signatureHeader)
+    {
+        if (string.IsNullOrWhiteSpace(signatureHeader))
+        {
+            _logger.LogWarning("[IG-WEBHOOK] DIAGNÓSTICO: signatureHeader ausente, brute-force pulado.");
+            return;
+        }
+
+        var allClinics = await _db.Clinics
+            .Where(c => c.IgAppSecret != null || c.WaAppSecret != null)
+            .Select(c => new { c.Id, c.Name, c.IgAppSecret, c.WaAppSecret })
+            .ToListAsync();
+
+        _logger.LogInformation("[IG-WEBHOOK] DIAGNÓSTICO: testando assinatura contra {Count} clínicas com secrets configurados.", allClinics.Count);
+
+        var anyMatch = false;
+        foreach (var c in allClinics)
+        {
+            if (!string.IsNullOrWhiteSpace(c.IgAppSecret))
+            {
+                var (ok, _) = ValidateSignatureDetailed(rawBytes, c.IgAppSecret, signatureHeader);
+                if (ok)
+                {
+                    anyMatch = true;
+                    _logger.LogWarning(
+                        "[IG-WEBHOOK] ✅ DIAGNÓSTICO: HMAC bate com IgAppSecret da clínica {OtherId} ({OtherName}). " +
+                        "Causa provável: webhook recebido para clínica errada (matching de Page/Account ID problemático).",
+                        c.Id, c.Name);
+                }
+            }
+            if (!string.IsNullOrWhiteSpace(c.WaAppSecret) && !string.Equals(c.IgAppSecret, c.WaAppSecret, StringComparison.Ordinal))
+            {
+                var (ok, _) = ValidateSignatureDetailed(rawBytes, c.WaAppSecret, signatureHeader);
+                if (ok)
+                {
+                    anyMatch = true;
+                    _logger.LogWarning(
+                        "[IG-WEBHOOK] ✅ DIAGNÓSTICO: HMAC bate com WaAppSecret da clínica {OtherId} ({OtherName}). " +
+                        "Causa provável: webhook é de um app cujo secret está salvo no campo WhatsApp.",
+                        c.Id, c.Name);
+                }
+            }
+        }
+
+        if (!anyMatch)
+        {
+            _logger.LogWarning(
+                "[IG-WEBHOOK] ❌ DIAGNÓSTICO: NENHUM secret salvo no banco bate com a assinatura recebida. " +
+                "Causas possíveis: " +
+                "(1) o webhook é assinado por um App que NÃO está cadastrado em NENHUMA clínica; " +
+                "(2) a URL de webhook está cadastrada em VÁRIOS apps Meta e quem está chamando é o app errado; " +
+                "(3) há um proxy reverso modificando o body antes de chegar aqui (bytes diferentes); " +
+                "(4) o subscribe foi feito com access token de outro app (webhook registrado para o app dono do token, não para o app cujo secret você tem). " +
+                "Para resolver: verifique no portal Meta quais apps têm essa URL como webhook ativo, e qual está realmente subscrito via GET /{page-id}/subscribed_apps.");
+        }
     }
 
     private async Task ProcessMessagesAsync(JsonElement root, Clinic clinic)
