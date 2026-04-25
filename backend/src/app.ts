@@ -9,7 +9,12 @@ const app = express()
 
 // Middlewares Basics
 app.use(cors())
-app.use(express.json())
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    // Preserve raw body for webhook HMAC verification (Meta/WhatsApp/Instagram).
+    ;(req as express.Request & { rawBody?: Buffer }).rawBody = buf
+  },
+}))
 
 // Rate Limiter
 const limiter = rateLimit({
