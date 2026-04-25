@@ -329,6 +329,9 @@ public class InstagramWebhookController : ControllerBase
             return;
         }
 
+        var receivedDigest = ExtractSignatureDigest(signatureHeader);
+        var receivedPrev = PreviewHex(receivedDigest);
+
         var allClinics = await _db.Clinics
             .Where(c => c.IgAppSecret != null || c.WaAppSecret != null)
             .Select(c => new { c.Id, c.Name, c.IgAppSecret, c.WaAppSecret })
@@ -341,6 +344,7 @@ public class InstagramWebhookController : ControllerBase
         {
             if (!string.IsNullOrWhiteSpace(c.IgAppSecret))
             {
+                LogSignatureProbeCandidate(rawBytes, c.IgAppSecret, receivedPrev, c.Id, c.Name, "IgAppSecret", reason);
                 var (ok, _) = ValidateSignatureDetailed(rawBytes, c.IgAppSecret, signatureHeader);
                 if (ok)
                 {
@@ -353,6 +357,7 @@ public class InstagramWebhookController : ControllerBase
             }
             if (!string.IsNullOrWhiteSpace(c.WaAppSecret) && !string.Equals(c.IgAppSecret, c.WaAppSecret, StringComparison.Ordinal))
             {
+                LogSignatureProbeCandidate(rawBytes, c.WaAppSecret, receivedPrev, c.Id, c.Name, "WaAppSecret", reason);
                 var (ok, _) = ValidateSignatureDetailed(rawBytes, c.WaAppSecret, signatureHeader);
                 if (ok)
                 {
@@ -376,6 +381,59 @@ public class InstagramWebhookController : ControllerBase
                 "(4) o subscribe foi feito com access token de outro app (webhook registrado para o app dono do token, não para o app cujo secret você tem). " +
                 "Para resolver: verifique no portal Meta quais apps têm essa URL como webhook ativo, e qual está realmente subscrito via GET /{page-id}/subscribed_apps.");
         }
+    }
+
+    private void LogSignatureProbeCandidate(
+        byte[] rawBytes,
+        string? appSecret,
+        string receivedPrev,
+        Guid clinicId,
+        string clinicName,
+        string field,
+        string reason)
+    {
+        var secret = InstagramService.SanitizeToken(appSecret);
+        if (string.IsNullOrWhiteSpace(secret))
+            return;
+
+        var expected = ComputeHmacSha256Hex(rawBytes, secret);
+        var secretFingerprint = ComputeSha256Hex(Encoding.UTF8.GetBytes(secret));
+
+        _logger.LogInformation(
+            "[IG-WEBHOOK] DIAGNOSTICO-HMAC ({Reason}): candidato={Field} clinic={ClinicId} name={ClinicName} secretLen={SecretLen} secretFp={SecretFp} received={Received} expected={Expected}",
+            reason,
+            field,
+            clinicId,
+            clinicName,
+            secret.Length,
+            PreviewHex(secretFingerprint),
+            receivedPrev,
+            PreviewHex(expected));
+    }
+
+    private static string ExtractSignatureDigest(string signatureHeader)
+    {
+        const string prefix = "sha256=";
+        var value = signatureHeader.Trim();
+        return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? value[prefix.Length..].Trim()
+            : value;
+    }
+
+    private static string ComputeHmacSha256Hex(byte[] rawBytes, string secret)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        return Convert.ToHexString(hmac.ComputeHash(rawBytes)).ToLowerInvariant();
+    }
+
+    private static string ComputeSha256Hex(byte[] bytes) =>
+        Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+    private static string PreviewHex(string? value, int length = 12)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "(none)";
+        return value.Length > length ? value[..length] + "..." : value;
     }
 
     private async Task ProcessMessagesAsync(JsonElement root, Clinic clinic)
