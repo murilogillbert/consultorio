@@ -491,7 +491,7 @@ public class InstagramWebhookController : ControllerBase
     // ─── Busca conteúdo e remetente de uma mensagem via Graph API (mid) ─────────
     // Necessário para eventos message_edit, que não incluem texto no payload.
     private async Task<(string? text, string? senderId, DateTime? timestamp)>
-        FetchMessageInfoByMidAsync(string mid, string accessToken, string? pageId)
+        FetchMessageInfoByMidAsync(string mid, string accessToken, string? pageId, string? igAccountId)
     {
         var direct = await FetchMessageInfoByMidDirectAsync(mid, accessToken);
         if (!string.IsNullOrWhiteSpace(direct.senderId))
@@ -499,7 +499,15 @@ public class InstagramWebhookController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(pageId))
         {
-            var fromConversations = await FetchMessageInfoFromRecentConversationsAsync(mid, accessToken, pageId);
+            var fromConversations = await FetchMessageInfoFromRecentConversationsAsync(mid, accessToken, pageId, "page");
+            if (!string.IsNullOrWhiteSpace(fromConversations.senderId))
+                return fromConversations;
+        }
+
+        if (!string.IsNullOrWhiteSpace(igAccountId) &&
+            !string.Equals(igAccountId, pageId, StringComparison.Ordinal))
+        {
+            var fromConversations = await FetchMessageInfoFromRecentConversationsAsync(mid, accessToken, igAccountId, "instagram-account");
             if (!string.IsNullOrWhiteSpace(fromConversations.senderId))
                 return fromConversations;
         }
@@ -548,21 +556,22 @@ public class InstagramWebhookController : ControllerBase
     }
 
     private async Task<(string? text, string? senderId, DateTime? timestamp)>
-        FetchMessageInfoFromRecentConversationsAsync(string mid, string accessToken, string pageId)
+        FetchMessageInfoFromRecentConversationsAsync(string mid, string accessToken, string ownerId, string ownerKind)
     {
         try
         {
             using var http = new HttpClient();
             var fields = Uri.EscapeDataString("messages.limit(20){id,message,from,to,created_time}");
-            var url = $"{_graphBaseUrl}/{_graphVersion}/{Uri.EscapeDataString(pageId)}/conversations?platform=instagram&limit=20&fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
+            var url = $"{_graphBaseUrl}/{_graphVersion}/{Uri.EscapeDataString(ownerId)}/conversations?platform=instagram&limit=20&fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
             var resp = await http.GetAsync(url);
             var raw = await resp.Content.ReadAsStringAsync();
             if (!resp.IsSuccessStatusCode)
             {
                 _logger.LogWarning(
-                    "[IG-WEBHOOK] Falha ao buscar message_edit em conversas recentes. Mid={Mid} PageId={PageId} Status={Status} Error={Error}",
+                    "[IG-WEBHOOK] Falha ao buscar message_edit em conversas recentes. Mid={Mid} OwnerKind={OwnerKind} OwnerId={OwnerId} Status={Status} Error={Error}",
                     mid,
-                    pageId,
+                    ownerKind,
+                    ownerId,
                     (int)resp.StatusCode,
                     ExtractGraphError(raw));
                 return (null, null, null);
@@ -594,12 +603,16 @@ public class InstagramWebhookController : ControllerBase
                 }
             }
 
-            _logger.LogWarning("[IG-WEBHOOK] message_edit nao encontrado nas conversas recentes. Mid={Mid} PageId={PageId}", mid, pageId);
+            _logger.LogWarning(
+                "[IG-WEBHOOK] message_edit nao encontrado nas conversas recentes. Mid={Mid} OwnerKind={OwnerKind} OwnerId={OwnerId}",
+                mid,
+                ownerKind,
+                ownerId);
             return (null, null, null);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[IG-WEBHOOK] Excecao ao buscar message_edit em conversas recentes. Mid={Mid} PageId={PageId}", mid, pageId);
+            _logger.LogWarning(ex, "[IG-WEBHOOK] Excecao ao buscar message_edit em conversas recentes. Mid={Mid} OwnerKind={OwnerKind} OwnerId={OwnerId}", mid, ownerKind, ownerId);
             return (null, null, null);
         }
     }
@@ -730,7 +743,7 @@ public class InstagramWebhookController : ControllerBase
                     !string.IsNullOrWhiteSpace(eventText));
             }
 
-            var (fetchedText, fetchedSenderId, fetchedTs) = await FetchMessageInfoByMidAsync(editMid, token, clinic.IgPageId);
+            var (fetchedText, fetchedSenderId, fetchedTs) = await FetchMessageInfoByMidAsync(editMid, token, clinic.IgPageId, clinic.IgAccountId);
             var editText = eventText ?? fetchedText;
             var editSenderId = eventSenderId ?? fetchedSenderId;
             var editTs = eventTs ?? fetchedTs;
