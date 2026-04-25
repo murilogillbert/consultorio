@@ -719,6 +719,17 @@ public class InstagramWebhookController : ControllerBase
                 ? ParseMetaTimestamp(editTimestampEl)
                 : null;
 
+            if (string.IsNullOrWhiteSpace(eventSenderId) || string.IsNullOrWhiteSpace(eventText))
+            {
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] message_edit incompleto recebido. Mid={Mid} HasSender={HasSender} HasText={HasText}. " +
+                    "No fluxo Page Access Token, DMs reais devem chegar pelo webhook de Page/Messenger como 'message' com sender/recipient. " +
+                    "Verifique no Meta Developers se o objeto Page do produto Webhooks/Messenger usa esta mesma URL e assina o campo 'messages'.",
+                    editMid,
+                    !string.IsNullOrWhiteSpace(eventSenderId),
+                    !string.IsNullOrWhiteSpace(eventText));
+            }
+
             var (fetchedText, fetchedSenderId, fetchedTs) = await FetchMessageInfoByMidAsync(editMid, token, clinic.IgPageId);
             var editText = eventText ?? fetchedText;
             var editSenderId = eventSenderId ?? fetchedSenderId;
@@ -726,7 +737,11 @@ public class InstagramWebhookController : ControllerBase
 
             if (string.IsNullOrWhiteSpace(editSenderId))
             {
-                _logger.LogWarning("[IG-WEBHOOK] Não foi possível obter senderId via API para mid {Mid}. Resposta provavelmente sem permissão.", editMid);
+                _logger.LogWarning(
+                    "[IG-WEBHOOK] Nao foi possivel obter senderId para message_edit {Mid}. " +
+                    "O payload veio sem sender.id e a Graph API nao retornou a mensagem. " +
+                    "Causa provavel: webhook Instagram/object=instagram esta chegando, mas o webhook Page/Messenger 'messages' nao esta entregando a DM completa.",
+                    editMid);
                 return;
             }
 
