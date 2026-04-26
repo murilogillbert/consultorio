@@ -2,4 +2,5 @@
   <Project Path="Consultorio.API/Consultorio.API.csproj" />
   <Project Path="Consultorio.Domain/Consultorio.Domain.csproj" />
   <Project Path="Consultorio.Infra/Consultorio.Infra.csproj" />
+  <Project Path="Consultorio.Tests/Consultorio.Tests.csproj" />
 </Solution>
