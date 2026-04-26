@@ -54,7 +54,7 @@ public class ClinicsController : ControllerBase
          value.TrimStart().StartsWith("â€¢", StringComparison.Ordinal) ||
          value.TrimStart().StartsWith("•", StringComparison.Ordinal));
 
-    private static IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic) => new()
+    private IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic) => new()
     {
         GmailClientId = clinic.GmailClientId,
         GmailClientSecret = clinic.GmailClientSecret,
@@ -76,6 +76,13 @@ public class ClinicsController : ControllerBase
         IgAppSecretMasked = MaskSafe(clinic.IgAppSecret),
         IgVerifyTokenMasked = MaskSafe(clinic.IgVerifyToken),
         IgConnected = clinic.IgConnected,
+        IgIntegrationMode = _instagram.GetEndpointInfo(clinic).Mode,
+        IgGraphVersion = _instagram.GetEndpointInfo(clinic).GraphVersion,
+        IgSendEndpoint = _instagram.GetEndpointInfo(clinic).SendEndpoint,
+        IgSubscribeEndpoint = _instagram.GetEndpointInfo(clinic).SubscribeEndpoint,
+        IgSubscribedAppsEndpoint = _instagram.GetEndpointInfo(clinic).SubscribedAppsEndpoint,
+        IgUserProfileEndpoint = _instagram.GetEndpointInfo(clinic).UserProfileEndpoint,
+        IgAllowMessageEditMidFallback = _instagram.GetEndpointInfo(clinic).AllowMessageEditMidFallback,
     };
 
     // GET /api/clinics
@@ -381,7 +388,11 @@ public class ClinicsController : ControllerBase
             // A Meta exige 2 etapas: (1) webhook do App (configurado no painel) e
             // (2) Page → subscribed_apps. Sem o #2, as DMs nunca chegam. Então
             // fazemos a #2 automaticamente aqui e reportamos o resultado.
-            var (subOk, subDetail, subFields) = await _instagram.SubscribePageToAppAsync(id);
+            var subscription = await _instagram.SubscribeToAppDetailedAsync(id);
+            var subOk = subscription.Ok;
+            var subDetail = subscription.Detail;
+            var subFields = subscription.SubscribedFields;
+            var endpoints = _instagram.GetEndpointInfo(clinic);
 
             clinic.IgConnected = true;
             clinic.UpdatedAt   = DateTime.UtcNow;
@@ -408,6 +419,7 @@ public class ClinicsController : ControllerBase
             {
                 ok      = subOk && hasMessages,
                 message,
+                endpoints,
                 detail  = $"Page ID: {info.PageId} · {subsBlock}",
                 subscription = new
                 {
@@ -415,6 +427,8 @@ public class ClinicsController : ControllerBase
                     hasMessages,
                     detail = subDetail,
                     fields = subFields,
+                    subscribeEndpoint = subscription.SubscribeEndpoint,
+                    subscribedAppsEndpoint = subscription.SubscribedAppsEndpoint,
                 },
             });
         }

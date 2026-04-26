@@ -26,6 +26,13 @@ public class IntegrationSettingsResponseDto
     public string? IgAppSecretMasked       { get; set; }
     public string? IgVerifyTokenMasked     { get; set; }
     public bool    IgConnected             { get; set; }
+    public string? IgIntegrationMode       { get; set; }
+    public string? IgGraphVersion          { get; set; }
+    public string? IgSendEndpoint          { get; set; }
+    public string? IgSubscribeEndpoint     { get; set; }
+    public string? IgSubscribedAppsEndpoint { get; set; }
+    public string? IgUserProfileEndpoint   { get; set; }
+    public bool    IgAllowMessageEditMidFallback { get; set; }
 }
 
 public class UpdateIntegrationSettingsDto

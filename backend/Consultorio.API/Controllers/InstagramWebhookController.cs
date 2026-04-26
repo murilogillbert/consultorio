@@ -19,15 +19,19 @@ public class InstagramWebhookController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ILogger<InstagramWebhookController> _logger;
+    private readonly InstagramService _instagram;
     private readonly string _graphBaseUrl;
     private readonly string _graphVersion;
+    private readonly bool _allowMessageEditMidFallback;
 
-    public InstagramWebhookController(AppDbContext db, ILogger<InstagramWebhookController> logger, IConfiguration config)
+    public InstagramWebhookController(AppDbContext db, ILogger<InstagramWebhookController> logger, IConfiguration config, InstagramService instagram)
     {
         _db = db;
         _logger = logger;
-        _graphBaseUrl = (config["Instagram:GraphBaseUrl"] ?? "https://graph.facebook.com").TrimEnd('/');
+        _instagram = instagram;
+        _graphBaseUrl = (config["Instagram:FacebookGraphBaseUrl"] ?? config["Instagram:GraphBaseUrl"] ?? "https://graph.facebook.com").TrimEnd('/');
         _graphVersion = config["Instagram:GraphVersion"] ?? "v23.0";
+        _allowMessageEditMidFallback = instagram.AllowMessageEditMidFallback;
     }
 
     // ─── GET: Meta webhook verification challenge ─────────────────────────────
@@ -445,15 +449,22 @@ public class InstagramWebhookController : ControllerBase
         if (!root.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array)
             return;
 
+        var objectName = root.TryGetProperty("object", out var objectEl) ? objectEl.GetString() ?? "" : "";
+
         foreach (var entry in entries.EnumerateArray())
         {
+            var entryId = entry.TryGetProperty("id", out var entryIdEl) ? entryIdEl.GetString() : null;
             // ── Formato A: Messenger Platform (object=page) ────────────────────
             // entry[].messaging[] → cada elemento é um evento de mensagem diretamente
             if (entry.TryGetProperty("messaging", out var messaging) && messaging.ValueKind == JsonValueKind.Array)
             {
                 _logger.LogInformation("[IG-WEBHOOK] Entry usando formato Messenger (messaging[]). Count: {Count}", messaging.GetArrayLength());
                 foreach (var event_ in messaging.EnumerateArray())
-                    await ProcessSingleMessageEventAsync(event_, clinic);
+                {
+                    var diagnostics = InstagramWebhookPayloadParser.BuildDiagnostics(objectName, entryId, "messaging", event_);
+                    LogEventDiagnostics(diagnostics);
+                    await ProcessSingleMessageEventAsync(event_, clinic, diagnostics);
+                }
             }
 
             // ── Formato B: Instagram Graph API (object=instagram) ──────────────
@@ -474,7 +485,9 @@ public class InstagramWebhookController : ControllerBase
                         continue;
 
                     // value tem a mesma estrutura de um evento de messaging
-                    await ProcessSingleMessageEventAsync(value, clinic);
+                    var diagnostics = InstagramWebhookPayloadParser.BuildDiagnostics(objectName, entryId, field, value);
+                    LogEventDiagnostics(diagnostics);
+                    await ProcessSingleMessageEventAsync(value, clinic, diagnostics);
                 }
             }
         }
@@ -676,7 +689,23 @@ public class InstagramWebhookController : ControllerBase
         return raw.Length > 300 ? raw[..300] + "..." : raw;
     }
 
-    private async Task ProcessSingleMessageEventAsync(JsonElement event_, Clinic clinic)
+    private void LogEventDiagnostics(InstagramWebhookEventDiagnostics d)
+    {
+        _logger.LogInformation(
+            "[IG-WEBHOOK] EventDiag Object={Object} EntryId={EntryId} Field={Field} HasSender={HasSender} HasRecipient={HasRecipient} HasMessage={HasMessage} HasMessageEdit={HasMessageEdit} HasText={HasText} NumEdit={NumEdit} MessageId={MessageId}",
+            d.Object,
+            d.EntryId ?? "(null)",
+            d.Field ?? "(null)",
+            d.HasSender,
+            d.HasRecipient,
+            d.HasMessage,
+            d.HasMessageEdit,
+            d.HasText,
+            d.NumEdit?.ToString() ?? "(null)",
+            d.MessageId ?? "(null)");
+    }
+
+    private async Task ProcessSingleMessageEventAsync(JsonElement event_, Clinic clinic, InstagramWebhookEventDiagnostics? diagnostics = null)
     {
         // ── Formato message_edit com num_edit=0 ───────────────────────────────
         // Instagram envia um evento message_edit (num_edit=0) para toda mensagem
@@ -714,7 +743,7 @@ public class InstagramWebhookController : ControllerBase
             }
 
             var token = InstagramService.SanitizeToken(clinic.IgAccessToken);
-            if (string.IsNullOrWhiteSpace(token))
+            if (string.IsNullOrWhiteSpace(token) && _allowMessageEditMidFallback)
             {
                 _logger.LogWarning("[IG-WEBHOOK] Sem access token para buscar conteúdo do message_edit {Mid}.", editMid);
                 return;
@@ -736,14 +765,24 @@ public class InstagramWebhookController : ControllerBase
             {
                 _logger.LogWarning(
                     "[IG-WEBHOOK] message_edit incompleto recebido. Mid={Mid} HasSender={HasSender} HasText={HasText}. " +
-                    "No fluxo Page Access Token, DMs reais devem chegar pelo webhook de Page/Messenger como 'message' com sender/recipient. " +
-                    "Verifique no Meta Developers se o objeto Page do produto Webhooks/Messenger usa esta mesma URL e assina o campo 'messages'.",
+                    "DMs reais devem chegar como evento 'message' com sender/recipient. " +
+                    "Verifique no Meta Developers se a conta profissional esta subscrita ao campo 'messages' nesta URL.",
                     editMid,
                     !string.IsNullOrWhiteSpace(eventSenderId),
                     !string.IsNullOrWhiteSpace(eventText));
+
+                if (!_allowMessageEditMidFallback)
+                {
+                    _logger.LogWarning(
+                        "[IG-WEBHOOK] message_edit incompleto tratado apenas como diagnostico. Mid={Mid}. Fallback por mid desativado em Instagram:AllowMessageEditMidFallback.",
+                        editMid);
+                    return;
+                }
             }
 
-            var (fetchedText, fetchedSenderId, fetchedTs) = await FetchMessageInfoByMidAsync(editMid, token, clinic.IgPageId, clinic.IgAccountId);
+            (string? fetchedText, string? fetchedSenderId, DateTime? fetchedTs) = (null, null, null);
+            if (_allowMessageEditMidFallback)
+                (fetchedText, fetchedSenderId, fetchedTs) = await FetchMessageInfoByMidAsync(editMid, token!, clinic.IgPageId, clinic.IgAccountId);
             var editText = eventText ?? fetchedText;
             var editSenderId = eventSenderId ?? fetchedSenderId;
             var editTs = eventTs ?? fetchedTs;
@@ -753,7 +792,7 @@ public class InstagramWebhookController : ControllerBase
                 _logger.LogWarning(
                     "[IG-WEBHOOK] Nao foi possivel obter senderId para message_edit {Mid}. " +
                     "O payload veio sem sender.id e a Graph API nao retornou a mensagem. " +
-                    "Causa provavel: webhook Instagram/object=instagram esta chegando, mas o webhook Page/Messenger 'messages' nao esta entregando a DM completa.",
+                    "Causa provavel: a Meta entregou apenas message_edit; confirme o evento 'messages' completo e as permissoes da conta profissional.",
                     editMid);
                 return;
             }
@@ -859,7 +898,7 @@ public class InstagramWebhookController : ControllerBase
         // Tenta buscar o nome do remetente via Graph API
         string? igName = null;
         if (!string.IsNullOrWhiteSpace(clinic.IgAccessToken))
-            igName = await FetchInstagramUserNameAsync(igSenderId, clinic.IgAccessToken);
+            igName = await _instagram.FetchUserProfileNameAsync(igSenderId, clinic.IgAccessToken);
         var displayName = igName ?? $"Instagram {igSenderId[..Math.Min(8, igSenderId.Length)]}";
 
         var placeholderEmail = $"ig.{igSenderId}@instagram.local";
@@ -895,21 +934,6 @@ public class InstagramWebhookController : ControllerBase
         patient.User = user;
         _logger.LogInformation("Instagram: novo paciente criado automaticamente para sender {SenderId} na clínica {ClinicId}.", igSenderId, clinic.Id);
         return patient;
-    }
-
-    private static async Task<string?> FetchInstagramUserNameAsync(string igSenderId, string igAccessToken)
-    {
-        try
-        {
-            using var http = new HttpClient();
-            var url = $"https://graph.facebook.com/v19.0/{igSenderId}?fields=name&access_token={igAccessToken}";
-            var resp = await http.GetAsync(url);
-            if (!resp.IsSuccessStatusCode) return null;
-            var json = await resp.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-        }
-        catch { return null; }
     }
 
     private static string? ExtractMessageContent(JsonElement message)

@@ -339,8 +339,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const validateInstagram = () => {
     const e: Record<string, string> = {}
     if (!instagram.accountId) e.accountId = 'Account ID é obrigatório'
-    if (!instagram.pageId) e.pageId = 'Page ID é obrigatório'
-    if (!instagram.pageToken) e.pageToken = 'Page Access Token é obrigatório'
+    if (!instagram.pageToken) e.pageToken = 'Instagram Access Token é obrigatório'
     if (!instagram.appSecret) e.appSecret = 'App Secret obrigatorio'
     if (!instagram.verifyToken) e.verifyToken = 'Verify Token obrigatorio'
     setIgErrors(e)
@@ -599,7 +598,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <InstructionBox steps={[
           'Certifique-se de ter uma Conta Instagram Business vinculada a uma Página do Facebook',
           'No Meta Developer Portal, adicione o produto "Messenger" ao seu app',
-          'Em Graph API Explorer, gere um Page Access Token de longa duração',
+          'Gere um Instagram Access Token com instagram_business_manage_messages',
           'Configure a URL do webhook abaixo para o Instagram no painel do app',
           'Selecione os campos de inscrição desejados (listados abaixo)',
         ]} />
@@ -617,7 +616,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           />
           <SensitiveField
             label="Facebook Page ID"
-            required
             placeholder="100000000000000"
             hint="Deve ser a Página do Facebook vinculada à conta Instagram Business"
             mono
@@ -627,7 +625,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           />
           <div className="input-group full-span">
             <SensitiveField
-              label="Page Access Token (longa duração)"
+              label="Instagram Access Token"
               required
               placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
               hint="⚠️ Tokens de curta duração expiram em 1 hora. Use o Graph API para trocar por um de longa duração (60 dias) e depois por um permanente."
@@ -657,12 +655,31 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             error={igErrors.verifyToken}
           />
           <WebhookField label="URL do Webhook" url={`${baseUrl}/webhooks/instagram`} />
+          <div className="input-group full-span">
+            <label className="input-label">Modo canônico Meta</label>
+            <div className="intg-tags-row">
+              <span className="intg-scope-tag">{existingSettings?.igIntegrationMode || 'InstagramLogin'}</span>
+              <span className="intg-scope-tag">{existingSettings?.igGraphVersion || 'v23.0'}</span>
+              <span className="intg-scope-tag">
+                message_edit mid fallback: {existingSettings?.igAllowMessageEditMidFallback ? 'ativo' : 'inativo'}
+              </span>
+            </div>
+          </div>
+          <div className="full-span">
+            <WebhookField label="Endpoint de envio Meta" url={existingSettings?.igSendEndpoint || 'https://graph.instagram.com/v23.0/{ig_user_id}/messages'} />
+          </div>
+          <div className="full-span">
+            <WebhookField label="Endpoint de assinatura Meta" url={existingSettings?.igSubscribeEndpoint || 'https://graph.instagram.com/v23.0/{ig_user_id}/subscribed_apps'} />
+          </div>
+          <div className="full-span">
+            <WebhookField label="Endpoint de perfil por IGSID" url={existingSettings?.igUserProfileEndpoint || 'https://graph.instagram.com/v23.0/{ig_scoped_id}'} />
+          </div>
         </div>
 
         <div className="intg-scope-tags">
           <label className="input-label" style={{ marginBottom: 8 }}>Campos subscritos do webhook</label>
           <div className="intg-tags-row">
-            {['messages', 'messaging_postbacks', 'message_reactions', 'message_reads'].map(s => (
+            {['messages', 'messaging_postbacks', 'messaging_seen', 'message_reactions'].map(s => (
               <span key={s} className="intg-scope-tag">{s}</span>
             ))}
           </div>

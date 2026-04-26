@@ -42,6 +42,13 @@ export interface IntegrationSettings {
   igVerifyTokenMasked?: string
   igVerifyToken?: string
   igConnected?: boolean
+  igIntegrationMode?: string
+  igGraphVersion?: string
+  igSendEndpoint?: string
+  igSubscribeEndpoint?: string
+  igSubscribedAppsEndpoint?: string
+  igUserProfileEndpoint?: string
+  igAllowMessageEditMidFallback?: boolean
 }
 
 export function useIntegrations(clinicId?: string) {
@@ -83,7 +90,7 @@ export function useUpdateIntegrations() {
 export function useTestIntegration() {
   return useMutation({
     mutationFn: async ({ clinicId, type }: { clinicId: string; type: string }) => {
-      const { data } = await api.post<{ ok: boolean; message: string; detail?: string }>(
+      const { data } = await api.post<{ ok: boolean; message: string; detail?: string; endpoints?: any; subscription?: any }>(
         `/clinics/${clinicId}/settings/integrations/${type}/test`,
         {}
       )
