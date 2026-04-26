@@ -75,15 +75,35 @@ export interface InsuranceStatsData {
   totalAppointments: number
   totalWithInsurance: number
   withoutInsurance: number
-  insurancePlans: Array<{ name: string; count: number; percentage: number }>
+  insurancePlans: Array<{ id: string; name: string; count: number; percentage: number }>
 }
 
-export function useProfessionalInsuranceStats() {
+export function useProfessionalInsuranceStats(filters?: { patientId?: string; serviceId?: string }) {
   return useQuery<InsuranceStatsData>({
-    queryKey: ['professional-portal', 'insurance-stats'],
+    queryKey: ['professional-portal', 'insurance-stats', filters?.patientId ?? '', filters?.serviceId ?? ''],
     queryFn: async () => {
-      const { data } = await api.get('/professional-portal/insurance-stats')
+      const params = new URLSearchParams()
+      if (filters?.patientId) params.append('patientId', filters.patientId)
+      if (filters?.serviceId) params.append('serviceId', filters.serviceId)
+      const qs = params.toString()
+      const { data } = await api.get(`/professional-portal/insurance-stats${qs ? `?${qs}` : ''}`)
       return data as InsuranceStatsData
+    },
+  })
+}
+
+// ─── Filtros (pacientes e serviços já atendidos) ───────────────────────────
+export interface PortalFiltersData {
+  patients: Array<{ id: string; name: string }>
+  services: Array<{ id: string; name: string }>
+}
+
+export function useProfessionalPortalFilters() {
+  return useQuery<PortalFiltersData>({
+    queryKey: ['professional-portal', 'filters'],
+    queryFn: async () => {
+      const { data } = await api.get('/professional-portal/filters')
+      return data as PortalFiltersData
     },
   })
 }
@@ -140,13 +160,19 @@ export interface EarningsData {
   }>
 }
 
-export function useProfessionalEarnings(year?: number, month?: number) {
+export function useProfessionalEarnings(
+  year?: number,
+  month?: number,
+  filters?: { patientId?: string; serviceId?: string },
+) {
   return useQuery<EarningsData>({
-    queryKey: ['professional-portal', 'earnings', year, month],
+    queryKey: ['professional-portal', 'earnings', year, month, filters?.patientId ?? '', filters?.serviceId ?? ''],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (year)  params.append('year',  String(year))
       if (month) params.append('month', String(month))
+      if (filters?.patientId) params.append('patientId', filters.patientId)
+      if (filters?.serviceId) params.append('serviceId', filters.serviceId)
       const qs = params.toString()
       const { data } = await api.get(`/professional-portal/earnings${qs ? `?${qs}` : ''}`)
       return data as EarningsData

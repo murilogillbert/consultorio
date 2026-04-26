@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<ServiceInsurancePlan> ServiceInsurancePlans { get; set; } = null!;
     public DbSet<MessageTemplate> MessageTemplates { get; set; } = null!;
     public DbSet<Custo> Custos { get; set; } = null!;
+    public DbSet<Category> Categories { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,23 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<MessageTemplate>()
             .HasIndex(t => new { t.ClinicId, t.Kind })
+            .IsUnique();
+
+        // ───── CATEGORY (admin: user / professional / specialty) ─────
+        modelBuilder.Entity<Category>()
+            .HasKey(c => c.Id);
+        modelBuilder.Entity<Category>()
+            .HasOne(c => c.Clinic)
+            .WithMany()
+            .HasForeignKey(c => c.ClinicId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Category>()
+            .HasOne(c => c.Parent)
+            .WithMany(c => c.Children)
+            .HasForeignKey(c => c.ParentId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Category>()
+            .HasIndex(c => new { c.ClinicId, c.Type, c.Name })
             .IsUnique();
 
         // ───── CUSTO ─────
@@ -330,6 +348,13 @@ public class AppDbContext : DbContext
         // ───── INSURANCEPLAN ─────
         modelBuilder.Entity<InsurancePlan>()
             .HasKey(ip => ip.Id);
+        modelBuilder.Entity<InsurancePlan>()
+            .HasOne(ip => ip.Clinic)
+            .WithMany()
+            .HasForeignKey(ip => ip.ClinicId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<InsurancePlan>()
+            .HasIndex(ip => new { ip.ClinicId, ip.Name });
 
         // ───── PROFESSIONALREVIEW ─────
         modelBuilder.Entity<ProfessionalReview>()

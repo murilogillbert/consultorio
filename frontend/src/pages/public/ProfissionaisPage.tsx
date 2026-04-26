@@ -10,11 +10,15 @@ export default function ProfissionaisPage() {
   const [filter, setFilter] = useState('Todos')
   const { data: professionals = [], isLoading } = useProfessionals()
 
-  const specs = ['Todos', ...Array.from(new Set(professionals.map(p => p.specialty)))]
+  // Filtra profissionais sem especialidade do filtro para evitar pílulas vazias.
+  const allSpecs = professionals
+    .map(p => (p.specialty || '').trim())
+    .filter(s => s.length > 0)
+  const specs = ['Todos', ...Array.from(new Set(allSpecs)).sort()]
 
   const filtered = filter === 'Todos'
     ? professionals
-    : professionals.filter(p => p.specialty === filter)
+    : professionals.filter(p => (p.specialty || '').trim() === filter)
 
   return (
     <div style={{ marginTop: 'var(--navbar-height)', minHeight: '100vh' }}>
@@ -53,11 +57,30 @@ export default function ProfissionaisPage() {
                 </div>
                 <div className="professional-profile-body">
                   <h3>{name}</h3>
-                  <p className="crm">{prof.councilType} {prof.crm}</p>
+                  {(prof.crm || prof.councilType) && (
+                    <p className="crm">{prof.councilType} {prof.crm}</p>
+                  )}
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
-                    <span className="badge badge-emerald">{prof.specialty}</span>
-                  </div>
+                  {(prof.specialty || '').trim() && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+                      <span className="badge badge-emerald">{prof.specialty}</span>
+                    </div>
+                  )}
+
+                  {prof.bio && prof.bio.trim() && (
+                    <p style={{
+                      fontSize: 13,
+                      color: 'var(--color-text-secondary)',
+                      lineHeight: 1.5,
+                      marginBottom: 12,
+                      display: '-webkit-box',
+                      WebkitLineClamp: isExpanded ? undefined : 4,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}>
+                      {prof.bio}
+                    </p>
+                  )}
 
                   {/* Availability dots */}
                   <div style={{ marginBottom: 12 }}>

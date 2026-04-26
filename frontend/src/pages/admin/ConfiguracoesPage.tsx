@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, Camera, Wrench, AlertTriangle, Palette, RotateCcw, Loader2, Save, RefreshCw } from 'lucide-react'
+import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, Camera, Wrench, AlertTriangle, Palette, RotateCcw, Loader2, Save, RefreshCw, Tag } from 'lucide-react'
 import IntegrationsPanel from './IntegrationsPanel'
 import { useClinics, useUpdateClinic } from '../../hooks/useClinics'
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, type CategoryType } from '../../hooks/useCategories'
 import { useMessageTemplates, useUpsertMessageTemplate, TEMPLATE_LABELS, type MessageTemplate, type TemplateKind } from '../../hooks/useMessageTemplates'
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../../hooks/useRooms'
 import { useInsurances, useCreateInsurance, useUpdateInsurance, useDeleteInsurance } from '../../hooks/useInsurances'
@@ -31,6 +32,7 @@ const tabs = [
   { id: 'integrations', label: 'Integrações', icon: Puzzle },
   { id: 'users', label: 'Usuários', icon: Users },
   { id: 'insurance', label: 'Convênios', icon: Shield },
+  { id: 'categories', label: 'Categorias', icon: Tag },
   { id: 'rooms', label: 'Salas', icon: DoorOpen },
   { id: 'equipment', label: 'Equipamentos', icon: Wrench },
   { id: 'chat', label: 'Chat Interno', icon: MessageSquare },
@@ -729,6 +731,8 @@ export default function ConfiguracoesPage() {
               )}
             </div>
           )}
+
+          {activeTab === 'categories' && <CategoriesSection askDelete={askDelete} />}
 
           {activeTab === 'rooms' && (
             <div>
@@ -1594,6 +1598,199 @@ function TemplatesSection() {
           <RefreshCw size={13} /> Recarregar do servidor
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Categorias Dinâmicas (Usuário, Profissional, Especialidades) ─────────────
+const CATEGORY_TYPE_TABS: { id: CategoryType; label: string; helpText: string }[] = [
+  { id: 'USER',         label: 'Usuário',     helpText: 'Categorias para usuários do sistema (ex.: Médico, Recepção, Financeiro).' },
+  { id: 'PROFESSIONAL', label: 'Profissional', helpText: 'Tipos de profissional atendentes (ex.: Psicólogo, Dentista, Cirurgião).' },
+  { id: 'SPECIALTY',    label: 'Especialidades', helpText: 'Especialidades, podendo ser vinculadas a uma categoria profissional.' },
+]
+
+function CategoriesSection({ askDelete }: { askDelete: (label: string, action: () => Promise<void>) => void }) {
+  const [activeType, setActiveType] = useState<CategoryType>('USER')
+  const { data: categories = [], isLoading } = useCategories({ type: activeType })
+  const { data: professionalCategories = [] } = useCategories({ type: 'PROFESSIONAL' })
+  const createMutation = useCreateCategory()
+  const updateMutation = useUpdateCategory()
+  const deleteMutation = useDeleteCategory()
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState<{ name: string; description: string; parentId: string }>({
+    name: '', description: '', parentId: '',
+  })
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const openNew = () => {
+    setEditingId('new')
+    setForm({ name: '', description: '', parentId: '' })
+    setErrorMsg('')
+  }
+
+  const openEdit = (cat: typeof categories[0]) => {
+    setEditingId(cat.id)
+    setForm({
+      name: cat.name,
+      description: cat.description || '',
+      parentId: cat.parentId || '',
+    })
+    setErrorMsg('')
+  }
+
+  const handleSave = async () => {
+    setErrorMsg('')
+    const trimmed = form.name.trim()
+    if (!trimmed) { setErrorMsg('Nome é obrigatório.'); return }
+    try {
+      if (editingId === 'new') {
+        await createMutation.mutateAsync({
+          type: activeType,
+          name: trimmed,
+          description: form.description || undefined,
+          parentId: activeType === 'SPECIALTY' && form.parentId ? form.parentId : null,
+        })
+      } else if (editingId) {
+        await updateMutation.mutateAsync({
+          id: editingId,
+          name: trimmed,
+          description: form.description,
+          parentId: activeType === 'SPECIALTY' ? (form.parentId || null) : undefined,
+        })
+      }
+      setEditingId(null)
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message || 'Erro ao salvar categoria.')
+    }
+  }
+
+  const activeMeta = CATEGORY_TYPE_TABS.find(t => t.id === activeType)!
+
+  return (
+    <div>
+      <div className="admin-responsive-header" style={{ marginBottom: 'var(--space-4)' }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)' }}>Categorias</h3>
+        <button className="btn btn-primary btn-sm" onClick={openNew}>
+          <Plus size={14} /> Nova categoria
+        </button>
+      </div>
+
+      <div className="pill-tabs" style={{ marginBottom: 'var(--space-4)' }}>
+        {CATEGORY_TYPE_TABS.map(t => (
+          <button
+            key={t.id}
+            className={`pill-tab${activeType === t.id ? ' active' : ''}`}
+            onClick={() => { setActiveType(t.id); setEditingId(null); setErrorMsg('') }}
+            type="button"
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
+        {activeMeta.helpText}
+      </p>
+
+      {editingId && (
+        <div className="card" style={{ marginBottom: 'var(--space-6)', background: 'var(--color-bg-subtle)' }}>
+          <h4 style={{ marginBottom: 'var(--space-4)', fontSize: 14 }}>
+            {editingId === 'new' ? 'Adicionar categoria' : 'Editar categoria'}
+          </h4>
+          <div className="form-2col" style={{ marginBottom: 'var(--space-4)' }}>
+            <div className="input-group">
+              <label className="input-label">Nome <span className="required">*</span></label>
+              <input
+                className="input-field"
+                value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+                placeholder={activeType === 'PROFESSIONAL' ? 'Ex.: Psicólogo' : activeType === 'SPECIALTY' ? 'Ex.: Neuropsicologia' : 'Ex.: Recepção'}
+              />
+            </div>
+            {activeType === 'SPECIALTY' && (
+              <div className="input-group">
+                <label className="input-label">Categoria profissional (opcional)</label>
+                <select
+                  className="input-field"
+                  value={form.parentId}
+                  onChange={e => setForm({ ...form, parentId: e.target.value })}
+                >
+                  <option value="">— Sem vínculo —</option>
+                  {professionalCategories.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="input-group full-span">
+              <label className="input-label">Descrição</label>
+              <input
+                className="input-field"
+                value={form.description}
+                onChange={e => setForm({ ...form, description: e.target.value })}
+                placeholder="Opcional"
+              />
+            </div>
+          </div>
+          {errorMsg && (
+            <p style={{ fontSize: 13, color: 'var(--color-accent-danger)', marginBottom: 'var(--space-3)' }}>{errorMsg}</p>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditingId(null)}>Cancelar</button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleSave}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>Carregando...</p>
+      ) : categories.length === 0 ? (
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>Nenhuma categoria cadastrada.</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              {activeType === 'SPECIALTY' && <th>Categoria profissional</th>}
+              <th>Descrição</th>
+              <th style={{ textAlign: 'right' }}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {categories.map(cat => (
+              <tr key={cat.id}>
+                <td style={{ fontWeight: 500 }}>{cat.name}</td>
+                {activeType === 'SPECIALTY' && (
+                  <td>{cat.parentName || <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>—</span>}</td>
+                )}
+                <td style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>
+                  {cat.description || '—'}
+                </td>
+                <td>
+                  <div className="row-actions">
+                    <button className="btn btn-icon btn-sm" onClick={() => openEdit(cat)}>
+                      <Edit size={14} />
+                    </button>
+                    <button
+                      className="btn btn-icon btn-sm"
+                      onClick={() => askDelete(`Remover a categoria "${cat.name}"?`, () => deleteMutation.mutateAsync(cat.id))}
+                    >
+                      <Trash2 size={14} color="var(--color-accent-danger)" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }

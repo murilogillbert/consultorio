@@ -315,7 +315,9 @@ public class ServicesController : ControllerBase
     }
 
     // ─── DELETE /api/services/{id} ─────────────────────────────────────
-    // Exclui permanentemente. Retorna 409 se houver agendamentos.
+    // Exclui o serviço. Quando há agendamentos, faz soft delete (IsActive=false)
+    // para preservar o histórico/financeiro vinculado. Caso contrário, remove
+    // definitivamente. A resposta indica via header X-Delete-Mode qual ação foi feita.
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(Guid id)
     {
@@ -326,15 +328,27 @@ public class ServicesController : ControllerBase
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
 
-        if (service.Appointments?.Count > 0)
-            return Conflict(new
+        var appointmentCount = service.Appointments?.Count ?? 0;
+
+        if (appointmentCount > 0)
+        {
+            // Soft delete — mantém integridade referencial com Appointments/Payments.
+            service.IsActive = false;
+            service.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            Response.Headers.Append("X-Delete-Mode", "soft");
+            return Ok(new
             {
-                message = $"Este serviço possui {service.Appointments.Count} agendamento(s) e não pode ser excluído. Desative-o para ocultá-lo do site."
+                mode = "soft",
+                appointmentCount,
+                message = $"Serviço inativado. Histórico de {appointmentCount} agendamento(s) preservado."
             });
+        }
 
         _db.Services.Remove(service);
         await _db.SaveChangesAsync();
-        return NoContent();
+        Response.Headers.Append("X-Delete-Mode", "hard");
+        return Ok(new { mode = "hard", message = "Serviço excluído." });
     }
 
     // ─── GET /api/services/categories ─────────────────────────────────

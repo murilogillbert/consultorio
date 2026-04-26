@@ -125,6 +125,7 @@ public static class SeedData
         var unimed = new InsurancePlan
         {
             Id = Guid.NewGuid(),
+            ClinicId = clinic.Id,
             Name = "Unimed",
             Description = "Convenio Unimed",
             IsActive = true,
@@ -134,6 +135,7 @@ public static class SeedData
         var pax = new InsurancePlan
         {
             Id = Guid.NewGuid(),
+            ClinicId = clinic.Id,
             Name = "Pax",
             Description = "Convenio Pax",
             IsActive = true,
@@ -143,6 +145,7 @@ public static class SeedData
         var privado = new InsurancePlan
         {
             Id = Guid.NewGuid(),
+            ClinicId = clinic.Id,
             Name = "Privado",
             Description = "Atendimento particular",
             IsActive = true,

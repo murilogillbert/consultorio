@@ -2,8 +2,18 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePublicClinic } from '../../hooks/useClinics'
 
-function ClinicLogo() {
+function ClinicLogo({ logoUrl, name }: { logoUrl?: string; name?: string }) {
+  if (logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt={name || 'Logo'}
+        style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10 }}
+      />
+    )
+  }
   return (
     <svg width="56" height="56" viewBox="0 0 40 40" fill="none">
       <rect width="40" height="40" rx="10" fill="#2D6A4F" />
@@ -21,6 +31,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
   const { signIn } = useAuth()
+  const { data: clinic } = usePublicClinic()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,9 +68,9 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo">
-            <ClinicLogo />
+            <ClinicLogo logoUrl={clinic?.logoUrl} name={clinic?.name} />
           </div>
-          <h1>Clínica Vitalis</h1>
+          <h1>{clinic?.name || 'Carregando...'}</h1>
           <p>Acesse o painel de gestão</p>
         </div>
 

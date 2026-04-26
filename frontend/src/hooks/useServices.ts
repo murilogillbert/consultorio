@@ -185,13 +185,21 @@ export function useToggleServiceActive() {
   })
 }
 
-// Hard delete — removes service permanently from the database.
-// Backend returns 409 if the service has appointments.
+// Delete service. Backend automatically soft-deletes (IsActive=false) when the
+// service has appointments to preserve historical billing/data, and hard-deletes
+// otherwise. Returns { mode: 'soft' | 'hard', message: string, appointmentCount? }.
+export interface DeleteServiceResult {
+  mode: 'soft' | 'hard'
+  message?: string
+  appointmentCount?: number
+}
+
 export function useDeleteService() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/services/${id}`)
+    mutationFn: async (id: string): Promise<DeleteServiceResult> => {
+      const { data } = await api.delete<DeleteServiceResult>(`/services/${id}`)
+      return data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services'] })
   })

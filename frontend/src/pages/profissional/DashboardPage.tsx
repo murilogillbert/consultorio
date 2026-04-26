@@ -9,6 +9,7 @@ import {
   useProfessionalInsuranceStats,
   useProfessionalEarnings,
   useProfessionalAlerts,
+  useProfessionalPortalFilters,
   type AlertMessage,
 } from '../../hooks/useProfessionalPortal'
 import { useAuth } from '../../contexts/AuthContext'
@@ -346,17 +347,89 @@ function AvaliacoesTab() {
   )
 }
 
+// ─── Filtros reutilizáveis ───────────────────────────────────────────────────
+function MetricsFilters({
+  patientId, setPatientId, serviceId, setServiceId,
+}: {
+  patientId: string; setPatientId: (v: string) => void
+  serviceId: string; setServiceId: (v: string) => void
+}) {
+  const { data: filters } = useProfessionalPortalFilters()
+  const hasAny = (filters?.patients?.length ?? 0) + (filters?.services?.length ?? 0) > 0
+
+  if (!hasAny) return null
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center',
+      padding: 12, background: 'var(--color-bg-secondary)',
+      border: '1px solid var(--color-border-default)', borderRadius: 12,
+    }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>Filtros</span>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <label style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Paciente</label>
+        <select
+          className="input-field"
+          style={{ minWidth: 180, padding: '6px 8px' }}
+          value={patientId}
+          onChange={e => setPatientId(e.target.value)}
+        >
+          <option value="">Todos</option>
+          {filters?.patients.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <label style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Serviço</label>
+        <select
+          className="input-field"
+          style={{ minWidth: 180, padding: '6px 8px' }}
+          value={serviceId}
+          onChange={e => setServiceId(e.target.value)}
+        >
+          <option value="">Todos</option>
+          {filters?.services.map(s => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {(patientId || serviceId) && (
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => { setPatientId(''); setServiceId('') }}
+          style={{ marginLeft: 'auto' }}
+        >
+          Limpar filtros
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ─── Tab: Convênios ───────────────────────────────────────────────────────────
 function ConveniosTab() {
-  const { data, isLoading } = useProfessionalInsuranceStats()
+  const [patientId, setPatientId] = useState('')
+  const [serviceId, setServiceId] = useState('')
+  const { data, isLoading } = useProfessionalInsuranceStats({ patientId, serviceId })
 
-  if (isLoading) return <div className="skeleton" style={{ height: 250, borderRadius: 12 }} />
-  if (!data) return <p style={{ color: 'var(--color-text-muted)' }}>Sem dados de convênios.</p>
-
-  const total = data.totalAppointments
+  const total = data?.totalAppointments ?? 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <MetricsFilters
+        patientId={patientId}
+        setPatientId={setPatientId}
+        serviceId={serviceId}
+        setServiceId={setServiceId}
+      />
+
+      {isLoading ? <div className="skeleton" style={{ height: 250, borderRadius: 12 }} /> : !data ? (
+        <p style={{ color: 'var(--color-text-muted)' }}>Sem dados de convênios.</p>
+      ) : (<>
       {/* Cards de resumo */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {[
@@ -446,6 +519,7 @@ function ConveniosTab() {
           </span>
         </div>
       )}
+      </>)}
     </div>
   )
 }
@@ -455,8 +529,10 @@ function GanhosTab() {
   const now = new Date()
   const [year, setYear]   = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
+  const [patientId, setPatientId] = useState('')
+  const [serviceId, setServiceId] = useState('')
 
-  const { data, isLoading } = useProfessionalEarnings(year, month)
+  const { data, isLoading } = useProfessionalEarnings(year, month, { patientId, serviceId })
 
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12) }
@@ -477,6 +553,13 @@ function GanhosTab() {
         </span>
         <button className="btn btn-ghost btn-sm" onClick={nextMonth}><ChevronRight size={16} /></button>
       </div>
+
+      <MetricsFilters
+        patientId={patientId}
+        setPatientId={setPatientId}
+        serviceId={serviceId}
+        setServiceId={setServiceId}
+      />
 
       {isLoading ? (
         <div className="skeleton" style={{ height: 200, borderRadius: 12 }} />

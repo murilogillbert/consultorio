@@ -45,6 +45,7 @@ export default function ServicosPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleteConfirmName, setDeleteConfirmName] = useState('')
   const [deleteError, setDeleteError] = useState('')
+  const [deleteResult, setDeleteResult] = useState<{ mode: 'soft' | 'hard'; message?: string } | null>(null)
 
   // Category management
   const [showCategoryModal, setShowCategoryModal] = useState(false)
@@ -147,8 +148,11 @@ export default function ServicosPage() {
     if (!deleteConfirmId) return
     setDeleteError('')
     try {
-      await deleteMutation.mutateAsync(deleteConfirmId)
+      const result = await deleteMutation.mutateAsync(deleteConfirmId)
       setDeleteConfirmId(null)
+      setDeleteResult(result)
+      // Auto-hide a confirmação visual após alguns segundos
+      window.setTimeout(() => setDeleteResult(null), 4000)
     } catch (err: any) {
       setDeleteError(err?.response?.data?.message || 'Erro ao excluir servico.')
     }
@@ -188,19 +192,19 @@ export default function ServicosPage() {
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          <div className="card" style={{ maxWidth: 420, width: '90%', padding: 'var(--space-8)' }}>
+          <div className="card" style={{ maxWidth: 460, width: '90%', padding: 'var(--space-8)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-4)' }}>
               <AlertTriangle size={24} color="var(--color-accent-danger)" />
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', margin: 0 }}>
-                Excluir Servico
+                Excluir serviço
               </h3>
             </div>
-            <p style={{ color: 'var(--color-text-muted)', fontSize: 14, marginBottom: 'var(--space-4)' }}>
-              Tem certeza que deseja excluir permanentemente o servico{' '}
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 14, marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
+              Tem certeza que deseja excluir o serviço{' '}
               <strong style={{ color: 'var(--color-text-primary)' }}>{deleteConfirmName}</strong>?
               <br /><br />
-              Esta acao nao pode ser desfeita. Se o servico possui agendamentos, use o botao{' '}
-              <EyeOff size={12} style={{ verticalAlign: 'middle' }} /> <em>Desativar</em> para oculta-lo do site.
+              Se o serviço possui agendamentos, ele será <strong>inativado</strong> automaticamente
+              para preservar o histórico e o faturamento. Caso contrário, será excluído permanentemente.
             </p>
             {deleteError && (
               <div style={{
@@ -221,10 +225,24 @@ export default function ServicosPage() {
                 onClick={handleDeleteConfirm}
                 disabled={deleteMutation.isPending}
               >
-                {deleteMutation.isPending ? 'Excluindo...' : 'Excluir permanentemente'}
+                {deleteMutation.isPending ? 'Processando...' : 'Confirmar exclusão'}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {deleteResult && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 999,
+          background: 'var(--color-bg-primary)',
+          border: `1px solid ${deleteResult.mode === 'soft' ? 'var(--color-accent-warning)' : 'var(--color-accent-emerald)'}`,
+          color: 'var(--color-text-primary)',
+          borderRadius: 'var(--radius-md)', padding: '12px 16px',
+          boxShadow: 'var(--shadow-card)', maxWidth: 360, fontSize: 13,
+        }}>
+          <strong>{deleteResult.mode === 'soft' ? 'Serviço inativado' : 'Serviço excluído'}</strong>
+          {deleteResult.message && <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>{deleteResult.message}</div>}
         </div>
       )}
 

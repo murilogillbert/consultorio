@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, MapPin, Clock, Briefcase, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useActiveJobOpenings, useSubmitCandidacy } from '../../hooks/useJobs'
+import { usePublicClinic } from '../../hooks/useClinics'
 
 const regimeColor: Record<string, string> = {
   CLT: 'badge-emerald',
@@ -22,6 +23,7 @@ export default function TrabalheConoscoPage() {
   const [errorMsg, setErrorMsg] = useState('')
 
   const { data: jobs = [], isLoading } = useActiveJobOpenings()
+  const { data: clinic } = usePublicClinic()
   const submitCandidacy = useSubmitCandidacy()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,7 +51,7 @@ export default function TrabalheConoscoPage() {
       <div className="container careers-intro">
         <h1 className="section-title" style={{ marginBottom: 'var(--space-4)' }}>Trabalhe Conosco</h1>
         <p style={{ color: 'var(--color-text-secondary)', maxWidth: 600, marginBottom: 'var(--space-8)', lineHeight: 1.7 }}>
-          Faça parte da equipe Clínica Vitalis. Buscamos profissionais apaixonados por cuidar de pessoas, comprometidos com a excelência e que compartilhem dos nossos valores.
+          Faça parte da equipe {clinic?.name || 'da nossa clínica'}. Buscamos profissionais apaixonados por cuidar de pessoas, comprometidos com a excelência e que compartilhem dos nossos valores.
         </p>
 
         {/* Job Listings */}

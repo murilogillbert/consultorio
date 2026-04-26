@@ -135,50 +135,57 @@ public class ProfessionalPortalController : ControllerBase
     }
 
     // ─── GET /api/professional-portal/insurance-stats ─────────────────────
-    // Retorna os convênios mais atendidos (agrupados por InsurancePlan do serviço).
+    // Retorna os convênios mais atendidos para este profissional, baseado no
+    // InsurancePlan selecionado ao criar a consulta (Appointment.InsurancePlanId).
+    // Filtros opcionais: patientId, serviceId
     [HttpGet("insurance-stats")]
-    public async Task<ActionResult> GetInsuranceStats()
+    public async Task<ActionResult> GetInsuranceStats(
+        [FromQuery] Guid? patientId,
+        [FromQuery] Guid? serviceId)
     {
         var proId = GetProfessionalId();
         if (proId == Guid.Empty)
             return Unauthorized(new { message = "Profissional não identificado." });
 
-        // Busca todas as consultas não canceladas do profissional, incluindo o serviço com convênios
-        var appointments = await _db.Appointments
-            .Include(a => a.Service).ThenInclude(s => s.InsurancePlans)
-            .Where(a => a.ProfessionalId == proId && a.Status != "CANCELLED")
-            .ToListAsync();
+        var clinicId = await _db.Professionals
+            .Where(p => p.Id == proId)
+            .Select(p => (Guid?)p.ClinicId)
+            .FirstOrDefaultAsync();
 
-        // Agrupa por convênio (um appointment pode ter múltiplos convênios via serviço)
-        var insuranceCount = new Dictionary<string, int>();
-        var totalWithInsurance = 0;
+        // Busca todas as consultas não canceladas do profissional.
+        // Importante: o convênio é o que foi efetivamente selecionado na consulta
+        // (Appointment.InsurancePlanId), não a lista de convênios suportados pelo serviço.
+        // Isso garante isolamento por profissional e evita "duplicação" do mesmo convênio
+        // quando outro profissional atende o mesmo serviço.
+        var apptQuery = _db.Appointments
+            .Include(a => a.InsurancePlan)
+            .Where(a => a.ProfessionalId == proId && a.Status != "CANCELLED");
 
-        foreach (var appt in appointments)
-        {
-            var plans = appt.Service.InsurancePlans;
-            if (!plans.Any()) continue;
-            totalWithInsurance++;
-            foreach (var plan in plans)
-            {
-                insuranceCount.TryGetValue(plan.Name, out var count);
-                insuranceCount[plan.Name] = count + 1;
-            }
-        }
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+            apptQuery = apptQuery.Where(a => a.PatientId == patientId.Value);
+        if (serviceId.HasValue && serviceId.Value != Guid.Empty)
+            apptQuery = apptQuery.Where(a => a.ServiceId == serviceId.Value);
+
+        var appointments = await apptQuery.ToListAsync();
 
         var totalAppointments = appointments.Count;
-        var ranked = insuranceCount
-            .OrderByDescending(kv => kv.Value)
-            .Select(kv => new
+        var grouped = appointments
+            .Where(a => a.InsurancePlan != null
+                     && (clinicId == null || a.InsurancePlan!.ClinicId == clinicId))
+            .GroupBy(a => new { Id = a.InsurancePlanId!.Value, Name = a.InsurancePlan!.Name })
+            .Select(g => new
             {
-                name = kv.Key,
-                count = kv.Value,
+                id = g.Key.Id,
+                name = g.Key.Name,
+                count = g.Count(),
                 percentage = totalAppointments > 0
-                    ? (int)Math.Round((double)kv.Value / totalAppointments * 100)
+                    ? (int)Math.Round((double)g.Count() / totalAppointments * 100)
                     : 0
             })
+            .OrderByDescending(x => x.count)
             .ToList();
 
-        // Consultas sem convênio
+        var totalWithInsurance = grouped.Sum(g => g.count);
         var withoutInsurance = totalAppointments - totalWithInsurance;
 
         return Ok(new
@@ -186,7 +193,38 @@ public class ProfessionalPortalController : ControllerBase
             totalAppointments,
             totalWithInsurance,
             withoutInsurance,
-            insurancePlans = ranked
+            insurancePlans = grouped
+        });
+    }
+
+    // ─── GET /api/professional-portal/filters ─────────────────────────────
+    // Retorna pacientes e serviços já atendidos por este profissional, para
+    // popular os filtros das métricas.
+    [HttpGet("filters")]
+    public async Task<ActionResult> GetFilters()
+    {
+        var proId = GetProfessionalId();
+        if (proId == Guid.Empty)
+            return Unauthorized(new { message = "Profissional não identificado." });
+
+        var patients = await _db.Appointments
+            .Where(a => a.ProfessionalId == proId)
+            .Select(a => new { Id = a.PatientId, Name = a.Patient.User.Name })
+            .Distinct()
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        var services = await _db.Appointments
+            .Where(a => a.ProfessionalId == proId)
+            .Select(a => new { Id = a.ServiceId, Name = a.Service.Name })
+            .Distinct()
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            patients = patients.Select(p => new { id = p.Id, name = p.Name }),
+            services = services.Select(s => new { id = s.Id, name = s.Name })
         });
     }
 
@@ -232,8 +270,13 @@ public class ProfessionalPortalController : ControllerBase
     // ─── GET /api/professional-portal/earnings ────────────────────────────
     // Retorna os ganhos do mês = Σ(valor do serviço × comissão do profissional).
     // Parâmetros: year (int), month (int, 1-12) — padrão = mês/ano atual.
+    // Filtros opcionais: patientId, serviceId
     [HttpGet("earnings")]
-    public async Task<ActionResult> GetEarnings([FromQuery] int? year, [FromQuery] int? month)
+    public async Task<ActionResult> GetEarnings(
+        [FromQuery] int? year,
+        [FromQuery] int? month,
+        [FromQuery] Guid? patientId,
+        [FromQuery] Guid? serviceId)
     {
         var proId = GetProfessionalId();
         if (proId == Guid.Empty)
@@ -257,16 +300,21 @@ public class ProfessionalPortalController : ControllerBase
         var commission = professional.CommissionPct; // % configurada no admin
 
         // Consultas COMPLETED do mês com pagamento PAID
-        var appointments = await _db.Appointments
+        var apptQuery = _db.Appointments
             .Include(a => a.Service)
             .Include(a => a.Patient).ThenInclude(p => p.User)
             .Include(a => a.Payment)
             .Where(a => a.ProfessionalId == proId
                      && a.StartTime >= monthStart
                      && a.StartTime <= monthEnd
-                     && a.Status == "COMPLETED")
-            .OrderBy(a => a.StartTime)
-            .ToListAsync();
+                     && a.Status == "COMPLETED");
+
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+            apptQuery = apptQuery.Where(a => a.PatientId == patientId.Value);
+        if (serviceId.HasValue && serviceId.Value != Guid.Empty)
+            apptQuery = apptQuery.Where(a => a.ServiceId == serviceId.Value);
+
+        var appointments = await apptQuery.OrderBy(a => a.StartTime).ToListAsync();
 
         // Calcula ganho por consulta: valor pago × comissão%
         var earningItems = appointments.Select(a =>

@@ -5,6 +5,7 @@ import { api } from '../../services/api'
 import { useUpload } from '../../hooks/useUpload'
 import { useRooms } from '../../hooks/useRooms'
 import { useInsurances } from '../../hooks/useInsurances'
+import { useCategories } from '../../hooks/useCategories'
 import ComboBox from '../../components/ComboBox'
 
 const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -38,6 +39,7 @@ export default function ProfissionaisPage() {
   const { data: professionals = [], isLoading } = useProfessionals()
   const { data: rooms = [] } = useRooms()
   const { data: insurancePlans = [] } = useInsurances()
+  const { data: specialties = [] } = useCategories({ type: 'SPECIALTY', activeOnly: true })
   const createMutation = useCreateProfessional()
   const updateMutation = useUpdateProfessional()
 
@@ -402,16 +404,13 @@ export default function ProfissionaisPage() {
                 />
               </div>
               <div className="input-group">
-                <ComboBox 
+                <ComboBox
                   label="Especialidade"
-                  placeholder="Selecione a especialidade..."
-                  options={[
-                    { value: 'Cardiologia', label: 'Cardiologia' },
-                    { value: 'Neurologia', label: 'Neurologia' },
-                    { value: 'Oftalmologia', label: 'Oftalmologia' },
-                    { value: 'Pediatria', label: 'Pediatria' },
-                    { value: 'Ginecologia', label: 'Ginecologia' },
-                  ]}
+                  placeholder={specialties.length > 0 ? 'Selecione a especialidade...' : 'Cadastre especialidades em Configurações → Categorias'}
+                  options={specialties.map(s => ({
+                    value: s.name,
+                    label: s.parentName ? `${s.name} (${s.parentName})` : s.name,
+                  }))}
                   value={formData.specialty}
                   onChange={val => setFormData(prev => ({ ...prev, specialty: val }))}
                 />
