@@ -65,7 +65,7 @@ public class InstagramService
     public static string? SanitizeToken(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        var clean = new string(raw.TrimStart('﻿').Trim()
+        var clean = new string(raw.TrimStart('\uFEFF').Trim()
             .Where(c => c >= 0x20 && c <= 0x7E)
             .ToArray());
         return clean == "" ? null : clean;

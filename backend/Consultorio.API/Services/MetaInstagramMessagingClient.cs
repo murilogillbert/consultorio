@@ -148,7 +148,7 @@ public class MetaInstagramMessagingClient
     {
         var targetId = string.IsNullOrWhiteSpace(ownerId) && mode == InstagramApiMode.InstagramLogin
             ? "me"
-            : ownerId.Trim();
+            : (ownerId ?? "").Trim();
 
         if (string.IsNullOrWhiteSpace(targetId))
             throw new InstagramException(422,
