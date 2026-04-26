@@ -42,13 +42,13 @@ export interface IntegrationSettings {
   igVerifyTokenMasked?: string
   igVerifyToken?: string
   igConnected?: boolean
-  igIntegrationMode?: string
+  // ── Diagnóstico do modo + endpoints efetivos ──
+  igMode?: 'InstagramLogin' | 'FacebookPageLogin' | string
   igGraphVersion?: string
+  igOwnerId?: string
   igSendEndpoint?: string
   igSubscribeEndpoint?: string
-  igSubscribedAppsEndpoint?: string
-  igUserProfileEndpoint?: string
-  igAllowMessageEditMidFallback?: boolean
+  igConfirmEndpoint?: string
 }
 
 export function useIntegrations(clinicId?: string) {
@@ -90,7 +90,7 @@ export function useUpdateIntegrations() {
 export function useTestIntegration() {
   return useMutation({
     mutationFn: async ({ clinicId, type }: { clinicId: string; type: string }) => {
-      const { data } = await api.post<{ ok: boolean; message: string; detail?: string; endpoints?: any; subscription?: any }>(
+      const { data } = await api.post<{ ok: boolean; message: string; detail?: string }>(
         `/clinics/${clinicId}/settings/integrations/${type}/test`,
         {}
       )

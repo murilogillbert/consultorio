@@ -246,7 +246,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         // Se é Instagram e o problema é só a subscrição da página, usamos warning
         // (a conexão em si funcionou, o que falta é uma ação manual no painel Meta).
         const sub = (result as any).subscription as { success?: boolean; hasMessages?: boolean } | undefined
-        const isPartial = type === 'instagram' && sub && sub.success === false
+        const validation = (result as any).validation as { accountOk?: boolean; webhookConfigured?: boolean } | undefined
+        const isPartial = type === 'instagram' && (
+          (sub && sub.success === false) ||
+          (validation?.accountOk === true && validation?.webhookConfigured === false)
+        )
         addToast(full, isPartial ? 'warning' : 'error')
         return
       }
@@ -316,6 +320,15 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     return <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" /></div>
   }
 
+  const igMode = existingSettings?.igMode === 'FacebookPageLogin' ? 'FacebookPageLogin' : 'InstagramLogin'
+  const igUsesPageLogin = igMode === 'FacebookPageLogin'
+  const igGraphVersion = existingSettings?.igGraphVersion || 'v23.0'
+  const igApiBase = igUsesPageLogin ? 'https://graph.facebook.com' : 'https://graph.instagram.com'
+  const igOwnerPlaceholder = igUsesPageLogin ? '{page_id}' : '{ig_user_id}'
+  const igSendEndpointDisplay = existingSettings?.igSendEndpoint || `${igApiBase}/${igGraphVersion}/${igOwnerPlaceholder}/messages`
+  const igSubscribeEndpointDisplay = existingSettings?.igSubscribeEndpoint || `${igApiBase}/${igGraphVersion}/${igOwnerPlaceholder}/subscribed_apps`
+  const igConfirmEndpointDisplay = existingSettings?.igConfirmEndpoint || `${igApiBase}/${igGraphVersion}/${igOwnerPlaceholder}/subscribed_apps`
+
   /* ─── Validation helpers ─── */
   const validateGmail = () => {
     const e: Record<string, string> = {}
@@ -336,12 +349,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     return Object.keys(e).length === 0
   }
 
-  const validateInstagram = () => {
+  const validateInstagram = (requireWebhook = true) => {
     const e: Record<string, string> = {}
-    if (!instagram.accountId) e.accountId = 'Account ID é obrigatório'
-    if (!instagram.pageToken) e.pageToken = 'Instagram Access Token é obrigatório'
-    if (!instagram.appSecret) e.appSecret = 'App Secret obrigatorio'
-    if (!instagram.verifyToken) e.verifyToken = 'Verify Token obrigatorio'
+    if (igUsesPageLogin && !instagram.pageId) e.pageId = 'Facebook Page ID obrigatorio'
+    if (!instagram.pageToken) e.pageToken = `${igUsesPageLogin ? 'Page' : 'Instagram'} Access Token obrigatorio`
+    if (requireWebhook && !instagram.appSecret) e.appSecret = 'App Secret obrigatorio'
+    if (requireWebhook && !instagram.verifyToken) e.verifyToken = 'Verify Token obrigatorio'
     setIgErrors(e)
     return Object.keys(e).length === 0
   }
@@ -595,20 +608,28 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         description="Receba e responda DMs do Instagram diretamente na plataforma"
         status={igStatus}
       >
-        <InstructionBox steps={[
-          'Certifique-se de ter uma Conta Instagram Business vinculada a uma Página do Facebook',
+        <InstructionBox steps={igUsesPageLogin ? [
+          'Certifique-se de ter uma Conta Instagram Business vinculada a uma Pagina do Facebook',
           'No Meta Developer Portal, adicione o produto "Messenger" ao seu app',
-          'Gere um Instagram Access Token com instagram_business_manage_messages',
-          'Configure a URL do webhook abaixo para o Instagram no painel do app',
-          'Selecione os campos de inscrição desejados (listados abaixo)',
+          'Em Graph API Explorer, gere um Page Access Token de longa duracao',
+          'Configure somente a URL do webhook abaixo no painel da Meta',
+          'Clique em Testar Conexao para validar a pagina e assinar subscribed_apps',
+        ] : [
+          'Use um Instagram Access Token com instagram_business_manage_messages',
+          'Configure somente a URL do webhook abaixo no painel da Meta',
+          'O Instagram Business Account ID pode ser preenchido manualmente ou descoberto no teste via /me',
+          'Clique em Testar Conexao para validar a conta e assinar subscribed_apps',
+          'Os endpoints Send/Subscribe exibidos abaixo sao chamadas internas do sistema',
         ]} />
 
         <div className="form-2col">
           <SensitiveField
             label="Instagram Business Account ID"
-            required
+            required={false}
             placeholder="17841400000000000"
-            hint="Encontrado via Graph API: GET /me/accounts → instagram_business_account"
+            hint={igUsesPageLogin
+              ? 'Opcional: o teste pode preencher a partir da Page vinculada'
+              : 'Opcional: o teste pode descobrir via graph.instagram.com/me'}
             mono
             value={instagram.accountId}
             onChange={v => { setInstagram(p => ({ ...p, accountId: v })); setIgErrors(p => ({ ...p, accountId: '' })) }}
@@ -616,8 +637,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           />
           <SensitiveField
             label="Facebook Page ID"
+            required={igUsesPageLogin}
             placeholder="100000000000000"
-            hint="Deve ser a Página do Facebook vinculada à conta Instagram Business"
+            hint={igUsesPageLogin
+              ? 'Owner do fluxo FacebookPageLogin; deve ser a Pagina vinculada ao Instagram'
+              : 'Opcional no InstagramLogin; usado apenas se voce ainda mantiver a referencia da Pagina'}
             mono
             value={instagram.pageId}
             onChange={v => { setInstagram(p => ({ ...p, pageId: v })); setIgErrors(p => ({ ...p, pageId: '' })) }}
@@ -625,10 +649,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           />
           <div className="input-group full-span">
             <SensitiveField
-              label="Instagram Access Token"
+              label={igUsesPageLogin ? 'Page Access Token (longa duracao)' : 'Instagram Access Token'}
               required
               placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              hint="⚠️ Tokens de curta duração expiram em 1 hora. Use o Graph API para trocar por um de longa duração (60 dias) e depois por um permanente."
+              hint={igUsesPageLogin
+                ? 'Use um Page Access Token com permissao de mensagens para a Pagina vinculada'
+                : 'Use um token emitido pela conta Instagram profissional com instagram_business_manage_messages'}
               mono
               value={instagram.pageToken}
               onChange={v => { setInstagram(p => ({ ...p, pageToken: v })); setIgErrors(p => ({ ...p, pageToken: '' })) }}
@@ -655,39 +681,60 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             error={igErrors.verifyToken}
           />
           <WebhookField label="URL do Webhook" url={`${baseUrl}/webhooks/instagram`} />
-          <div className="input-group full-span">
-            <label className="input-label">Modo canônico Meta</label>
-            <div className="intg-tags-row">
-              <span className="intg-scope-tag">{existingSettings?.igIntegrationMode || 'InstagramLogin'}</span>
-              <span className="intg-scope-tag">{existingSettings?.igGraphVersion || 'v23.0'}</span>
-              <span className="intg-scope-tag">
-                message_edit mid fallback: {existingSettings?.igAllowMessageEditMidFallback ? 'ativo' : 'inativo'}
-              </span>
-            </div>
-          </div>
-          <div className="full-span">
-            <WebhookField label="Endpoint de envio Meta" url={existingSettings?.igSendEndpoint || 'https://graph.instagram.com/v23.0/{ig_user_id}/messages'} />
-          </div>
-          <div className="full-span">
-            <WebhookField label="Endpoint de assinatura Meta" url={existingSettings?.igSubscribeEndpoint || 'https://graph.instagram.com/v23.0/{ig_user_id}/subscribed_apps'} />
-          </div>
-          <div className="full-span">
-            <WebhookField label="Endpoint de perfil por IGSID" url={existingSettings?.igUserProfileEndpoint || 'https://graph.instagram.com/v23.0/{ig_scoped_id}'} />
-          </div>
         </div>
 
         <div className="intg-scope-tags">
           <label className="input-label" style={{ marginBottom: 8 }}>Campos subscritos do webhook</label>
           <div className="intg-tags-row">
-            {['messages', 'messaging_postbacks', 'messaging_seen', 'message_reactions'].map(s => (
+            {['messages', 'messaging_postbacks', 'message_reactions', 'message_reads'].map(s => (
               <span key={s} className="intg-scope-tag">{s}</span>
             ))}
           </div>
         </div>
 
+        {/* ── Modo canônico + endpoints efetivos ── */}
+        <div className="intg-info-banner" style={{ marginTop: 12 }}>
+          <Info size={18} />
+          <div style={{ width: '100%' }}>
+            <strong>
+              Modo configurado:&nbsp;
+              <code style={{ background: 'rgba(0,0,0,.05)', padding: '1px 6px', borderRadius: 4 }}>
+                {existingSettings?.igMode || 'InstagramLogin'}
+              </code>
+              {existingSettings?.igGraphVersion && (
+                <>
+                  &nbsp;·&nbsp;Graph&nbsp;
+                  <code style={{ background: 'rgba(0,0,0,.05)', padding: '1px 6px', borderRadius: 4 }}>
+                    {existingSettings.igGraphVersion}
+                  </code>
+                </>
+              )}
+            </strong>
+            <p style={{ margin: '6px 0 0', fontSize: 12 }}>
+              {igUsesPageLogin
+                ? 'Fluxo via Facebook Page Login: o Page ID e o Page Access Token sao usados para validar a conta e assinar subscribed_apps.'
+                : 'Fluxo Instagram Login: o sistema usa graph.instagram.com; se o IG User ID ainda nao estiver salvo, o teste tenta descobrir esse ID via /me.'}
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 12 }}>
+              No painel da Meta voce cadastra apenas a URL do Webhook acima. Os endpoints abaixo sao chamadas internas do backend para enviar mensagens e confirmar assinatura.
+            </p>
+            {existingSettings?.igOwnerId && (
+              <p style={{ margin: '4px 0 0', fontSize: 12 }}>
+                <strong>Owner efetivo:</strong>{' '}
+                <code className="intg-mono">{existingSettings.igOwnerId}</code>
+              </p>
+            )}
+            <div style={{ marginTop: 8, fontSize: 12 }}>
+              <div><strong>Envio interno:</strong> <code className="intg-mono">POST {igSendEndpointDisplay}</code></div>
+              <div><strong>Assinatura interna:</strong> <code className="intg-mono">POST {igSubscribeEndpointDisplay}</code></div>
+              <div><strong>Confirmacao interna:</strong> <code className="intg-mono">GET {igConfirmEndpointDisplay}</code></div>
+            </div>
+          </div>
+        </div>
+
         <div className="intg-actions">
           <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            const valid = validateInstagram()
+            const valid = validateInstagram(false)
             if (!clinicId) return
             await updateMutation.mutateAsync({
               clinicId,
@@ -700,7 +747,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               }
             })
             if (!valid) {
-              addToast('Dados salvos - App Secret e Verify Token sao obrigatorios para o webhook receber DMs.', 'warning')
+              addToast(igUsesPageLogin
+                ? 'Dados salvos - Page ID e Access Token sao obrigatorios para testar este modo.'
+                : 'Dados salvos - informe o Instagram Access Token para testar; o IG User ID pode ser descoberto automaticamente.',
+                'warning')
               return
             }
             await handleTest('instagram')

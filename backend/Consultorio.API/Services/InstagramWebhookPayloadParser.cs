@@ -2,134 +2,130 @@ using System.Text.Json;
 
 namespace Consultorio.API.Services;
 
-public sealed record InstagramWebhookEventDiagnostics(
-    string Object,
-    string? EntryId,
-    string? Field,
-    bool HasSender,
-    bool HasRecipient,
-    bool HasMessage,
-    bool HasMessageEdit,
-    bool HasText,
-    int? NumEdit,
-    string? MessageId,
-    string? SenderId,
-    string? RecipientId);
-
-public sealed record InstagramWebhookEventEnvelope(
-    JsonElement Event,
-    InstagramWebhookEventDiagnostics Diagnostics);
+/// <summary>
+/// Estado bruto extraído de um payload do webhook do Instagram. Mantido
+/// como struct imutável e sem efeitos colaterais — o controller usa pra
+/// decidir o que fazer (importar, ignorar ou apenas logar como diagnóstico).
+/// </summary>
+public class InstagramEventDiagnostics
+{
+    public string?  Object        { get; init; }
+    public string?  EntryId       { get; init; }
+    public bool     HasMessaging  { get; init; }
+    public bool     HasChanges    { get; init; }
+    public bool     HasSender     { get; init; }
+    public bool     HasRecipient  { get; init; }
+    public bool     HasMessage    { get; init; }
+    public bool     HasMessageEdit{ get; init; }
+    public bool     HasText       { get; init; }
+    public bool     HasAttachments{ get; init; }
+    public bool     IsEcho        { get; init; }
+    public int?     NumEdit       { get; init; }
+    public string?  Mid           { get; init; }
+    public string?  SenderId      { get; init; }
+    public string?  RecipientId   { get; init; }
+    public long?    Timestamp     { get; init; }
+    public string?  EventKind     { get; init; } // "message" | "message_edit" | "read" | "delivery" | "postback" | "reaction" | "unknown"
+}
 
 public static class InstagramWebhookPayloadParser
 {
-    public static IReadOnlyList<InstagramWebhookEventEnvelope> ExtractMessageEvents(JsonElement root)
+    /// <summary>
+    /// Lê um único evento (entry.messaging[i] ou entry.changes[i].value)
+    /// e devolve diagnósticos estruturados, sem fazer chamada externa
+    /// nem persistência.
+    /// </summary>
+    public static InstagramEventDiagnostics Diagnose(JsonElement evt, string? entryId = null, string? rootObject = null)
     {
-        var result = new List<InstagramWebhookEventEnvelope>();
-        var objectName = root.TryGetProperty("object", out var objectEl)
-            ? objectEl.GetString() ?? ""
-            : "";
+        bool has(string n)         => evt.TryGetProperty(n, out _);
+        bool hasObj(string n)      => evt.TryGetProperty(n, out var e) && e.ValueKind == JsonValueKind.Object;
 
-        if (!root.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array)
-            return result;
-
-        foreach (var entry in entries.EnumerateArray())
+        string? extractId(string property)
         {
-            var entryId = entry.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
-
-            if (entry.TryGetProperty("messaging", out var messaging) && messaging.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var event_ in messaging.EnumerateArray())
-                    result.Add(new InstagramWebhookEventEnvelope(
-                        event_,
-                        BuildDiagnostics(objectName, entryId, "messaging", event_)));
-            }
-
-            if (entry.TryGetProperty("changes", out var changes) && changes.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var change in changes.EnumerateArray())
-                {
-                    var field = change.TryGetProperty("field", out var fieldEl) ? fieldEl.GetString() : null;
-                    if (!string.Equals(field, "messages", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (!change.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Object)
-                        continue;
-
-                    result.Add(new InstagramWebhookEventEnvelope(
-                        value,
-                        BuildDiagnostics(objectName, entryId, field, value)));
-                }
-            }
+            if (!evt.TryGetProperty(property, out var node) || node.ValueKind != JsonValueKind.Object)
+                return null;
+            return node.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
         }
 
-        return result;
-    }
+        var hasMessage      = hasObj("message");
+        var hasMessageEdit  = hasObj("message_edit");
+        var hasReaction     = hasObj("reaction");
+        var hasPostback     = hasObj("postback");
+        var hasRead         = hasObj("read");
+        var hasDelivery     = hasObj("delivery");
 
-    public static InstagramWebhookEventDiagnostics BuildDiagnostics(
-        string objectName,
-        string? entryId,
-        string? field,
-        JsonElement event_)
-    {
-        var senderId = ExtractNestedId(event_, "sender");
-        var recipientId = ExtractNestedId(event_, "recipient");
-        var hasMessage = event_.TryGetProperty("message", out var messageEl);
-        var hasMessageEdit = event_.TryGetProperty("message_edit", out var editEl);
-
-        string? messageId = null;
-        var hasText = false;
-        int? numEdit = null;
+        string? mid       = null;
+        string? text      = null;
+        bool   hasAttach  = false;
+        bool   isEcho     = false;
+        int?   numEdit    = null;
 
         if (hasMessage)
         {
-            messageId = TryGetString(messageEl, "mid");
-            hasText = messageEl.TryGetProperty("text", out var textEl) &&
-                      !string.IsNullOrWhiteSpace(textEl.GetString());
+            var m = evt.GetProperty("message");
+            mid       = m.TryGetProperty("mid",         out var mEl)  ? mEl.GetString() : null;
+            text      = m.TryGetProperty("text",        out var tEl)  ? tEl.GetString() : null;
+            hasAttach = m.TryGetProperty("attachments", out var aEl)  && aEl.ValueKind == JsonValueKind.Array && aEl.GetArrayLength() > 0;
+            isEcho    = m.TryGetProperty("is_echo",     out var eEl)  && eEl.ValueKind == JsonValueKind.True;
         }
-
-        if (hasMessageEdit)
+        else if (hasMessageEdit)
         {
-            messageId ??= TryGetString(editEl, "mid");
-            hasText = editEl.TryGetProperty("text", out var editTextEl) &&
-                      !string.IsNullOrWhiteSpace(editTextEl.GetString());
-
-            if (editEl.TryGetProperty("num_edit", out var numEl) &&
-                numEl.ValueKind == JsonValueKind.Number &&
-                numEl.TryGetInt32(out var parsed))
-            {
-                numEdit = parsed;
-            }
+            var ed = evt.GetProperty("message_edit");
+            mid     = ed.TryGetProperty("mid",      out var mEl) ? mEl.GetString() : null;
+            text    = ed.TryGetProperty("text",     out var tEl) ? tEl.GetString() : null;
+            numEdit = ed.TryGetProperty("num_edit", out var nEl) && nEl.ValueKind == JsonValueKind.Number
+                ? nEl.GetInt32() : (int?)null;
         }
 
-        return new InstagramWebhookEventDiagnostics(
-            objectName,
-            entryId,
-            field,
-            !string.IsNullOrWhiteSpace(senderId),
-            !string.IsNullOrWhiteSpace(recipientId),
-            hasMessage,
-            hasMessageEdit,
-            hasText,
-            numEdit,
-            messageId,
-            senderId,
-            recipientId);
+        var senderId    = extractId("sender");
+        var recipientId = extractId("recipient");
+
+        long? ts = null;
+        if (evt.TryGetProperty("timestamp", out var tsEl))
+        {
+            if (tsEl.ValueKind == JsonValueKind.Number && tsEl.TryGetInt64(out var v)) ts = v;
+            else if (tsEl.ValueKind == JsonValueKind.String && long.TryParse(tsEl.GetString(), out var sv)) ts = sv;
+        }
+
+        string kind =
+            hasMessage     ? (isEcho ? "echo" : "message") :
+            hasMessageEdit ? "message_edit" :
+            hasReaction    ? "reaction" :
+            hasPostback    ? "postback" :
+            hasRead        ? "read" :
+            hasDelivery    ? "delivery" :
+            "unknown";
+
+        return new InstagramEventDiagnostics
+        {
+            Object         = rootObject,
+            EntryId        = entryId,
+            HasMessaging   = false, // preenchido no nível de entry pelo caller
+            HasChanges     = false,
+            HasSender      = !string.IsNullOrWhiteSpace(senderId),
+            HasRecipient   = !string.IsNullOrWhiteSpace(recipientId),
+            HasMessage     = hasMessage,
+            HasMessageEdit = hasMessageEdit,
+            HasText        = !string.IsNullOrWhiteSpace(text),
+            HasAttachments = hasAttach,
+            IsEcho         = isEcho,
+            NumEdit        = numEdit,
+            Mid            = mid,
+            SenderId       = senderId,
+            RecipientId    = recipientId,
+            Timestamp      = ts,
+            EventKind      = kind,
+        };
     }
 
-    private static string? ExtractNestedId(JsonElement root, string propertyName)
-    {
-        if (!root.TryGetProperty(propertyName, out var value))
-            return null;
-
-        if (value.ValueKind == JsonValueKind.Object &&
-            value.TryGetProperty("id", out var idEl))
-            return idEl.GetString();
-
-        return value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-    }
-
-    private static string? TryGetString(JsonElement root, string propertyName) =>
-        root.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
+    /// <summary>
+    /// Renderiza um diagnóstico em formato compacto/legível para log,
+    /// sem nunca incluir tokens. Útil pra grep e métricas.
+    /// </summary>
+    public static string Render(InstagramEventDiagnostics d) =>
+        $"object={d.Object ?? "(null)"} entry={d.EntryId ?? "(null)"} kind={d.EventKind} " +
+        $"hasSender={d.HasSender} hasRecipient={d.HasRecipient} hasMessage={d.HasMessage} " +
+        $"hasMessageEdit={d.HasMessageEdit} hasText={d.HasText} hasAttachments={d.HasAttachments} " +
+        $"isEcho={d.IsEcho} numEdit={(d.NumEdit?.ToString() ?? "-")} mid={(d.Mid ?? "(null)")} " +
+        $"sender={(d.SenderId ?? "(null)")} recipient={(d.RecipientId ?? "(null)")}";
 }

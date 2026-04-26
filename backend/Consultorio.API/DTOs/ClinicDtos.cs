@@ -26,13 +26,12 @@ public class IntegrationSettingsResponseDto
     public string? IgAppSecretMasked       { get; set; }
     public string? IgVerifyTokenMasked     { get; set; }
     public bool    IgConnected             { get; set; }
-    public string? IgIntegrationMode       { get; set; }
+    public string? IgMode                  { get; set; }   // "InstagramLogin" | "FacebookPageLogin"
     public string? IgGraphVersion          { get; set; }
+    public string? IgOwnerId               { get; set; }   // o "owner" efetivo para o modo
     public string? IgSendEndpoint          { get; set; }
     public string? IgSubscribeEndpoint     { get; set; }
-    public string? IgSubscribedAppsEndpoint { get; set; }
-    public string? IgUserProfileEndpoint   { get; set; }
-    public bool    IgAllowMessageEditMidFallback { get; set; }
+    public string? IgConfirmEndpoint       { get; set; }
 }
 
 public class UpdateIntegrationSettingsDto
