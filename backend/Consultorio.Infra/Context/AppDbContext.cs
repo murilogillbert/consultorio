@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<ServiceCategory> ServiceCategories { get; set; } = null!;
     public DbSet<ServiceInsurancePlan> ServiceInsurancePlans { get; set; } = null!;
     public DbSet<MessageTemplate> MessageTemplates { get; set; } = null!;
+    public DbSet<Custo> Custos { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,20 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MessageTemplate>()
             .HasIndex(t => new { t.ClinicId, t.Kind })
             .IsUnique();
+
+        // ───── CUSTO ─────
+        modelBuilder.Entity<Custo>()
+            .HasKey(c => c.Id);
+        modelBuilder.Entity<Custo>()
+            .Property(c => c.Valor)
+            .HasPrecision(12, 2);
+        modelBuilder.Entity<Custo>()
+            .HasOne(c => c.Clinic)
+            .WithMany()
+            .HasForeignKey(c => c.ClinicId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Custo>()
+            .HasIndex(c => new { c.ClinicId, c.DataCompetencia });
 
         // ───── ANNOUNCEMENT ─────
         modelBuilder.Entity<Announcement>()

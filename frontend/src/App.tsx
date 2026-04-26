@@ -25,6 +25,7 @@ import AdminConfiguracoes from './pages/admin/ConfiguracoesPage'
 import AdminMetricasProfissionais from './pages/admin/MetricasProfissionaisPage'
 import AdminMetricasServicos from './pages/admin/MetricasServicosPage'
 import AdminFaturamento from './pages/admin/FaturamentoPage'
+import AdminCustos from './pages/admin/CustosPage'
 import AdminMarketing from './pages/admin/MarketingPage'
 import AdminMovimento from './pages/admin/MovimentoPage'
 import AdminRecrutamento from './pages/admin/RecrutamentoPage'
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/admin/metricas/profissionais" element={<AdminMetricasProfissionais />} />
           <Route path="/admin/metricas/servicos" element={<AdminMetricasServicos />} />
           <Route path="/admin/faturamento" element={<AdminFaturamento />} />
+          <Route path="/admin/custos" element={<AdminCustos />} />
           <Route path="/admin/marketing" element={<AdminMarketing />} />
           <Route path="/admin/movimento" element={<AdminMovimento />} />
           <Route path="/admin/recrutamento" element={<AdminRecrutamento />} />

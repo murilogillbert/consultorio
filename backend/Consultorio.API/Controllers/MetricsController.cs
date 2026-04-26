@@ -429,6 +429,16 @@ public class MetricsController : ControllerBase
         }
     }
 
+    private const decimal CommissionRateInicial = 0.10m;
+    private const decimal CommissionRateApos6Meses = 0.15m;
+
+    private static decimal CalcularComissao(DateTime dataAtendimento, DateTime primeiraConsulta, decimal valor)
+    {
+        var limite = primeiraConsulta.AddMonths(6);
+        var percentual = dataAtendimento <= limite ? CommissionRateInicial : CommissionRateApos6Meses;
+        return valor * percentual;
+    }
+
     // =====================================================================
     // GET /api/metrics/billing
     // =====================================================================
@@ -463,6 +473,31 @@ public class MetricsController : ControllerBase
         var revenueTrend = prevRevenue > 0
             ? (int)Math.Round((double)(totalRevenue - prevRevenue) / (double)prevRevenue * 100)
             : (totalRevenue > 0 ? 100 : 0);
+
+        // Data da primeira consulta concluída da clínica (para cálculo de comissão da plataforma)
+        var primeiraConsulta = await _db.Appointments
+            .Where(a => a.ClinicId == clinicId && a.Status == "COMPLETED")
+            .OrderBy(a => a.StartTime)
+            .Select(a => (DateTime?)a.StartTime)
+            .FirstOrDefaultAsync();
+        var primeiraConsultaDate = primeiraConsulta ?? DateTime.UtcNow;
+        var limiteFaixa = primeiraConsultaDate.AddMonths(6);
+
+        // Comissão da plataforma — proporcional por data, aplicada sobre cada pagamento recebido no período
+        decimal platformCommission = 0m;
+        decimal commissionRevenuePromo = 0m;
+        decimal commissionRevenuePos = 0m;
+        foreach (var pay in paidPayments)
+        {
+            var dataReferencia = pay.PaymentDate ?? pay.CreatedAt;
+            platformCommission += CalcularComissao(dataReferencia, primeiraConsultaDate, pay.Amount);
+            if (dataReferencia <= limiteFaixa) commissionRevenuePromo += pay.Amount;
+            else commissionRevenuePos += pay.Amount;
+        }
+        var commissionPctEffective = totalRevenue > 0
+            ? Math.Round(platformCommission / totalRevenue * 100m, 2)
+            : 0m;
+        var promoActive = commissionRevenuePromo > 0;
 
         // Appointments this period
         var periodAppts = await _db.Appointments
@@ -525,22 +560,58 @@ public class MetricsController : ControllerBase
 
         var totalDelinquency = pendingPayments.Sum(p => p.Amount);
 
-        // Monthly revenue (last 12 months)
+        // ───── CUSTOS DA EMPRESA ─────
+        var custosPeriodo = await _db.Custos
+            .Where(c => c.ClinicId == clinicId
+                && c.DataCompetencia >= start && c.DataCompetencia <= end)
+            .ToListAsync();
+
+        var totalCustos = custosPeriodo.Sum(c => c.Valor);
+        var custosCount = custosPeriodo.Count;
+
+        var custosByCategory = custosPeriodo
+            .GroupBy(c => string.IsNullOrWhiteSpace(c.Categoria) ? "Outros" : c.Categoria)
+            .Select(g => new { name = g.Key, value = g.Sum(c => c.Valor), count = g.Count() })
+            .OrderByDescending(x => x.value)
+            .ToList();
+
+        // Receita líquida considerando repasses, custos e comissão da plataforma
+        var receitaLiquida = totalRevenue - totalPayout - totalCustos - platformCommission;
+        var margemLiquida = totalRevenue > 0
+            ? Math.Round(receitaLiquida / totalRevenue * 100m, 2)
+            : 0m;
+
+        // Monthly revenue (last 12 months) — agora com repasses, custos e comissão por mês
         var monthlyRevenue = new List<object>();
         for (int i = 11; i >= 0; i--)
         {
             var mStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-i);
             var mEnd = mStart.AddMonths(1).AddSeconds(-1);
-            var mRev = await _db.Payments
+
+            var mPayments = await _db.Payments
+                .Include(p => p.Appointment).ThenInclude(a => a.Professional)
                 .Where(p => p.Appointment.ClinicId == clinicId
                     && p.Status == "PAID"
                     && (p.PaymentDate ?? p.CreatedAt) >= mStart && (p.PaymentDate ?? p.CreatedAt) <= mEnd)
-                .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+                .ToListAsync();
+
+            var mRev = mPayments.Sum(p => p.Amount);
+            var mPayout = mPayments.Sum(p => p.Amount * p.Appointment.Professional.CommissionPct / 100m);
+            var mCommission = mPayments.Sum(p => CalcularComissao(p.PaymentDate ?? p.CreatedAt, primeiraConsultaDate, p.Amount));
+
+            var mCustos = await _db.Custos
+                .Where(c => c.ClinicId == clinicId
+                    && c.DataCompetencia >= mStart && c.DataCompetencia <= mEnd)
+                .SumAsync(c => (decimal?)c.Valor) ?? 0m;
 
             monthlyRevenue.Add(new
             {
                 month = mStart.ToString("MMM", new System.Globalization.CultureInfo("pt-BR")),
-                revenue = mRev
+                revenue = mRev,
+                payout = mPayout,
+                custos = mCustos,
+                commission = mCommission,
+                netRevenue = mRev - mPayout - mCustos - mCommission
             });
         }
 
@@ -549,12 +620,20 @@ public class MetricsController : ControllerBase
             totalRevenue,
             revenueTrend,
             totalPayout,
-            receitaLiquida = totalRevenue - totalPayout,
+            totalCustos,
+            custosCount,
+            platformCommission,
+            commissionPct = commissionPctEffective,
+            commissionPromoActive = promoActive,
+            primeiraConsulta = primeiraConsulta,
+            receitaLiquida,
+            margemLiquida,
             totalAppointments,
             completedAppts,
             ticketMedio,
             totalDelinquency,
             revenueByChannel,
+            custosByCategory,
             payouts = payoutGroups,
             delinquency,
             monthlyRevenue

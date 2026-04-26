@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, MessageSquare, Users, Stethoscope,
-  Settings, BarChart3, TrendingUp, DollarSign, Megaphone, Activity,
+  Settings, BarChart3, TrendingUp, DollarSign, Megaphone, Activity, Receipt,
   LogOut, Bell, MessageCircle, Shield, ChevronDown, Menu, X
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -47,6 +47,7 @@ const adminLinks = [
   { to: '/admin/metricas/profissionais', icon: BarChart3, label: 'Métr. Profissionais' },
   { to: '/admin/metricas/servicos', icon: TrendingUp, label: 'Métr. Serviços' },
   { to: '/admin/faturamento', icon: DollarSign, label: 'Faturamento' },
+  { to: '/admin/custos', icon: Receipt, label: 'Custos' },
   { to: '/admin/marketing', icon: Megaphone, label: 'Marketing' },
   { to: '/admin/movimento', icon: Activity, label: 'Movimento' },
 ]
@@ -65,6 +66,7 @@ const routeLabels: Record<string, string> = {
   '/admin/metricas/profissionais': 'Métricas de Profissionais',
   '/admin/metricas/servicos': 'Métricas de Serviços',
   '/admin/faturamento': 'Faturamento',
+  '/admin/custos': 'Custos',
   '/admin/marketing': 'Marketing',
   '/admin/movimento': 'Movimento',
   '/admin/recrutamento': 'Recrutamento',

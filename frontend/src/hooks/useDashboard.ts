@@ -85,15 +85,23 @@ export interface BillingData {
   totalRevenue: number
   revenueTrend: number
   totalPayout: number
+  totalCustos: number
+  custosCount: number
+  platformCommission: number
+  commissionPct: number
+  commissionPromoActive: boolean
+  primeiraConsulta?: string | null
   receitaLiquida: number
+  margemLiquida: number
   totalAppointments: number
   completedAppts: number
   ticketMedio: number
   totalDelinquency: number
   revenueByChannel: { name: string; value: number }[]
+  custosByCategory: { name: string; value: number; count: number }[]
   payouts: { id: string; name: string; specialty: string; appointments: number; gross: number; pct: string; net: number }[]
   delinquency: { patient: string; service: string; value: number; date: string; days: number }[]
-  monthlyRevenue: { month: string; revenue: number }[]
+  monthlyRevenue: { month: string; revenue: number; payout: number; custos: number; commission: number; netRevenue: number }[]
 }
 
 export function useBillingData(clinicId?: string, _startDate?: string, _endDate?: string, period?: string) {
@@ -104,7 +112,7 @@ export function useBillingData(clinicId?: string, _startDate?: string, _endDate?
       if (clinicId) params.set('clinicId', clinicId)
       if (period) params.set('period', period)
       const { data } = await api.get<BillingData>(`/metrics/billing?${params.toString()}`).catch(() => ({
-        data: { totalRevenue: 0, revenueTrend: 0, totalPayout: 0, receitaLiquida: 0, totalAppointments: 0, completedAppts: 0, ticketMedio: 0, totalDelinquency: 0, revenueByChannel: [], payouts: [], delinquency: [], monthlyRevenue: [] } as BillingData
+        data: { totalRevenue: 0, revenueTrend: 0, totalPayout: 0, totalCustos: 0, custosCount: 0, platformCommission: 0, commissionPct: 0, commissionPromoActive: false, receitaLiquida: 0, margemLiquida: 0, totalAppointments: 0, completedAppts: 0, ticketMedio: 0, totalDelinquency: 0, revenueByChannel: [], custosByCategory: [], payouts: [], delinquency: [], monthlyRevenue: [] } as BillingData
       }))
       return data
     }
