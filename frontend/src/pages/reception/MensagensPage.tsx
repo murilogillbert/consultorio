@@ -13,11 +13,104 @@ import {
   useSendConversationMessage,
   useMarkConversationRead,
 } from '../../hooks/useConversations'
-import { usePatients, usePromotePatient } from '../../hooks/usePatients'
+import { usePatients, useLinkProvisionalPatient, usePromotePatient } from '../../hooks/usePatients'
 import PatientChargesModal from '../../components/PatientChargesModal'
 import NewAppointmentModal from '../../components/NewAppointmentModal'
 import TemplatePickerModal from '../../components/TemplatePickerModal'
 
+// ── Link Provisional Contact Modal ────────────────────────────────────────────
+function LinkProvisionalContactModal({
+  fromPatientId,
+  fromPatientName,
+  onClose,
+  onLinked,
+}: {
+  fromPatientId: string
+  fromPatientName: string
+  onClose: () => void
+  onLinked: (patientId: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null)
+  const { data: patients = [], isLoading } = usePatients(search)
+  const linkMutation = useLinkProvisionalPatient()
+  const availablePatients = patients.filter(p => p.id !== fromPatientId && !p.isProvisional)
+
+  const handleLink = async () => {
+    if (!selected) return
+    const linked = await linkMutation.mutateAsync({ targetPatientId: selected.id, fromPatientId })
+    onLinked(linked.id)
+    onClose()
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <User size={18} color="var(--color-accent-emerald)" /> Vincular a cadastro existente
+          </h3>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: 0 }}>
+            O contato provisório <strong>{fromPatientName}</strong> sera vinculado ao paciente selecionado.
+            O historico sera migrado automaticamente e o cadastro provisório sera desativado.
+          </p>
+          <div>
+            <label className="input-label" style={{ marginBottom: 6, display: 'block' }}>
+              Buscar paciente existente
+            </label>
+            <div style={{ position: 'relative', marginBottom: 8 }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+              <input
+                className="input-field"
+                style={{ paddingLeft: 32 }}
+                placeholder="Nome, CPF ou e-mail..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setSelected(null) }}
+                autoFocus
+              />
+            </div>
+            {isLoading && <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Buscando...</p>}
+            <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {availablePatients.map(p => (
+                <button
+                  key={p.id}
+                  className={`btn ${selected?.id === p.id ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                  style={{ justifyContent: 'flex-start', textAlign: 'left' }}
+                  onClick={() => setSelected({ id: p.id, name: p.user?.name || '' })}
+                >
+                  <div className="avatar avatar-xs avatar-placeholder" style={{ flexShrink: 0 }}>
+                    {(p.user?.name || '?').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{p.user?.name}</div>
+                    <div style={{ fontSize: 11, opacity: 0.7 }}>{p.user?.email}</div>
+                  </div>
+                </button>
+              ))}
+              {!isLoading && search.length > 1 && availablePatients.length === 0 && (
+                <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center' }}>Nenhum cadastro elegivel encontrado.</p>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button
+            className="btn btn-primary"
+            onClick={handleLink}
+            disabled={!selected || linkMutation.isPending}
+          >
+            {linkMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <User size={14} />}
+            Vincular
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── New Conversation Modal ────────────────────────────────────────────────────
 function NewConversationModal({
@@ -296,11 +389,13 @@ export default function MensagensPage() {
   const [activeTab, setActiveTab] = useState<'patients' | 'internal'>('patients')
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+  const [pendingLinkedPatientId, setPendingLinkedPatientId] = useState<string | null>(null)
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const [patientChannelFilter, setPatientChannelFilter] = useState<'ALL' | 'APP' | 'WHATSAPP' | 'EMAIL'>('ALL')
   const [message, setMessage] = useState('')
   const [showNewConvoModal, setShowNewConvoModal] = useState(false)
   const [showPromoteModal, setShowPromoteModal] = useState(false)
+  const [showLinkModal, setShowLinkModal] = useState(false)
   const [showChargesModal, setShowChargesModal] = useState(false)
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
@@ -329,10 +424,21 @@ export default function MensagensPage() {
     if (conversations.length > 0 && !selectedPatientId) setSelectedPatientId(conversations[0].patientId)
   }, [conversations])
   useEffect(() => {
+    if (pendingLinkedPatientId) return
     if (filteredConversations.length > 0 && (!selectedPatientId || !filteredConversations.some(c => c.patientId === selectedPatientId))) {
       setSelectedPatientId(filteredConversations[0].patientId)
     }
-  }, [filteredConversations, selectedPatientId])
+  }, [filteredConversations, pendingLinkedPatientId, selectedPatientId])
+
+  useEffect(() => {
+    if (!pendingLinkedPatientId) return
+    if (!filteredConversations.some(c => c.patientId === pendingLinkedPatientId)) return
+
+    setSelectedPatientId(pendingLinkedPatientId)
+    setPendingLinkedPatientId(null)
+    setActiveTab('patients')
+    setMobileView('chat')
+  }, [filteredConversations, pendingLinkedPatientId])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -355,6 +461,7 @@ export default function MensagensPage() {
   }
 
   const selectedConvo = conversations.find(c => c.patientId === selectedPatientId)
+  const isSelectedConvoProvisional = Boolean(selectedConvo?.isProvisional || convDetail?.patient?.isProvisional)
   const selectedChannel = channels.find(c => c.id === selectedChannelId)
   const externalMessages = convDetail?.messages || []
 
@@ -509,7 +616,7 @@ export default function MensagensPage() {
                     {activeTab === 'patients'
                     ? (selectedConvo?.patientName || convDetail?.patient?.name || 'Selecione uma conversa')
                     : selectedChannel ? `#${selectedChannel.name}` : 'Selecione um canal'}
-                    {activeTab === 'patients' && (selectedConvo?.isProvisional || convDetail?.patient?.isProvisional) && selectedPatientId && (
+                    {activeTab === 'patients' && isSelectedConvoProvisional && selectedPatientId && (
                       <button
                         type="button"
                         onClick={() => setShowPromoteModal(true)}
@@ -530,7 +637,31 @@ export default function MensagensPage() {
                           gap: 4,
                         }}
                       >
-                        <UserCheck size={10} /> Provisório · Cadastrar
+                        <UserCheck size={10} /> Provisorio - Cadastrar
+                      </button>
+                    )}
+                    {activeTab === 'patients' && isSelectedConvoProvisional && selectedPatientId && (
+                      <button
+                        type="button"
+                        onClick={() => setShowLinkModal(true)}
+                        title="Vincular este contato provisório a um paciente ja cadastrado"
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(99, 102, 241, 0.12)',
+                          color: '#4338ca',
+                          border: '1px solid rgba(99, 102, 241, 0.35)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <User size={10} /> Provisorio - Vincular
                       </button>
                     )}
                   </div>
@@ -693,6 +824,18 @@ export default function MensagensPage() {
             setSelectedPatientId(patientId)
             setActiveTab('patients')
             setMobileView('chat')
+          }}
+        />
+      )}
+
+      {/* ── Link Provisional Contact Modal ── */}
+      {showLinkModal && selectedPatientId && (
+        <LinkProvisionalContactModal
+          fromPatientId={selectedPatientId}
+          fromPatientName={selectedConvo?.patientName || convDetail?.patient?.name || 'este contato'}
+          onClose={() => setShowLinkModal(false)}
+          onLinked={(patientId) => {
+            setPendingLinkedPatientId(patientId)
           }}
         />
       )}

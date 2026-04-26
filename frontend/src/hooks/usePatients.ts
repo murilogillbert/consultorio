@@ -17,6 +17,7 @@ interface PatientRaw {
   notes?: string
   igUserId?: string
   isActive: boolean
+  isProvisional?: boolean
   createdAt: string
   generatedPassword?: string
 }
@@ -31,6 +32,7 @@ export interface Patient {
   notes?: string
   igUserId?: string
   generatedPassword?: string
+  isProvisional?: boolean
   user?: {
     id: string
     name: string
@@ -49,6 +51,7 @@ function mapPatient(p: PatientRaw): Patient {
     notes: p.notes,
     igUserId: p.igUserId,
     generatedPassword: p.generatedPassword,
+    isProvisional: p.isProvisional,
     user: {
       id: p.userId,
       name: p.name,
@@ -130,6 +133,21 @@ export function usePromotePatient() {
   return useMutation({
     mutationFn: async ({ patientId, ...rest }: PromotePatientPayload) => {
       const { data } = await api.put<PatientRaw>(`/patients/${patientId}/promote`, rest)
+      return mapPatient(data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversation-messages'] })
+    },
+  })
+}
+
+export function useLinkProvisionalPatient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ targetPatientId, fromPatientId }: { targetPatientId: string; fromPatientId: string }) => {
+      const { data } = await api.put<PatientRaw>(`/patients/${targetPatientId}/link-provisional`, { fromPatientId })
       return mapPatient(data)
     },
     onSuccess: () => {

@@ -45,6 +45,9 @@ public class PatientsController : ControllerBase
                email.EndsWith("@instagram.local", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsProvisionalPatient(Patient? patient) =>
+        patient != null && IsProvisionalEmail(patient.User?.Email);
+
     // GET /api/patients?q=busca
     [HttpGet]
     public async Task<ActionResult<List<PatientResponseDto>>> GetAll([FromQuery] string? q)
@@ -176,9 +179,11 @@ public class PatientsController : ControllerBase
         return Ok(ToDto(patient));
     }
 
-    // PUT /api/patients/{id}/link-instagram
+    // PUT /api/patients/{id}/link-provisional
+    // Keeps the old /link-instagram route for backward compatibility.
+    [HttpPut("{id}/link-provisional")]
     [HttpPut("{id}/link-instagram")]
-    public async Task<ActionResult<PatientResponseDto>> LinkInstagram(Guid id, [FromBody] LinkInstagramDto dto)
+    public async Task<ActionResult<PatientResponseDto>> LinkProvisional(Guid id, [FromBody] LinkProvisionalPatientDto dto)
     {
         var clinicId = GetClinicId();
 
@@ -188,26 +193,42 @@ public class PatientsController : ControllerBase
         if (target == null)
             return NotFound(new { message = "Paciente não encontrado." });
 
-        if (!string.IsNullOrWhiteSpace(dto.FromPatientId) && Guid.TryParse(dto.FromPatientId, out var fromId))
+        if (string.IsNullOrWhiteSpace(dto.FromPatientId) || !Guid.TryParse(dto.FromPatientId, out var fromId))
+            return BadRequest(new { message = "Contato provisório nao informado." });
+
+        if (fromId == id)
+            return BadRequest(new { message = "Selecione um paciente diferente para vincular." });
+
+        var source = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == fromId && p.ClinicId == clinicId);
+        if (source == null)
+            return NotFound(new { message = "Contato provisório nao encontrado." });
+
+        if (!IsProvisionalPatient(source))
+            return BadRequest(new { message = "Apenas contatos provisórios podem ser vinculados a um cadastro existente." });
+
+        if (!string.IsNullOrWhiteSpace(source.IgUserId))
+            target.IgUserId = source.IgUserId;
+
+        if (string.IsNullOrWhiteSpace(target.Phone) && !string.IsNullOrWhiteSpace(source.Phone))
+            target.Phone = source.Phone;
+
+        if (string.IsNullOrWhiteSpace(target.User.Phone) && !string.IsNullOrWhiteSpace(source.User?.Phone))
+            target.User.Phone = source.User.Phone;
+
+        var msgs = await _db.PatientMessages
+            .Where(m => m.PatientId == fromId)
+            .ToListAsync();
+        foreach (var m in msgs)
+            m.PatientId = id;
+
+        source.IsActive = false;
+        source.UpdatedAt = DateTime.UtcNow;
+        if (source.User != null)
         {
-            var source = await _db.Patients
-                .FirstOrDefaultAsync(p => p.Id == fromId && p.ClinicId == clinicId);
-            if (source != null)
-            {
-                // Herda o IgUserId do paciente auto-criado
-                target.IgUserId = source.IgUserId;
-
-                // Move todas as mensagens para o paciente real
-                var msgs = await _db.PatientMessages
-                    .Where(m => m.PatientId == fromId)
-                    .ToListAsync();
-                foreach (var m in msgs)
-                    m.PatientId = id;
-
-                // Desativa o paciente auto-criado
-                source.IsActive = false;
-                source.UpdatedAt = DateTime.UtcNow;
-            }
+            source.User.IsActive = false;
+            source.User.UpdatedAt = DateTime.UtcNow;
         }
 
         // Garante que nenhum outro paciente na clínica tenha o mesmo IgUserId

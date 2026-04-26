@@ -42,6 +42,13 @@ export interface IntegrationSettings {
   igVerifyTokenMasked?: string
   igVerifyToken?: string
   igConnected?: boolean
+  // ── Diagnóstico do modo + endpoints efetivos ──
+  igMode?: 'InstagramLogin' | 'FacebookPageLogin' | string
+  igGraphVersion?: string
+  igOwnerId?: string
+  igSendEndpoint?: string
+  igSubscribeEndpoint?: string
+  igConfirmEndpoint?: string
 }
 
 export function useIntegrations(clinicId?: string) {
