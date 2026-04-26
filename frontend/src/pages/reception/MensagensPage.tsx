@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  Send, Paperclip, Smile, CreditCard, CalendarPlus, MoreVertical,
+  Send, Paperclip, Smile, CreditCard, CalendarPlus,
   Hash, Lock, Loader2, MessageCircle, User, ChevronLeft, UserPlus, X, Search,
   UserCheck, AlertCircle,
 } from 'lucide-react'
@@ -14,6 +14,8 @@ import {
   useMarkConversationRead,
 } from '../../hooks/useConversations'
 import { usePatients, useLinkInstagram, usePromotePatient } from '../../hooks/usePatients'
+import PatientChargesModal from '../../components/PatientChargesModal'
+import NewAppointmentModal from '../../components/NewAppointmentModal'
 
 // ── Link Instagram Modal ──────────────────────────────────────────────────────
 function LinkInstagramModal({
@@ -391,6 +393,8 @@ export default function MensagensPage() {
   const [showNewConvoModal, setShowNewConvoModal] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showPromoteModal, setShowPromoteModal] = useState(false)
+  const [showChargesModal, setShowChargesModal] = useState(false)
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Internal channels
@@ -593,14 +597,16 @@ export default function MensagensPage() {
                   ? (selectedConvo?.patientName || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
                   : '#'}
               </div>
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     {activeTab === 'patients'
                     ? (selectedConvo?.patientName || convDetail?.patient?.name || 'Selecione uma conversa')
                     : selectedChannel ? `#${selectedChannel.name}` : 'Selecione um canal'}
-                    {activeTab === 'patients' && (selectedConvo?.isProvisional || convDetail?.patient?.isProvisional) && (
-                      <span
-                        title="Contato criado automaticamente — ainda não cadastrado como paciente"
+                    {activeTab === 'patients' && (selectedConvo?.isProvisional || convDetail?.patient?.isProvisional) && selectedPatientId && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPromoteModal(true)}
+                        title="Cadastrar este contato como paciente"
                         style={{
                           fontSize: 10,
                           fontWeight: 600,
@@ -611,10 +617,38 @@ export default function MensagensPage() {
                           background: 'rgba(234, 179, 8, 0.15)',
                           color: '#b45309',
                           border: '1px solid rgba(234, 179, 8, 0.4)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
                         }}
                       >
-                        Provisório
-                      </span>
+                        <UserCheck size={10} /> Provisório · Cadastrar
+                      </button>
+                    )}
+                    {activeTab === 'patients' && selectedConvo?.source === 'INSTAGRAM' && selectedPatientId && (
+                      <button
+                        type="button"
+                        onClick={() => setShowLinkModal(true)}
+                        title="Vincular a um paciente já cadastrado"
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(99, 102, 241, 0.12)',
+                          color: '#4338ca',
+                          border: '1px solid rgba(99, 102, 241, 0.35)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <User size={10} /> Vincular
+                      </button>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
@@ -627,35 +661,28 @@ export default function MensagensPage() {
             <div className="chat-header-actions">
               {activeTab === 'patients' && (
                 <>
-                  {(selectedConvo?.isProvisional || convDetail?.patient?.isProvisional) && selectedPatientId && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      title="Converter este contato em um paciente cadastrado"
-                      onClick={() => setShowPromoteModal(true)}
-                    >
-                      <UserCheck size={14} /> Cadastrar
-                    </button>
-                  )}
-                  {selectedConvo?.source === 'INSTAGRAM' && selectedPatientId && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      title="Vincular a paciente existente"
-                      onClick={() => setShowLinkModal(true)}
-                    >
-                      <User size={14} /> Vincular
-                    </button>
-                  )}
-                  <button className="btn btn-secondary btn-sm" title="Gerar Cobrança">
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    title={selectedPatientId
+                      ? `Cobranças pendentes de ${selectedConvo?.patientName || convDetail?.patient?.name || 'paciente'}`
+                      : 'Selecione uma conversa'}
+                    onClick={() => setShowChargesModal(true)}
+                    disabled={!selectedPatientId}
+                  >
                     <CreditCard size={14} /> Cobrança
                   </button>
-                  <button className="btn btn-primary btn-sm" title="Agendar">
+                  <button
+                    className="btn btn-primary btn-sm"
+                    title={selectedPatientId
+                      ? `Agendar para ${selectedConvo?.patientName || convDetail?.patient?.name || 'paciente'}`
+                      : 'Selecione uma conversa'}
+                    onClick={() => setShowAppointmentModal(true)}
+                    disabled={!selectedPatientId}
+                  >
                     <CalendarPlus size={14} /> Agendar
                   </button>
                 </>
               )}
-              <button className="btn btn-icon btn-sm">
-                <MoreVertical size={16} />
-              </button>
             </div>
           </div>
 
@@ -794,6 +821,24 @@ export default function MensagensPage() {
           initialPhone={selectedConvo?.patientPhone || convDetail?.patient?.phone}
           onClose={() => setShowPromoteModal(false)}
           onPromoted={() => { /* invalidations happen inside the hook */ }}
+        />
+      )}
+
+      {/* ── Patient Pending Charges Modal ── */}
+      {showChargesModal && selectedPatientId && (
+        <PatientChargesModal
+          patientId={selectedPatientId}
+          patientName={selectedConvo?.patientName || convDetail?.patient?.name || 'Paciente'}
+          onClose={() => setShowChargesModal(false)}
+        />
+      )}
+
+      {/* ── New Appointment Modal (pre-filled with selected patient) ── */}
+      {showAppointmentModal && selectedPatientId && (
+        <NewAppointmentModal
+          patientId={selectedPatientId}
+          patientName={selectedConvo?.patientName || convDetail?.patient?.name || 'Paciente'}
+          onClose={() => setShowAppointmentModal(false)}
         />
       )}
     </>
