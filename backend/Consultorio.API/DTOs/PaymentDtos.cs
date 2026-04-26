@@ -4,6 +4,11 @@ public class PaymentResponseDto
 {
     public Guid Id { get; set; }
     public Guid AppointmentId { get; set; }
+    public Guid? PatientId { get; set; }
+    public string? PatientName { get; set; }
+    public string? ServiceName { get; set; }
+    public DateTime? AppointmentStartTime { get; set; }
+    public string? AppointmentStatus { get; set; }
     public decimal Amount { get; set; }
     public string Status { get; set; } = "PENDING";
     public string? PaymentMethod { get; set; }

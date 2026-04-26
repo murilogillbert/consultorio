@@ -158,12 +158,14 @@ public class PaymentsController : ControllerBase
     public async Task<ActionResult<List<PaymentResponseDto>>> GetAll(
         [FromQuery] string? status,
         [FromQuery] DateTime? from,
-        [FromQuery] DateTime? to)
+        [FromQuery] DateTime? to,
+        [FromQuery] Guid? patientId)
     {
         var clinicId = GetClinicId();
 
         IQueryable<Payment> query = _db.Payments
-            .Include(p => p.Appointment)
+            .Include(p => p.Appointment).ThenInclude(a => a.Service)
+            .Include(p => p.Appointment).ThenInclude(a => a.Patient).ThenInclude(p => p.User)
             .Where(p => p.Appointment.ClinicId == clinicId);
 
         if (!string.IsNullOrEmpty(status))
@@ -175,12 +177,20 @@ public class PaymentsController : ControllerBase
         if (to.HasValue)
             query = query.Where(p => p.CreatedAt <= to.Value);
 
+        if (patientId.HasValue)
+            query = query.Where(p => p.Appointment.PatientId == patientId.Value);
+
         var list = await query
             .OrderByDescending(p => p.CreatedAt)
             .Select(p => new PaymentResponseDto
             {
                 Id = p.Id,
                 AppointmentId = p.AppointmentId,
+                PatientId = p.Appointment.PatientId,
+                PatientName = p.Appointment.Patient.User.Name,
+                ServiceName = p.Appointment.Service.Name,
+                AppointmentStartTime = p.Appointment.StartTime,
+                AppointmentStatus = p.Appointment.Status,
                 Amount = p.Amount,
                 Status = p.Status,
                 PaymentMethod = p.PaymentMethod,
