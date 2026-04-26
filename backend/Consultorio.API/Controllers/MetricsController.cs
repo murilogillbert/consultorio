@@ -483,22 +483,6 @@ public class MetricsController : ControllerBase
         var primeiraConsultaDate = primeiraConsulta ?? DateTime.UtcNow;
         var limiteFaixa = primeiraConsultaDate.AddMonths(6);
 
-        // Comissão da plataforma — proporcional por data, aplicada sobre cada pagamento recebido no período
-        decimal platformCommission = 0m;
-        decimal commissionRevenuePromo = 0m;
-        decimal commissionRevenuePos = 0m;
-        foreach (var pay in paidPayments)
-        {
-            var dataReferencia = pay.PaymentDate ?? pay.CreatedAt;
-            platformCommission += CalcularComissao(dataReferencia, primeiraConsultaDate, pay.Amount);
-            if (dataReferencia <= limiteFaixa) commissionRevenuePromo += pay.Amount;
-            else commissionRevenuePos += pay.Amount;
-        }
-        var commissionPctEffective = totalRevenue > 0
-            ? Math.Round(platformCommission / totalRevenue * 100m, 2)
-            : 0m;
-        var promoActive = commissionRevenuePromo > 0;
-
         // Appointments this period
         var periodAppts = await _db.Appointments
             .Where(a => a.ClinicId == clinicId && a.StartTime >= start && a.StartTime <= end)
@@ -575,8 +559,33 @@ public class MetricsController : ControllerBase
             .OrderByDescending(x => x.value)
             .ToList();
 
+        // ───── COMISSÃO DA PLATAFORMA ─────
+        // Calculada sobre a Receita Líquida (Bruta - Repasses - Custos),
+        // proporcional por data quando o período atravessa a faixa de 6 meses.
+        // A base líquida de cada pagamento desconta seu próprio repasse e
+        // uma fatia proporcional dos custos (rateio pelo valor do pagamento).
+        decimal platformCommission = 0m;
+        decimal commissionBasePromo = 0m;
+        decimal commissionBasePos = 0m;
+        foreach (var pay in paidPayments)
+        {
+            var dataReferencia = pay.PaymentDate ?? pay.CreatedAt;
+            var payoutShare = pay.Amount * pay.Appointment.Professional.CommissionPct / 100m;
+            var custosShare = totalRevenue > 0 ? totalCustos * (pay.Amount / totalRevenue) : 0m;
+            var baseLiquida = pay.Amount - payoutShare - custosShare;
+            var rate = dataReferencia <= limiteFaixa ? CommissionRateInicial : CommissionRateApos6Meses;
+            platformCommission += baseLiquida * rate;
+            if (dataReferencia <= limiteFaixa) commissionBasePromo += baseLiquida;
+            else commissionBasePos += baseLiquida;
+        }
+        var netBeforeCommission = totalRevenue - totalPayout - totalCustos;
+        var commissionPctEffective = netBeforeCommission > 0
+            ? Math.Round(platformCommission / netBeforeCommission * 100m, 2)
+            : 0m;
+        var promoActive = commissionBasePromo > 0;
+
         // Receita líquida considerando repasses, custos e comissão da plataforma
-        var receitaLiquida = totalRevenue - totalPayout - totalCustos - platformCommission;
+        var receitaLiquida = netBeforeCommission - platformCommission;
         var margemLiquida = totalRevenue > 0
             ? Math.Round(receitaLiquida / totalRevenue * 100m, 2)
             : 0m;
@@ -597,12 +606,23 @@ public class MetricsController : ControllerBase
 
             var mRev = mPayments.Sum(p => p.Amount);
             var mPayout = mPayments.Sum(p => p.Amount * p.Appointment.Professional.CommissionPct / 100m);
-            var mCommission = mPayments.Sum(p => CalcularComissao(p.PaymentDate ?? p.CreatedAt, primeiraConsultaDate, p.Amount));
 
             var mCustos = await _db.Custos
                 .Where(c => c.ClinicId == clinicId
                     && c.DataCompetencia >= mStart && c.DataCompetencia <= mEnd)
                 .SumAsync(c => (decimal?)c.Valor) ?? 0m;
+
+            // Comissão sobre receita líquida (Bruta - Repasses - Custos), proporcional por data
+            decimal mCommission = 0m;
+            foreach (var p in mPayments)
+            {
+                var pDate = p.PaymentDate ?? p.CreatedAt;
+                var pPayout = p.Amount * p.Appointment.Professional.CommissionPct / 100m;
+                var pCustosShare = mRev > 0 ? mCustos * (p.Amount / mRev) : 0m;
+                var pBase = p.Amount - pPayout - pCustosShare;
+                var pRate = pDate <= limiteFaixa ? CommissionRateInicial : CommissionRateApos6Meses;
+                mCommission += pBase * pRate;
+            }
 
             monthlyRevenue.Add(new
             {
