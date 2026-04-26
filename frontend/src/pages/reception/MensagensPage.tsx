@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  Send, Paperclip, Smile, CreditCard, CalendarPlus,
+  Send, Paperclip, Smile, CreditCard, CalendarPlus, FileText,
   Hash, Lock, Loader2, MessageCircle, User, ChevronLeft, UserPlus, X, Search,
   UserCheck, AlertCircle,
 } from 'lucide-react'
@@ -13,102 +13,11 @@ import {
   useSendConversationMessage,
   useMarkConversationRead,
 } from '../../hooks/useConversations'
-import { usePatients, useLinkInstagram, usePromotePatient } from '../../hooks/usePatients'
+import { usePatients, usePromotePatient } from '../../hooks/usePatients'
 import PatientChargesModal from '../../components/PatientChargesModal'
 import NewAppointmentModal from '../../components/NewAppointmentModal'
+import TemplatePickerModal from '../../components/TemplatePickerModal'
 
-// ── Link Instagram Modal ──────────────────────────────────────────────────────
-function LinkInstagramModal({
-  fromPatientId,
-  fromPatientName,
-  onClose,
-  onLinked,
-}: {
-  fromPatientId: string
-  fromPatientName: string
-  onClose: () => void
-  onLinked: () => void
-}) {
-  const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null)
-  const { data: patients = [], isLoading } = usePatients(search)
-  const linkMutation = useLinkInstagram()
-
-  const handleLink = async () => {
-    if (!selected) return
-    await linkMutation.mutateAsync({ targetPatientId: selected.id, fromPatientId })
-    onLinked()
-    onClose()
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <User size={18} color="var(--color-accent-emerald)" /> Vincular ao Instagram
-          </h3>
-          <button className="modal-close" onClick={onClose}><X size={20} /></button>
-        </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: 0 }}>
-            A conversa de <strong>{fromPatientName}</strong> será vinculada ao paciente selecionado.
-            O histórico de mensagens será migrado automaticamente.
-          </p>
-          <div>
-            <label className="input-label" style={{ marginBottom: 6, display: 'block' }}>
-              Buscar paciente existente
-            </label>
-            <div style={{ position: 'relative', marginBottom: 8 }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-              <input
-                className="input-field"
-                style={{ paddingLeft: 32 }}
-                placeholder="Nome, CPF ou e-mail..."
-                value={search}
-                onChange={e => { setSearch(e.target.value); setSelected(null) }}
-                autoFocus
-              />
-            </div>
-            {isLoading && <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Buscando...</p>}
-            <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {patients.filter(p => p.id !== fromPatientId).map(p => (
-                <button
-                  key={p.id}
-                  className={`btn ${selected?.id === p.id ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                  style={{ justifyContent: 'flex-start', textAlign: 'left' }}
-                  onClick={() => setSelected({ id: p.id, name: p.user?.name || '' })}
-                >
-                  <div className="avatar avatar-xs avatar-placeholder" style={{ flexShrink: 0 }}>
-                    {(p.user?.name || '?').slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{p.user?.name}</div>
-                    <div style={{ fontSize: 11, opacity: 0.7 }}>{p.user?.email}</div>
-                  </div>
-                </button>
-              ))}
-              {!isLoading && search.length > 1 && patients.filter(p => p.id !== fromPatientId).length === 0 && (
-                <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center' }}>Nenhum paciente encontrado.</p>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button
-            className="btn btn-primary"
-            onClick={handleLink}
-            disabled={!selected || linkMutation.isPending}
-          >
-            {linkMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <User size={14} />}
-            Vincular
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── New Conversation Modal ────────────────────────────────────────────────────
 function NewConversationModal({
@@ -388,13 +297,13 @@ export default function MensagensPage() {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
-  const [patientChannelFilter, setPatientChannelFilter] = useState<'ALL' | 'APP' | 'WHATSAPP' | 'INSTAGRAM' | 'EMAIL'>('ALL')
+  const [patientChannelFilter, setPatientChannelFilter] = useState<'ALL' | 'APP' | 'WHATSAPP' | 'EMAIL'>('ALL')
   const [message, setMessage] = useState('')
   const [showNewConvoModal, setShowNewConvoModal] = useState(false)
-  const [showLinkModal, setShowLinkModal] = useState(false)
   const [showPromoteModal, setShowPromoteModal] = useState(false)
   const [showChargesModal, setShowChargesModal] = useState(false)
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Internal channels
@@ -452,7 +361,6 @@ export default function MensagensPage() {
   const sourceLabel: Record<string, string> = {
     APP: 'Aplicação',
     WHATSAPP: 'WhatsApp',
-    INSTAGRAM: 'Instagram',
     EMAIL: 'E-mail',
   }
 
@@ -486,7 +394,6 @@ export default function MensagensPage() {
                   <option value="ALL">Todas as origens</option>
                   <option value="APP">Aplicação</option>
                   <option value="WHATSAPP">WhatsApp</option>
-                  <option value="INSTAGRAM">Instagram</option>
                   <option value="EMAIL">E-mail</option>
                 </select>
                 <button
@@ -626,30 +533,6 @@ export default function MensagensPage() {
                         <UserCheck size={10} /> Provisório · Cadastrar
                       </button>
                     )}
-                    {activeTab === 'patients' && selectedConvo?.source === 'INSTAGRAM' && selectedPatientId && (
-                      <button
-                        type="button"
-                        onClick={() => setShowLinkModal(true)}
-                        title="Vincular a um paciente já cadastrado"
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          letterSpacing: '0.04em',
-                          textTransform: 'uppercase',
-                          padding: '2px 6px',
-                          borderRadius: 4,
-                          background: 'rgba(99, 102, 241, 0.12)',
-                          color: '#4338ca',
-                          border: '1px solid rgba(99, 102, 241, 0.35)',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <User size={10} /> Vincular
-                      </button>
-                    )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                     {activeTab === 'patients'
@@ -771,6 +654,17 @@ export default function MensagensPage() {
             <button className="btn btn-icon btn-sm" style={{ color: 'var(--color-text-muted)' }}>
               <Paperclip size={18} />
             </button>
+            {activeTab === 'patients' && (
+              <button
+                className="btn btn-icon btn-sm"
+                style={{ color: 'var(--color-text-muted)' }}
+                onClick={() => setShowTemplateModal(true)}
+                disabled={!selectedPatientId}
+                title={selectedPatientId ? 'Enviar template' : 'Selecione uma conversa'}
+              >
+                <FileText size={18} />
+              </button>
+            )}
             <input
               placeholder="Digite sua mensagem..."
               value={message}
@@ -803,16 +697,6 @@ export default function MensagensPage() {
         />
       )}
 
-      {/* ── Link Instagram Modal ── */}
-      {showLinkModal && selectedPatientId && (
-        <LinkInstagramModal
-          fromPatientId={selectedPatientId}
-          fromPatientName={selectedConvo?.patientName || convDetail?.patient?.name || 'este contato'}
-          onClose={() => setShowLinkModal(false)}
-          onLinked={() => setSelectedPatientId(null)}
-        />
-      )}
-
       {/* ── Promote Provisional Contact Modal ── */}
       {showPromoteModal && selectedPatientId && (
         <PromotePatientModal
@@ -839,6 +723,15 @@ export default function MensagensPage() {
           patientId={selectedPatientId}
           patientName={selectedConvo?.patientName || convDetail?.patient?.name || 'Paciente'}
           onClose={() => setShowAppointmentModal(false)}
+        />
+      )}
+
+      {/* ── Template Picker Modal ── */}
+      {showTemplateModal && selectedPatientId && (
+        <TemplatePickerModal
+          patientId={selectedPatientId}
+          patientName={selectedConvo?.patientName || convDetail?.patient?.name || 'Paciente'}
+          onClose={() => setShowTemplateModal(false)}
         />
       )}
     </>

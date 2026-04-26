@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Consultorio.API.DTOs;
 using Consultorio.API.Services;
 using Consultorio.Domain.Models;
 using Consultorio.Infra.Context;
@@ -20,17 +21,20 @@ public class PatientConversationsController : ControllerBase
     private readonly GmailInboxSyncService _gmailInboxSync;
     private readonly WhatsAppCloudService _whatsApp;
     private readonly InstagramService _instagram;
+    private readonly MessageTemplateRenderer _templateRenderer;
 
     public PatientConversationsController(
         AppDbContext db,
         GmailInboxSyncService gmailInboxSync,
         WhatsAppCloudService whatsApp,
-        InstagramService instagram)
+        InstagramService instagram,
+        MessageTemplateRenderer templateRenderer)
     {
         _db = db;
         _gmailInboxSync = gmailInboxSync;
         _whatsApp = whatsApp;
         _instagram = instagram;
+        _templateRenderer = templateRenderer;
     }
 
     private Guid GetClinicId() =>
@@ -264,6 +268,118 @@ public class PatientConversationsController : ControllerBase
             source       = msg.Source,
             createdAt    = msg.CreatedAt,
             sentByUserId = msg.SentByUserId,
+        });
+    }
+
+    // ─── POST /api/patient-conversations/{patientId}/preview-template ─────────
+    // Renderiza um template para o paciente (e opcionalmente um agendamento
+    // específico) sem enviá-lo. Útil para mostrar o preview antes do disparo.
+    [HttpPost("{patientId}/preview-template")]
+    public async Task<ActionResult<TemplatePreviewDto>> PreviewTemplate(Guid patientId, [FromBody] SendTemplateMessageDto dto)
+    {
+        var clinicId = GetClinicId();
+        if (clinicId == Guid.Empty)
+            return BadRequest(new { message = "Clínica não identificada." });
+
+        try
+        {
+            var rendered = await _templateRenderer.RenderAsync(clinicId, dto.Kind, patientId, dto.AppointmentId);
+            return Ok(new TemplatePreviewDto
+            {
+                Kind     = rendered.Kind,
+                Body     = rendered.Body,
+                Rendered = rendered.Rendered,
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // ─── POST /api/patient-conversations/{patientId}/send-template ────────────
+    // Renderiza o template usando os dados do paciente + agendamento e envia
+    // pelo canal apropriado (atualmente WhatsApp). A mensagem é persistida em
+    // PatientMessages como qualquer outro reply para aparecer na timeline.
+    [HttpPost("{patientId}/send-template")]
+    public async Task<ActionResult> SendTemplate(Guid patientId, [FromBody] SendTemplateMessageDto dto)
+    {
+        var clinicId = GetClinicId();
+        if (clinicId == Guid.Empty)
+            return BadRequest(new { message = "Clínica não identificada." });
+
+        var patient = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == patientId && p.ClinicId == clinicId);
+        if (patient == null)
+            return NotFound(new { message = "Paciente não encontrado." });
+
+        if (string.IsNullOrWhiteSpace(patient.Phone))
+            return BadRequest(new { message = "Paciente sem telefone cadastrado para envio por WhatsApp." });
+
+        Services.MessageTemplateRenderer.RenderResult rendered;
+        try
+        {
+            rendered = await _templateRenderer.RenderAsync(clinicId, dto.Kind, patientId, dto.AppointmentId);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+
+        WhatsAppSendResult sendResult;
+        try
+        {
+            sendResult = await _whatsApp.SendTextMessageAsync(clinicId, patient.Phone, rendered.Rendered);
+        }
+        catch (WhatsAppCloudException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+
+        var msg = new PatientMessage
+        {
+            Id                = Guid.NewGuid(),
+            PatientId         = patientId,
+            ClinicId          = clinicId,
+            Content           = rendered.Rendered,
+            Direction         = "OUT",
+            Source            = "WHATSAPP",
+            SentByUserId      = GetUserId() != Guid.Empty ? GetUserId() : null,
+            ExternalMessageId = sendResult.MessageId,
+            ExternalStatus    = sendResult.Status,
+            ExternalProvider  = "WHATSAPP",
+            IsRead            = true,
+            CreatedAt         = DateTime.UtcNow,
+        };
+
+        _db.PatientMessages.Add(msg);
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            id           = msg.Id,
+            direction    = msg.Direction,
+            content      = msg.Content,
+            isRead       = msg.IsRead,
+            source       = msg.Source,
+            createdAt    = msg.CreatedAt,
+            sentByUserId = msg.SentByUserId,
+            template     = new
+            {
+                kind          = rendered.Kind,
+                body          = rendered.Body,
+                rendered      = rendered.Rendered,
+                appointmentId = rendered.Appointment?.Id,
+            },
         });
     }
 }

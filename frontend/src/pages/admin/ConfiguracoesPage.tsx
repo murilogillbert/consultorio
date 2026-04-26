@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, Camera, Wrench, AlertTriangle, Palette, RotateCcw } from 'lucide-react'
+import { Building2, Bell, FileText, Puzzle, Users, Shield, DoorOpen, MessageSquare, Plus, Edit, Trash2, Lock, Hash, Info, Briefcase, Camera, Wrench, AlertTriangle, Palette, RotateCcw, Loader2, Save, RefreshCw } from 'lucide-react'
 import IntegrationsPanel from './IntegrationsPanel'
 import { useClinics, useUpdateClinic } from '../../hooks/useClinics'
+import { useMessageTemplates, useUpsertMessageTemplate, TEMPLATE_LABELS, type MessageTemplate, type TemplateKind } from '../../hooks/useMessageTemplates'
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../../hooks/useRooms'
 import { useInsurances, useCreateInsurance, useUpdateInsurance, useDeleteInsurance } from '../../hooks/useInsurances'
 import { useChannels, useCreateChannel, useUpdateChannel, useDeleteChannel } from '../../hooks/useChannels'
@@ -60,7 +61,7 @@ export default function ConfiguracoesPage() {
   const updateClinicMutation = useUpdateClinic()
   const clinic = clinics[0]
 
-  const [clinicForm, setClinicForm] = useState({ name: '', cnpj: '', address: '', phone: '', email: '', whatsapp: '', instagram: '', facebook: '' })
+  const [clinicForm, setClinicForm] = useState({ name: '', cnpj: '', address: '', phone: '', email: '', whatsapp: '', facebook: '' })
   const [clinicSaveMsg, setClinicSaveMsg] = useState('')
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
@@ -184,7 +185,6 @@ export default function ConfiguracoesPage() {
         phone: clinic.phone || '',
         email: clinic.email || '',
         whatsapp: clinic.whatsapp || '',
-        instagram: clinic.instagram || '',
         facebook: clinic.facebook || '',
       })
       setAboutForm({
@@ -460,15 +460,6 @@ export default function ConfiguracoesPage() {
                   </span>
                 </div>
                 <div className="input-group">
-                  <label className="input-label">Instagram</label>
-                  <input 
-                    className="input-field" 
-                    placeholder="@clinicavitalis" 
-                    value={clinicForm.instagram} 
-                    onChange={e => setClinicForm({ ...clinicForm, instagram: e.target.value })} 
-                  />
-                </div>
-                <div className="input-group">
                   <label className="input-label">Facebook</label>
                   <input 
                     className="input-field" 
@@ -587,19 +578,7 @@ export default function ConfiguracoesPage() {
             </div>
           )}
 
-          {activeTab === 'templates' && (
-            <div>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)', marginBottom: 'var(--space-6)' }}>Templates de Mensagem</h3>
-              {['Confirmação', 'Lembrete', 'Pós-Atendimento', 'Aniversário'].map(t => (
-                <div key={t} style={{ marginBottom: 'var(--space-6)' }}>
-                  <label className="input-label">{t}</label>
-                  <textarea className="input-field" defaultValue={`Olá {nome}, sua consulta de {servico} está ${t === 'Confirmação' ? 'confirmada' : 'agendada'} para {data} às {hora}. Clínica Vitalis.`} style={{ minHeight: 80 }} />
-                  <p className="input-hint">Variáveis: {'{nome}'}, {'{servico}'}, {'{data}'}, {'{hora}'}, {'{profissional}'}</p>
-                </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn btn-primary">Salvar Templates</button></div>
-            </div>
-          )}
+          {activeTab === 'templates' && <TemplatesSection />}
 
           {activeTab === 'integrations' && (
             <IntegrationsPanel clinicId={clinic?.id} />
@@ -1461,6 +1440,159 @@ export default function ConfiguracoesPage() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Templates de Mensagem ────────────────────────────────────────────────────
+function TemplatesSection() {
+  const { data: templates, isLoading, error, refetch } = useMessageTemplates()
+  const upsert = useUpsertMessageTemplate()
+
+  // Local edits per kind. Initialised lazily from server data; users see
+  // unsaved-state visually via the `dirty` flag.
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [feedback, setFeedback] = useState<{ kind: TemplateKind; type: 'success' | 'error'; msg: string } | null>(null)
+
+  useEffect(() => {
+    if (templates) {
+      // Sync drafts: keep user-edited values; otherwise mirror the server.
+      setDrafts(prev => {
+        const next: Record<string, string> = {}
+        templates.forEach(t => {
+          next[t.kind] = prev[t.kind] !== undefined ? prev[t.kind] : t.body
+        })
+        return next
+      })
+    }
+  }, [templates])
+
+  const handleSave = async (template: MessageTemplate) => {
+    setFeedback(null)
+    try {
+      await upsert.mutateAsync({ kind: template.kind, body: drafts[template.kind] ?? template.body })
+      setFeedback({ kind: template.kind, type: 'success', msg: 'Template salvo.' })
+      setTimeout(() => setFeedback(null), 2500)
+    } catch (err: any) {
+      setFeedback({ kind: template.kind, type: 'error', msg: err?.response?.data?.message ?? 'Falha ao salvar.' })
+    }
+  }
+
+  const handleReset = (template: MessageTemplate) => {
+    setDrafts(prev => ({ ...prev, [template.kind]: template.body }))
+    setFeedback(null)
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <Loader2 size={20} className="animate-spin" color="var(--color-text-muted)" />
+      </div>
+    )
+  }
+
+  if (error || !templates) {
+    return (
+      <div style={{ padding: 16, color: 'var(--color-accent-danger, #dc2626)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <AlertTriangle size={16} /> Falha ao carregar templates.
+        <button className="btn btn-secondary btn-sm" onClick={() => refetch()}>Tentar novamente</button>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)', marginBottom: 'var(--space-2)' }}>
+        Templates de Mensagem
+      </h3>
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 'var(--space-6)' }}>
+        Os textos abaixo são usados nas mensagens automáticas e em envios manuais.
+        As variáveis entre chaves são substituídas pelos dados do paciente e do agendamento.
+      </p>
+
+      {templates.map(t => {
+        const draft = drafts[t.kind] ?? t.body
+        const dirty = draft !== t.body
+        const fb = feedback?.kind === t.kind ? feedback : null
+        return (
+          <div key={t.kind} style={{ marginBottom: 'var(--space-6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 }}>
+                {TEMPLATE_LABELS[t.kind]}
+                {t.isDefault && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+                    padding: '2px 6px', borderRadius: 4,
+                    background: 'rgba(99,102,241,0.10)', color: '#4338ca',
+                    border: '1px solid rgba(99,102,241,0.3)',
+                  }}>
+                    Padrão
+                  </span>
+                )}
+                {dirty && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+                    padding: '2px 6px', borderRadius: 4,
+                    background: 'rgba(234,179,8,0.12)', color: '#b45309',
+                    border: '1px solid rgba(234,179,8,0.35)',
+                  }}>
+                    Não salvo
+                  </span>
+                )}
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {dirty && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => handleReset(t)}
+                    disabled={upsert.isPending}
+                    type="button"
+                  >
+                    <RotateCcw size={13} /> Desfazer
+                  </button>
+                )}
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => handleSave(t)}
+                  disabled={!dirty || upsert.isPending}
+                  type="button"
+                >
+                  {upsert.isPending && fb?.kind === t.kind
+                    ? <><Loader2 size={13} className="animate-spin" /> Salvando...</>
+                    : <><Save size={13} /> Salvar</>}
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              className="input-field"
+              value={draft}
+              onChange={e => setDrafts(prev => ({ ...prev, [t.kind]: e.target.value }))}
+              style={{ minHeight: 90, fontFamily: 'var(--font-mono, monospace)', fontSize: 13 }}
+            />
+
+            <p className="input-hint" style={{ marginTop: 4 }}>
+              Variáveis: {t.variables.map(v => `{${v}}`).join(', ')}
+            </p>
+
+            {fb && (
+              <p style={{
+                fontSize: 12,
+                marginTop: 4,
+                color: fb.type === 'success' ? 'var(--color-accent-emerald, #16a34a)' : 'var(--color-accent-danger, #dc2626)',
+              }}>
+                {fb.msg}
+              </p>
+            )}
+          </div>
+        )
+      })}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+        <button className="btn btn-secondary btn-sm" onClick={() => refetch()} type="button">
+          <RefreshCw size={13} /> Recarregar do servidor
+        </button>
       </div>
     </div>
   )

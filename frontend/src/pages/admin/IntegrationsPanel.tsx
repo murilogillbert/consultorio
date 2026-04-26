@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import {
-  Mail, MessageCircle, Camera, CreditCard, Cloud,
+  Mail, MessageCircle, CreditCard, Cloud,
   ChevronDown, Eye, EyeOff, Copy, Check, Loader2,
-  AlertTriangle, RefreshCw, Unplug, LogIn,
+  AlertTriangle, Unplug, LogIn,
   Zap, Shield, Info
 } from 'lucide-react'
 import { useIntegrations, useUpdateIntegrations, useTestIntegration } from '../../hooks/useIntegrations'
@@ -202,11 +202,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   /* Derivar status a partir dos dados reais do banco */
   const gmailStatus: ConnectionStatus = existingSettings?.gmailConnected ? 'connected' : 'disconnected'
   const waStatus: ConnectionStatus = existingSettings?.waConnected ? 'connected' : 'disconnected'
-  const igStatus: ConnectionStatus = existingSettings?.igConnected
-    ? 'connected'
-    : existingSettings?.igAccessTokenMasked
-      ? 'error'
-      : 'disconnected'
   const mpStatus: ConnectionStatus = existingSettings?.connected ? 'connected' : 'disconnected'
 
   /* Toast system */
@@ -243,11 +238,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         // Na falha, concatenamos detail também — ele traz a razão exata (ex: subscrição,
         // campo faltando, etc), que o usuário precisa ver pra saber o próximo passo.
         const full = detail ? `${result.message || 'Falha no teste de conexão'} — ${detail}` : (result.message || 'Falha no teste de conexão')
-        // Se é Instagram e o problema é só a subscrição da página, usamos warning
-        // (a conexão em si funcionou, o que falta é uma ação manual no painel Meta).
-        const sub = (result as any).subscription as { success?: boolean; hasMessages?: boolean } | undefined
-        const isPartial = type === 'instagram' && sub && sub.success === false
-        addToast(full, isPartial ? 'warning' : 'error')
+        addToast(full, 'error')
         return
       }
       addToast(result.message + (detail ? ` — ${detail}` : ''), 'success')
@@ -264,10 +255,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   /* WhatsApp state */
   const [whatsapp, setWhatsapp] = useState({ phoneId: '', wabaId: '', accessToken: '', verifyToken: '', appSecret: '' })
   const [waErrors, setWaErrors] = useState<Record<string, string>>({})
-
-  /* Instagram state */
-  const [instagram, setInstagram] = useState({ accountId: '', pageId: '', pageToken: '', appSecret: '', verifyToken: '' })
-  const [igErrors, setIgErrors] = useState<Record<string, string>>({})
 
   /* Mercado Pago state */
   const [mp, setMp] = useState({ accessToken: '', sandboxToken: '', publicKey: '', sandboxMode: true })
@@ -290,13 +277,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         accessToken: existingSettings.waAccessTokenMasked || '',
         verifyToken: existingSettings.waVerifyTokenMasked || '',
         appSecret: existingSettings.waAppSecretMasked || '',
-      })
-      setInstagram({
-        accountId: existingSettings.igAccountId || '',
-        pageId: existingSettings.igPageId || '',
-        pageToken: existingSettings.igAccessTokenMasked || '',
-        appSecret: existingSettings.igAppSecretMasked || '',
-        verifyToken: existingSettings.igVerifyTokenMasked || '',
       })
       setMp({
         accessToken:  existingSettings.accessTokenProdMasked    || '',
@@ -333,17 +313,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!whatsapp.verifyToken) e.verifyToken = 'Verify Token é obrigatório'
     if (!whatsapp.appSecret) e.appSecret = 'App Secret é obrigatório'
     setWaErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  const validateInstagram = () => {
-    const e: Record<string, string> = {}
-    if (!instagram.accountId) e.accountId = 'Account ID é obrigatório'
-    if (!instagram.pageId) e.pageId = 'Page ID é obrigatório'
-    if (!instagram.pageToken) e.pageToken = 'Page Access Token é obrigatório'
-    if (!instagram.appSecret) e.appSecret = 'App Secret obrigatorio'
-    if (!instagram.verifyToken) e.verifyToken = 'Verify Token obrigatorio'
-    setIgErrors(e)
     return Object.keys(e).length === 0
   }
 
@@ -394,7 +363,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <AlertTriangle size={18} />
         <div>
           <strong>Estado atual das integrações</strong>
-          <p>Hoje os e-mails automáticos do sistema usam SMTP ou Ethereal no backend. Gmail, Pub/Sub e Instagram ainda estão em etapa parcial de construção.</p>
+          <p>Hoje os e-mails automáticos do sistema usam SMTP ou Ethereal no backend. Gmail e Pub/Sub ainda estão em etapa parcial de construção.</p>
         </div>
       </div>
 
@@ -589,132 +558,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         </div>
       </IntegrationSection>
 
-      {/* ═══════ SECTION 3: INSTAGRAM DIRECT ═══════ */}
-      <IntegrationSection
-        icon={Camera}
-        title="Instagram Direct"
-        description="Receba e responda DMs do Instagram diretamente na plataforma"
-        status={igStatus}
-      >
-        <InstructionBox steps={[
-          'Certifique-se de ter uma Conta Instagram Business vinculada a uma Página do Facebook',
-          'No Meta Developer Portal, adicione o produto "Messenger" ao seu app',
-          'Em Graph API Explorer, gere um Page Access Token de longa duração',
-          'Configure a URL do webhook abaixo para o Instagram no painel do app',
-          'Selecione os campos de inscrição desejados (listados abaixo)',
-        ]} />
-
-        <div className="form-2col">
-          <SensitiveField
-            label="Instagram Business Account ID"
-            required
-            placeholder="17841400000000000"
-            hint="Encontrado via Graph API: GET /me/accounts → instagram_business_account"
-            mono
-            value={instagram.accountId}
-            onChange={v => { setInstagram(p => ({ ...p, accountId: v })); setIgErrors(p => ({ ...p, accountId: '' })) }}
-            error={igErrors.accountId}
-          />
-          <SensitiveField
-            label="Facebook Page ID"
-            required
-            placeholder="100000000000000"
-            hint="Deve ser a Página do Facebook vinculada à conta Instagram Business"
-            mono
-            value={instagram.pageId}
-            onChange={v => { setInstagram(p => ({ ...p, pageId: v })); setIgErrors(p => ({ ...p, pageId: '' })) }}
-            error={igErrors.pageId}
-          />
-          <div className="input-group full-span">
-            <SensitiveField
-              label="Page Access Token (longa duração)"
-              required
-              placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              hint="⚠️ Tokens de curta duração expiram em 1 hora. Use o Graph API para trocar por um de longa duração (60 dias) e depois por um permanente."
-              mono
-              value={instagram.pageToken}
-              onChange={v => { setInstagram(p => ({ ...p, pageToken: v })); setIgErrors(p => ({ ...p, pageToken: '' })) }}
-              error={igErrors.pageToken}
-            />
-          </div>
-          <SensitiveField
-            label="App Secret"
-            required
-            placeholder="a1b2c3d4e5f6..."
-            hint="Encontrado em Meta Developer Portal → Seu App → Configurações → Básico → Segredo do Aplicativo"
-            mono
-            value={instagram.appSecret}
-            onChange={v => { setInstagram(p => ({ ...p, appSecret: v })); setIgErrors(p => ({ ...p, appSecret: '' })) }}
-            error={igErrors.appSecret}
-          />
-          <SensitiveField
-            label="Verify Token"
-            required
-            placeholder="meu_token_seguro_123"
-            hint="Defina uma string qualquer — deve ser idêntica ao valor no campo 'Verify Token' do painel Meta (Webhooks)"
-            value={instagram.verifyToken}
-            onChange={v => { setInstagram(p => ({ ...p, verifyToken: v })); setIgErrors(p => ({ ...p, verifyToken: '' })) }}
-            error={igErrors.verifyToken}
-          />
-          <WebhookField label="URL do Webhook" url={`${baseUrl}/webhooks/instagram`} />
-        </div>
-
-        <div className="intg-scope-tags">
-          <label className="input-label" style={{ marginBottom: 8 }}>Campos subscritos do webhook</label>
-          <div className="intg-tags-row">
-            {['messages', 'messaging_postbacks', 'message_reactions', 'message_reads'].map(s => (
-              <span key={s} className="intg-scope-tag">{s}</span>
-            ))}
-          </div>
-        </div>
-
-        <div className="intg-actions">
-          <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            const valid = validateInstagram()
-            if (!clinicId) return
-            await updateMutation.mutateAsync({
-              clinicId,
-              data: {
-                igAccountId: instagram.accountId,
-                igPageId: instagram.pageId,
-                igAccessToken: instagram.pageToken,
-                igAppSecret: instagram.appSecret,
-                igVerifyToken: instagram.verifyToken,
-              }
-            })
-            if (!valid) {
-              addToast('Dados salvos - App Secret e Verify Token sao obrigatorios para o webhook receber DMs.', 'warning')
-              return
-            }
-            await handleTest('instagram')
-          }} />
-          <SaveButton label="Revogar Acesso" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
-            if (!clinicId) return
-            await updateMutation.mutateAsync({ clinicId, data: { igConnected: false, igAccessToken: '' } })
-            addToast('Acesso ao Instagram revogado', 'warning')
-          }} />
-          <SaveButton label="Reconectar" icon={<RefreshCw size={14} />} onClick={async () => {
-            const valid = validateInstagram()
-            if (!clinicId) return
-            await updateMutation.mutateAsync({
-              clinicId,
-              data: {
-                igAccountId:   instagram.accountId,
-                igPageId:      instagram.pageId,
-                igAccessToken: instagram.pageToken,
-                igAppSecret:   instagram.appSecret,
-                igVerifyToken: instagram.verifyToken,
-              }
-            })
-            addToast(
-              valid
-                ? 'Instagram reconectado com sucesso'
-                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
-              valid ? 'success' : 'warning'
-            )
-          }} />
-        </div>
-      </IntegrationSection>
 
       {/* ═══════ SECTION 4: MERCADO PAGO ═══════ */}
       <IntegrationSection

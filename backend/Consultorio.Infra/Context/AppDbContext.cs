@@ -33,10 +33,23 @@ public class AppDbContext : DbContext
     public DbSet<PatientMessage> PatientMessages { get; set; } = null!;
     public DbSet<ServiceCategory> ServiceCategories { get; set; } = null!;
     public DbSet<ServiceInsurancePlan> ServiceInsurancePlans { get; set; } = null!;
+    public DbSet<MessageTemplate> MessageTemplates { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // ───── MESSAGE TEMPLATE ─────
+        modelBuilder.Entity<MessageTemplate>()
+            .HasKey(t => t.Id);
+        modelBuilder.Entity<MessageTemplate>()
+            .HasOne(t => t.Clinic)
+            .WithMany()
+            .HasForeignKey(t => t.ClinicId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MessageTemplate>()
+            .HasIndex(t => new { t.ClinicId, t.Kind })
+            .IsUnique();
 
         // ───── ANNOUNCEMENT ─────
         modelBuilder.Entity<Announcement>()

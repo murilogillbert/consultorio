@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Clock, MapPin, Phone,
-  MessageCircle, Camera, Globe, Video, Share2,
+  MessageCircle, Globe, Video, Share2,
   Heart, Activity, Stethoscope, Brain, Eye, Bone, Baby,
   CalendarDays, MessageSquare, ShieldCheck,
 } from 'lucide-react'
@@ -366,7 +366,6 @@ export default function HomePage() {
               <h4>Redes Sociais</h4>
               <p>Siga nossas novidades</p>
               <div className="social-icons">
-                {clinic?.instagram && <a href={clinic.instagram} className="social-icon" title="Instagram"><Camera size={18} /></a>}
                 {clinic?.facebook && <a href={clinic.facebook} className="social-icon" title="Facebook"><Globe size={18} /></a>}
                 {clinic?.youtube && <a href={clinic.youtube} className="social-icon" title="YouTube"><Video size={18} /></a>}
                 {clinic?.linkedin && <a href={clinic.linkedin} className="social-icon" title="LinkedIn"><Share2 size={18} /></a>}

@@ -140,21 +140,6 @@ export function usePromotePatient() {
   })
 }
 
-export function useLinkInstagram() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ targetPatientId, fromPatientId }: { targetPatientId: string; fromPatientId: string }) => {
-      const { data } = await api.put<PatientRaw>(`/patients/${targetPatientId}/link-instagram`, { fromPatientId })
-      return mapPatient(data)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] })
-      queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
-      queryClient.invalidateQueries({ queryKey: ['patient-conversation-messages'] })
-    },
-  })
-}
-
 export function useCreatePatient() {
   const queryClient = useQueryClient()
   return useMutation({

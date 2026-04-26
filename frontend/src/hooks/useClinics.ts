@@ -10,7 +10,6 @@ export interface Clinic {
   email?: string
   description?: string
   logoUrl?: string
-  instagram?: string
   facebook?: string
   youtube?: string
   linkedin?: string
