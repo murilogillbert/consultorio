@@ -54,29 +54,42 @@ public class ClinicsController : ControllerBase
          value.TrimStart().StartsWith("â€¢", StringComparison.Ordinal) ||
          value.TrimStart().StartsWith("•", StringComparison.Ordinal));
 
-    private static IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic) => new()
+    private IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic)
     {
-        GmailClientId = clinic.GmailClientId,
-        GmailClientSecret = clinic.GmailClientSecret,
-        GmailConnected = clinic.GmailConnected,
-        AccessTokenProdMasked = MaskSafe(clinic.MpAccessTokenProd),
-        AccessTokenSandboxMasked = MaskSafe(clinic.MpAccessTokenSandbox),
-        PublicKey = clinic.MpPublicKey,
-        SandboxMode = clinic.MpSandboxMode,
-        Connected = clinic.MpConnected,
-        WaPhoneNumberId = clinic.WaPhoneNumberId,
-        WaWabaId = clinic.WaWabaId,
-        WaAccessTokenMasked = MaskSafe(clinic.WaAccessToken),
-        WaVerifyTokenMasked = MaskSafe(clinic.WaVerifyToken),
-        WaAppSecretMasked = MaskSafe(clinic.WaAppSecret),
-        WaConnected = clinic.WaConnected,
-        IgAccountId = clinic.IgAccountId,
-        IgPageId = clinic.IgPageId,
-        IgAccessTokenMasked = MaskSafe(clinic.IgAccessToken),
-        IgAppSecretMasked = MaskSafe(clinic.IgAppSecret),
-        IgVerifyTokenMasked = MaskSafe(clinic.IgVerifyToken),
-        IgConnected = clinic.IgConnected,
-    };
+        var mode    = _instagram.Mode;
+        var ownerId = MetaInstagramMessagingClient.ResolveOwnerId(mode, clinic.IgAccountId, clinic.IgPageId);
+        var hasOwner = !string.IsNullOrWhiteSpace(ownerId);
+
+        return new()
+        {
+            GmailClientId = clinic.GmailClientId,
+            GmailClientSecret = clinic.GmailClientSecret,
+            GmailConnected = clinic.GmailConnected,
+            AccessTokenProdMasked = MaskSafe(clinic.MpAccessTokenProd),
+            AccessTokenSandboxMasked = MaskSafe(clinic.MpAccessTokenSandbox),
+            PublicKey = clinic.MpPublicKey,
+            SandboxMode = clinic.MpSandboxMode,
+            Connected = clinic.MpConnected,
+            WaPhoneNumberId = clinic.WaPhoneNumberId,
+            WaWabaId = clinic.WaWabaId,
+            WaAccessTokenMasked = MaskSafe(clinic.WaAccessToken),
+            WaVerifyTokenMasked = MaskSafe(clinic.WaVerifyToken),
+            WaAppSecretMasked = MaskSafe(clinic.WaAppSecret),
+            WaConnected = clinic.WaConnected,
+            IgAccountId = clinic.IgAccountId,
+            IgPageId = clinic.IgPageId,
+            IgAccessTokenMasked = MaskSafe(clinic.IgAccessToken),
+            IgAppSecretMasked = MaskSafe(clinic.IgAppSecret),
+            IgVerifyTokenMasked = MaskSafe(clinic.IgVerifyToken),
+            IgConnected = clinic.IgConnected,
+            IgMode             = mode.ToString(),
+            IgGraphVersion     = _instagram.Client.GraphVersion,
+            IgOwnerId          = hasOwner ? ownerId : null,
+            IgSendEndpoint     = hasOwner ? _instagram.Client.SendEndpoint(mode, ownerId) : null,
+            IgSubscribeEndpoint= hasOwner ? _instagram.Client.SubscribeEndpoint(mode, ownerId) : null,
+            IgConfirmEndpoint  = hasOwner ? _instagram.Client.ConfirmSubscribedAppsEndpoint(mode, ownerId) : null,
+        };
+    }
 
     // GET /api/clinics
     [HttpGet]
@@ -353,22 +366,12 @@ public class ClinicsController : ControllerBase
         if (clinic == null)
             return NotFound(new { message = "Clínica não encontrada." });
 
-        if (string.IsNullOrWhiteSpace(clinic.IgAppSecret) || string.IsNullOrWhiteSpace(clinic.IgVerifyToken))
-        {
-            clinic.IgConnected = false;
-            clinic.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-
-            return StatusCode(StatusCodes.Status422UnprocessableEntity, new
-            {
-                ok = false,
-                message = "Instagram parcialmente configurado. Salve também App Secret e Verify Token para o webhook receber DMs.",
-            });
-        }
-
         try
         {
             var info = await _instagram.TestConnectionAsync(id);
+            var webhookConfigured =
+                !string.IsNullOrWhiteSpace(clinic.IgAppSecret) &&
+                !string.IsNullOrWhiteSpace(clinic.IgVerifyToken);
 
             // Só auto-popula IgAccountId se ele ainda não foi definido no banco.
             // Quando já existe um valor o usuário pode ter feito override manual —
@@ -376,16 +379,6 @@ public class ClinicsController : ControllerBase
             // retornado pela API (apps diferentes enxergam IDs diferentes para a mesma conta).
             if (!string.IsNullOrWhiteSpace(info.IgAccountId) && string.IsNullOrWhiteSpace(clinic.IgAccountId))
                 clinic.IgAccountId = info.IgAccountId;
-
-            // ── Auto-subscribe da página ao app ────────────────────────────────
-            // A Meta exige 2 etapas: (1) webhook do App (configurado no painel) e
-            // (2) Page → subscribed_apps. Sem o #2, as DMs nunca chegam. Então
-            // fazemos a #2 automaticamente aqui e reportamos o resultado.
-            var (subOk, subDetail, subFields) = await _instagram.SubscribePageToAppAsync(id);
-
-            clinic.IgConnected = true;
-            clinic.UpdatedAt   = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
 
             string message;
             if (!string.IsNullOrWhiteSpace(info.IgUsername) && !string.IsNullOrWhiteSpace(info.PageName))
@@ -397,18 +390,67 @@ public class ClinicsController : ControllerBase
             else
                 message = "Instagram conectado com sucesso";
 
+            var modeLabel = info.Mode.ToString();
+            var ownerLabel = string.IsNullOrWhiteSpace(info.OwnerId) ? "(sem owner)" : info.OwnerId;
+
+            if (!webhookConfigured)
+            {
+                clinic.IgConnected = false;
+                clinic.UpdatedAt   = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    ok = false,
+                    message = "Conta/token do Instagram validado, mas webhook incompleto",
+                    detail = $"Modo: {modeLabel} · Owner: {ownerLabel} · faltam App Secret e/ou Verify Token para validar assinatura e receber DMs.",
+                    mode = modeLabel,
+                    ownerId = info.OwnerId,
+                    endpoints = new
+                    {
+                        send      = info.SendEndpoint,
+                        subscribe = string.IsNullOrWhiteSpace(info.OwnerId) ? "" : _instagram.Client.SubscribeEndpoint(info.Mode, info.OwnerId),
+                        confirm   = string.IsNullOrWhiteSpace(info.OwnerId) ? "" : _instagram.Client.ConfirmSubscribedAppsEndpoint(info.Mode, info.OwnerId),
+                    },
+                    validation = new
+                    {
+                        accountOk = true,
+                        webhookConfigured = false,
+                    },
+                });
+            }
+
+            // ── Auto-subscribe da página/conta ao app ──────────────────────────
+            // A Meta exige 2 etapas: (1) webhook do App (configurado no painel) e
+            // (2) {owner} → subscribed_apps. Sem o #2, as DMs nunca chegam.
+            var (subOk, subDetail, subFields, subscribeUrl, confirmUrl, ownerId) =
+                await _instagram.SubscribePageToAppAsync(id);
+
             var hasMessages = subFields.Any(f => string.Equals(f, "messages", StringComparison.OrdinalIgnoreCase));
+            clinic.IgConnected = subOk && hasMessages;
+            clinic.UpdatedAt   = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
             var subsBlock = subOk
                 ? (hasMessages
                     ? $"✓ Subscrição ativa. Campos: {string.Join(", ", subFields)}"
-                    : $"⚠ Página subscrita, mas sem campo 'messages' ativo. Resposta: {subDetail}")
-                : $"⚠ Conexão OK, mas falhou subscrever a página ao app: {subDetail}. No Meta Developer Portal, em Webhooks → Page, adicione esta Página e marque 'messages', 'messaging_postbacks'.";
+                    : $"⚠ Subscrito, mas sem campo 'messages' ativo. Resposta: {subDetail}")
+                : $"⚠ Conexão OK, mas falhou subscrever ao app: {subDetail}. No Meta Developer Portal, em Webhooks, marque 'messages' e 'messaging_postbacks'.";
+            ownerLabel = string.IsNullOrWhiteSpace(ownerId) ? "(sem owner)" : ownerId;
 
             return Ok(new
             {
                 ok      = subOk && hasMessages,
                 message,
-                detail  = $"Page ID: {info.PageId} · {subsBlock}",
+                detail  = $"Modo: {modeLabel} · Owner: {ownerLabel} · Page ID: {info.PageId} · {subsBlock}",
+                mode = modeLabel,
+                ownerId,
+                endpoints = new
+                {
+                    send      = info.SendEndpoint,
+                    subscribe = subscribeUrl,
+                    confirm   = confirmUrl,
+                },
                 subscription = new
                 {
                     success = subOk,

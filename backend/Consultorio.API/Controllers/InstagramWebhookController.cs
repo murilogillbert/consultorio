@@ -19,15 +19,19 @@ public class InstagramWebhookController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ILogger<InstagramWebhookController> _logger;
-    private readonly string _graphBaseUrl;
-    private readonly string _graphVersion;
+    private readonly MetaInstagramMessagingClient _client;
+    private readonly bool _enableMidFallback;
 
-    public InstagramWebhookController(AppDbContext db, ILogger<InstagramWebhookController> logger, IConfiguration config)
+    public InstagramWebhookController(
+        AppDbContext db,
+        ILogger<InstagramWebhookController> logger,
+        IConfiguration config,
+        MetaInstagramMessagingClient client)
     {
         _db = db;
         _logger = logger;
-        _graphBaseUrl = (config["Instagram:GraphBaseUrl"] ?? "https://graph.facebook.com").TrimEnd('/');
-        _graphVersion = config["Instagram:GraphVersion"] ?? "v23.0";
+        _client = client;
+        _enableMidFallback = bool.TryParse(config["Instagram:EnableMidFallbackLookup"], out var b) && b;
     }
 
     // ─── GET: Meta webhook verification challenge ─────────────────────────────
@@ -51,7 +55,6 @@ public class InstagramWebhookController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        // Aceita IgVerifyToken dedicado ou, para compatibilidade, WaVerifyToken da clínica.
         var token = InstagramService.SanitizeToken(verifyToken);
         var match = await _db.Clinics
             .Where(c => c.IsActive &&
@@ -72,47 +75,30 @@ public class InstagramWebhookController : ControllerBase
     }
 
     // ─── POST: Receive messages and status updates from Meta ──────────────────
-    // IMPORTANTE: SEMPRE retornamos 200 OK, mesmo em rejeição. A Meta fica
-    // retentando (com backoff) qualquer resposta não-200 e pode desativar
-    // o webhook após várias falhas. Rejeições são logadas e o retorno é 200.
     [HttpPost]
     public async Task<IActionResult> Receive()
     {
-        // ⚠️ IMPORTANTE: lemos o body como bytes BRUTOS (não como string).
-        // O HMAC da Meta é calculado sobre os bytes RAW que ela envia. Se passarmos
-        // por StreamReader UTF-8 e depois Encoding.UTF8.GetBytes(), em casos com
-        // emojis/surrogate pairs/BOM os bytes podem mudar e o HMAC quebra.
         await using var ms = new MemoryStream();
         await Request.Body.CopyToAsync(ms);
         var rawBytes = ms.ToArray();
         var rawBody  = Encoding.UTF8.GetString(rawBytes);
 
-        // Log inicial: sabemos que o webhook foi *chamado*. Útil pra confirmar
-        // que a Meta está mandando algo (vs "nem chega").
         var signatureHeader = Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
         var contentType     = Request.Headers["Content-Type"].FirstOrDefault();
         var userAgent       = Request.Headers["User-Agent"].FirstOrDefault();
-        var forwardedFor    = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        var via             = Request.Headers["Via"].FirstOrDefault();
         var bodyPreview     = string.IsNullOrEmpty(rawBody)
             ? "(empty)"
             : rawBody.Length > 2000 ? rawBody[..2000] + "...[truncated]" : rawBody;
 
-        // SHA-256 do body cru (sem secret) — útil para confirmar que os bytes não foram modificados.
         var bodySha = Convert.ToHexString(SHA256.HashData(rawBytes)).ToLowerInvariant();
 
         _logger.LogInformation(
-            "[IG-WEBHOOK] POST received. ContentLength: {ContentLength}. Bytes: {Bytes}. Chars: {Chars}. Body SHA-256: {Sha}. Content-Type: {ContentType}. User-Agent: {UserAgent}. X-Forwarded-For: {Fwd}. Via: {Via}. Signature header: {Signature}. Body preview: {Body}",
-            Request.ContentLength?.ToString() ?? "(null)",
+            "[IG-WEBHOOK] POST received. Bytes={Bytes} Sha={Sha} CT={CT} UA={UA} Sig={Sig}",
             rawBytes.Length,
-            rawBody?.Length ?? 0,
             bodySha.Length > 16 ? bodySha[..16] : bodySha,
             contentType ?? "(none)",
             userAgent ?? "(none)",
-            forwardedFor ?? "(none)",
-            via ?? "(none)",
-            string.IsNullOrWhiteSpace(signatureHeader) ? "(missing)" : signatureHeader.Length > 40 ? signatureHeader[..40] + "..." : signatureHeader,
-            bodyPreview);
+            string.IsNullOrWhiteSpace(signatureHeader) ? "(missing)" : signatureHeader.Length > 40 ? signatureHeader[..40] + "..." : signatureHeader);
 
         if (rawBytes.Length == 0)
         {
@@ -121,26 +107,22 @@ public class InstagramWebhookController : ControllerBase
         }
 
         JsonDocument doc;
-        try
-        {
-            doc = JsonDocument.Parse(rawBody);
-        }
+        try { doc = JsonDocument.Parse(rawBody); }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[IG-WEBHOOK] JSON inválido no corpo do webhook. Body: {Body}", bodyPreview);
+            _logger.LogError(ex, "[IG-WEBHOOK] JSON inválido. Body: {Body}", bodyPreview);
             return Ok(); // 200 para não causar retry
         }
 
         using (doc)
         {
             var root = doc.RootElement;
+            var rootObject = root.TryGetProperty("object", out var objectEl) ? objectEl.GetString() : null;
+
+            // ── Logs estruturados de DIAGNÓSTICO por evento (sem token) ──────
+            LogStructuredDiagnostics(rootObject, root);
 
             var recipientIds = ExtractRecipientIdentifiers(root);
-            _logger.LogInformation(
-                "[IG-WEBHOOK] Object: {Object}. Entry count: {EntryCount}. Recipient candidates: {RecipientIds}",
-                root.TryGetProperty("object", out var objectEl) ? objectEl.GetString() : "(missing)",
-                root.TryGetProperty("entry", out var entryArr) && entryArr.ValueKind == JsonValueKind.Array ? entryArr.GetArrayLength() : 0,
-                recipientIds.Count == 0 ? "(none)" : string.Join(", ", recipientIds));
 
             if (recipientIds.Count == 0)
             {
@@ -155,103 +137,118 @@ public class InstagramWebhookController : ControllerBase
 
             if (clinic == null)
             {
-                // Dump todas as clínicas ativas com Ig configurado pra facilitar o match manual
                 var configured = await _db.Clinics
                     .Where(c => c.IsActive && (c.IgPageId != null || c.IgAccountId != null))
                     .Select(c => new { c.Id, c.IgPageId, c.IgAccountId })
                     .ToListAsync();
 
                 _logger.LogWarning(
-                    "[IG-WEBHOOK] Nenhuma clínica corresponde ao payload. Payload IDs: [{RecipientIds}]. Clínicas configuradas: [{Configured}]. Retornando 200 OK.",
+                    "[IG-WEBHOOK] Nenhuma clínica corresponde ao payload. IDs: [{Ids}]. Configuradas: [{Cfg}].",
                     string.Join(", ", recipientIds),
-                    string.Join(" | ", configured.Select(c => $"clinicId={c.Id} pageId={c.IgPageId ?? "(null)"} accountId={c.IgAccountId ?? "(null)"}")));
+                    string.Join(" | ", configured.Select(c => $"clinic={c.Id} pageId={c.IgPageId ?? "(null)"} igId={c.IgAccountId ?? "(null)"}")));
 
-                // Meta dashboard test payloads use synthetic IDs, so they do not
-                // match real clinics. Still probe the signature so those tests can
-                // confirm whether this endpoint has the right App Secret configured.
                 await ProbeSignatureAgainstAllSecretsAsync(rawBytes, signatureHeader, "payload-sem-clinica");
                 return Ok();
             }
 
-            _logger.LogInformation("[IG-WEBHOOK] Match com clínica {ClinicId} (IgPageId={IgPageId}, IgAccountId={IgAccountId}).",
+            _logger.LogInformation("[IG-WEBHOOK] Match clínica {Clinic} (page={Page} igAccount={Ig}).",
                 clinic.Id, clinic.IgPageId, clinic.IgAccountId);
 
-            // Usa IgAppSecret dedicado; se não configurado, tenta WaAppSecret (mesmo app Meta).
             var appSecret = !string.IsNullOrWhiteSpace(clinic.IgAppSecret)
                 ? clinic.IgAppSecret
                 : clinic.WaAppSecret;
-
             var usedWaFallback = string.IsNullOrWhiteSpace(clinic.IgAppSecret) && !string.IsNullOrWhiteSpace(clinic.WaAppSecret);
 
             if (string.IsNullOrWhiteSpace(appSecret))
             {
-                // ⚠️ MODO SEM VALIDAÇÃO: App Secret não configurado.
-                // Processa as mensagens sem verificar a assinatura HMAC.
-                // Para reativar a validação: configure IgAppSecret (ou WaAppSecret) na clínica.
                 _logger.LogWarning(
-                    "[IG-WEBHOOK] Clínica {ClinicId} sem App Secret configurado — HMAC NÃO validado. Processando mensagens no modo bypass.",
+                    "[IG-WEBHOOK] Clínica {Clinic} sem App Secret — HMAC NÃO validado (modo bypass).",
                     clinic.Id);
-                try
-                {
-                    await ProcessMessagesAsync(root, clinic);
-                }
+                try { await ProcessMessagesAsync(root, clinic, rootObject); }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[IG-WEBHOOK] Erro ao processar mensagens para clínica {ClinicId} (modo bypass).", clinic.Id);
+                    _logger.LogError(ex, "[IG-WEBHOOK] Erro ao processar (bypass) clínica {Clinic}.", clinic.Id);
                 }
                 return Ok();
             }
 
             if (usedWaFallback)
-                _logger.LogInformation("[IG-WEBHOOK] Clínica {ClinicId} usando WaAppSecret como fallback (IgAppSecret não configurado).", clinic.Id);
+                _logger.LogInformation("[IG-WEBHOOK] Clínica {Clinic} usando WaAppSecret como fallback.", clinic.Id);
 
             var (sigValid, sigDetail) = ValidateSignatureDetailed(rawBytes, appSecret, signatureHeader);
             if (!sigValid)
             {
                 _logger.LogWarning(
-                    "[IG-WEBHOOK] Assinatura inválida para clínica {ClinicId}. Motivo: {Reason}. AppSecret source: {Source}. Iniciando diagnóstico brute-force...",
-                    clinic.Id, sigDetail, usedWaFallback ? "WaAppSecret (fallback)" : "IgAppSecret");
-
-                // 🔍 DIAGNÓSTICO: testa o HMAC contra TODOS os secrets do banco.
-                // Se algum bater, o problema é match de clínica errada.
-                // Se NENHUM bater, é certo que o secret correto NÃO está no banco
-                // (foi regenerado, ou está em outro app, ou body foi modificado por proxy).
+                    "[IG-WEBHOOK] Assinatura inválida para {Clinic}. Motivo: {Reason}.",
+                    clinic.Id, sigDetail);
                 await ProbeSignatureAgainstAllSecretsAsync(rawBytes, signatureHeader, "assinatura-invalida");
-
                 return Ok();
             }
 
-            _logger.LogInformation("[IG-WEBHOOK] Assinatura OK para clínica {ClinicId}. Processando mensagens...", clinic.Id);
-
-            try
-            {
-                await ProcessMessagesAsync(root, clinic);
-            }
+            try { await ProcessMessagesAsync(root, clinic, rootObject); }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[IG-WEBHOOK] Erro ao processar mensagens para clínica {ClinicId}.", clinic.Id);
+                _logger.LogError(ex, "[IG-WEBHOOK] Erro ao processar mensagens para {Clinic}.", clinic.Id);
             }
 
             return Ok();
         }
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
+    // ─── Logs estruturados (não vazam token) ─────────────────────────────────
+
+    private void LogStructuredDiagnostics(string? rootObject, JsonElement root)
+    {
+        if (!root.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var entry in entries.EnumerateArray())
+        {
+            var entryId = entry.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+            var hasMessaging = entry.TryGetProperty("messaging", out var messaging) && messaging.ValueKind == JsonValueKind.Array;
+            var hasChanges   = entry.TryGetProperty("changes",   out var changes)   && changes.ValueKind   == JsonValueKind.Array;
+
+            if (hasMessaging)
+            {
+                foreach (var evt in messaging.EnumerateArray())
+                {
+                    var diag = InstagramWebhookPayloadParser.Diagnose(evt, entryId, rootObject);
+                    _logger.LogInformation("[IG-DIAG] (messaging[]) {Diag}", InstagramWebhookPayloadParser.Render(diag));
+                }
+            }
+
+            if (hasChanges)
+            {
+                foreach (var change in changes.EnumerateArray())
+                {
+                    var field = change.TryGetProperty("field", out var fEl) ? fEl.GetString() : null;
+                    if (!change.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Object)
+                    {
+                        _logger.LogInformation("[IG-DIAG] (changes[]) field={Field} value=(missing)", field ?? "(null)");
+                        continue;
+                    }
+                    var diag = InstagramWebhookPayloadParser.Diagnose(value, entryId, rootObject);
+                    _logger.LogInformation("[IG-DIAG] (changes[]) field={Field} {Diag}", field ?? "(null)", InstagramWebhookPayloadParser.Render(diag));
+                }
+            }
+
+            if (!hasMessaging && !hasChanges)
+                _logger.LogInformation("[IG-DIAG] entry={EntryId} sem messaging[] nem changes[]", entryId ?? "(null)");
+        }
+    }
+
+    // ─── Helpers de payload ──────────────────────────────────────────────────
 
     private static List<string> ExtractRecipientIdentifiers(JsonElement root)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
-
         if (!root.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array)
             return ids.ToList();
 
         foreach (var entry in entries.EnumerateArray())
         {
-            // entry.id é o Page ID (object=page) ou o IG Business Account ID (object=instagram)
-            if (entry.TryGetProperty("id", out var idEl))
-                AddRecipientIdentifier(ids, idEl.GetString());
+            if (entry.TryGetProperty("id", out var idEl)) AddRecipientIdentifier(ids, idEl.GetString());
 
-            // Formato A: Messenger Platform → entry[].messaging[].recipient.id
             if (entry.TryGetProperty("messaging", out var messaging) && messaging.ValueKind == JsonValueKind.Array)
             {
                 foreach (var event_ in messaging.EnumerateArray())
@@ -262,7 +259,6 @@ public class InstagramWebhookController : ControllerBase
                 }
             }
 
-            // Formato B: Instagram Graph API → entry[].changes[].value.recipient.id
             if (entry.TryGetProperty("changes", out var changes) && changes.ValueKind == JsonValueKind.Array)
             {
                 foreach (var change in changes.EnumerateArray())
@@ -280,25 +276,23 @@ public class InstagramWebhookController : ControllerBase
 
     private static void AddRecipientIdentifier(ISet<string> ids, string? candidate)
     {
-        if (!string.IsNullOrWhiteSpace(candidate))
-            ids.Add(candidate);
+        if (!string.IsNullOrWhiteSpace(candidate)) ids.Add(candidate);
     }
+
+    // ─── HMAC validation (preservado da versão anterior) ─────────────────────
 
     private static (bool ok, string detail) ValidateSignatureDetailed(byte[] rawBytes, string? appSecret, string? signatureHeader)
     {
         var secret = InstagramService.SanitizeToken(appSecret);
-        if (string.IsNullOrWhiteSpace(secret))
-            return (false, "App Secret vazio após sanitização.");
-        if (string.IsNullOrWhiteSpace(signatureHeader))
-            return (false, "Header X-Hub-Signature-256 ausente.");
+        if (string.IsNullOrWhiteSpace(secret))    return (false, "App Secret vazio após sanitização.");
+        if (string.IsNullOrWhiteSpace(signatureHeader)) return (false, "Header X-Hub-Signature-256 ausente.");
 
         const string prefix = "sha256=";
         if (!signatureHeader.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            return (false, $"Header não começa com 'sha256='. Valor recebido (trunc): {(signatureHeader.Length > 32 ? signatureHeader[..32] + "..." : signatureHeader)}");
+            return (false, $"Header não começa com 'sha256='.");
 
         var received = signatureHeader[prefix.Length..];
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        // ⚠️ Usa rawBytes diretamente — NÃO re-encoda a partir da string (preserva bytes originais).
         var hash = hmac.ComputeHash(rawBytes);
         var expected = Convert.ToHexString(hash).ToLowerInvariant();
 
@@ -307,69 +301,35 @@ public class InstagramWebhookController : ControllerBase
         var ok = receivedBytes.Length == expectedBytes.Length &&
                  CryptographicOperations.FixedTimeEquals(receivedBytes, expectedBytes);
 
-        if (ok) return (true, "");
-        // Não logamos o secret/HMAC completo por segurança — apenas os primeiros caracteres.
-        var recvPrev = received.Length > 12 ? received[..12] + "..." : received;
-        var expPrev  = expected.Length > 12 ? expected[..12] + "..." : expected;
-        var secretLen = secret.Length;
-        var secretPrev = secret.Length > 4 ? secret[..4] + "***" : "***";
-        return (false, $"HMAC não bateu. received={recvPrev} expected={expPrev} secretLen={secretLen} secretPrev={secretPrev}. Prováveis causas: App Secret errado, body mutilado por proxy, ou Page/App diferentes.");
+        return ok ? (true, "") : (false, "HMAC não bateu.");
     }
 
-    /// <summary>
-    /// Brute-force diagnóstico: tenta validar a assinatura HMAC com TODOS os secrets
-    /// (IgAppSecret e WaAppSecret) de TODAS as clínicas no banco. Se algum bater, sabemos
-    /// o segredo está em outra clínica. Se NENHUM bater, sabemos que o secret correto
-    /// NÃO está armazenado em lugar nenhum do banco — então é outro app que assinou,
-    /// ou o body foi modificado por um proxy entre Meta e o app.
-    /// </summary>
     private async Task ProbeSignatureAgainstAllSecretsAsync(byte[] rawBytes, string? signatureHeader, string reason)
     {
-        _logger.LogInformation("[IG-WEBHOOK] DIAGNOSTICO-HMAC: iniciando probe. Reason={Reason}", reason);
-
         if (string.IsNullOrWhiteSpace(signatureHeader))
         {
-            _logger.LogWarning("[IG-WEBHOOK] DIAGNÓSTICO: signatureHeader ausente, brute-force pulado.");
+            _logger.LogWarning("[IG-WEBHOOK] DIAGNÓSTICO ({Reason}): signatureHeader ausente, brute-force pulado.", reason);
             return;
         }
-
-        var receivedDigest = ExtractSignatureDigest(signatureHeader);
-        var receivedPrev = PreviewHex(receivedDigest);
 
         var allClinics = await _db.Clinics
             .Where(c => c.IgAppSecret != null || c.WaAppSecret != null)
             .Select(c => new { c.Id, c.Name, c.IgAppSecret, c.WaAppSecret })
             .ToListAsync();
 
-        _logger.LogInformation("[IG-WEBHOOK] DIAGNÓSTICO: testando assinatura contra {Count} clínicas com secrets configurados.", allClinics.Count);
-
         var anyMatch = false;
         foreach (var c in allClinics)
         {
-            if (!string.IsNullOrWhiteSpace(c.IgAppSecret))
+            foreach (var (field, secret) in new[] { ("IgAppSecret", c.IgAppSecret), ("WaAppSecret", c.WaAppSecret) })
             {
-                LogSignatureProbeCandidate(rawBytes, c.IgAppSecret, receivedPrev, c.Id, c.Name, "IgAppSecret", reason);
-                var (ok, _) = ValidateSignatureDetailed(rawBytes, c.IgAppSecret, signatureHeader);
+                if (string.IsNullOrWhiteSpace(secret)) continue;
+                var (ok, _) = ValidateSignatureDetailed(rawBytes, secret, signatureHeader);
                 if (ok)
                 {
                     anyMatch = true;
                     _logger.LogWarning(
-                        "[IG-WEBHOOK] ✅ DIAGNÓSTICO: HMAC bate com IgAppSecret da clínica {OtherId} ({OtherName}). " +
-                        "Causa provável: webhook recebido para clínica errada (matching de Page/Account ID problemático).",
-                        c.Id, c.Name);
-                }
-            }
-            if (!string.IsNullOrWhiteSpace(c.WaAppSecret) && !string.Equals(c.IgAppSecret, c.WaAppSecret, StringComparison.Ordinal))
-            {
-                LogSignatureProbeCandidate(rawBytes, c.WaAppSecret, receivedPrev, c.Id, c.Name, "WaAppSecret", reason);
-                var (ok, _) = ValidateSignatureDetailed(rawBytes, c.WaAppSecret, signatureHeader);
-                if (ok)
-                {
-                    anyMatch = true;
-                    _logger.LogWarning(
-                        "[IG-WEBHOOK] ✅ DIAGNÓSTICO: HMAC bate com WaAppSecret da clínica {OtherId} ({OtherName}). " +
-                        "Causa provável: webhook é de um app cujo secret está salvo no campo WhatsApp.",
-                        c.Id, c.Name);
+                        "[IG-WEBHOOK] DIAGNÓSTICO ({Reason}): HMAC bate com {Field} da clínica {OtherId} ({OtherName}).",
+                        reason, field, c.Id, c.Name);
                 }
             }
         }
@@ -377,104 +337,42 @@ public class InstagramWebhookController : ControllerBase
         if (!anyMatch)
         {
             _logger.LogWarning(
-                "[IG-WEBHOOK] ❌ DIAGNÓSTICO: NENHUM secret salvo no banco bate com a assinatura recebida. " +
-                "Causas possíveis: " +
-                "(1) o webhook é assinado por um App que NÃO está cadastrado em NENHUMA clínica; " +
-                "(2) a URL de webhook está cadastrada em VÁRIOS apps Meta e quem está chamando é o app errado; " +
-                "(3) há um proxy reverso modificando o body antes de chegar aqui (bytes diferentes); " +
-                "(4) o subscribe foi feito com access token de outro app (webhook registrado para o app dono do token, não para o app cujo secret você tem). " +
-                "Para resolver: verifique no portal Meta quais apps têm essa URL como webhook ativo, e qual está realmente subscrito via GET /{page-id}/subscribed_apps.");
+                "[IG-WEBHOOK] DIAGNÓSTICO ({Reason}): nenhum secret no banco bate com a assinatura recebida. " +
+                "Provável: app diferente, body modificado por proxy, ou subscribe feito por outro app.", reason);
         }
     }
 
-    private void LogSignatureProbeCandidate(
-        byte[] rawBytes,
-        string? appSecret,
-        string receivedPrev,
-        Guid clinicId,
-        string clinicName,
-        string field,
-        string reason)
-    {
-        var secret = InstagramService.SanitizeToken(appSecret);
-        if (string.IsNullOrWhiteSpace(secret))
-            return;
+    // ─── Processamento de eventos ────────────────────────────────────────────
 
-        var expected = ComputeHmacSha256Hex(rawBytes, secret);
-        var secretFingerprint = ComputeSha256Hex(Encoding.UTF8.GetBytes(secret));
-
-        _logger.LogInformation(
-            "[IG-WEBHOOK] DIAGNOSTICO-HMAC ({Reason}): candidato={Field} clinic={ClinicId} name={ClinicName} secretLen={SecretLen} secretFp={SecretFp} received={Received} expected={Expected}",
-            reason,
-            field,
-            clinicId,
-            clinicName,
-            secret.Length,
-            PreviewHex(secretFingerprint),
-            receivedPrev,
-            PreviewHex(expected));
-    }
-
-    private static string ExtractSignatureDigest(string signatureHeader)
-    {
-        const string prefix = "sha256=";
-        var value = signatureHeader.Trim();
-        return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-            ? value[prefix.Length..].Trim()
-            : value;
-    }
-
-    private static string ComputeHmacSha256Hex(byte[] rawBytes, string secret)
-    {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        return Convert.ToHexString(hmac.ComputeHash(rawBytes)).ToLowerInvariant();
-    }
-
-    private static string ComputeSha256Hex(byte[] bytes) =>
-        Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-
-    private static string PreviewHex(string? value, int length = 12)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return "(none)";
-        return value.Length > length ? value[..length] + "..." : value;
-    }
-
-    private async Task ProcessMessagesAsync(JsonElement root, Clinic clinic)
+    private async Task ProcessMessagesAsync(JsonElement root, Clinic clinic, string? rootObject)
     {
         if (!root.TryGetProperty("entry", out var entries) || entries.ValueKind != JsonValueKind.Array)
             return;
 
         foreach (var entry in entries.EnumerateArray())
         {
-            // ── Formato A: Messenger Platform (object=page) ────────────────────
-            // entry[].messaging[] → cada elemento é um evento de mensagem diretamente
+            var entryId = entry.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+
             if (entry.TryGetProperty("messaging", out var messaging) && messaging.ValueKind == JsonValueKind.Array)
             {
-                _logger.LogInformation("[IG-WEBHOOK] Entry usando formato Messenger (messaging[]). Count: {Count}", messaging.GetArrayLength());
-                foreach (var event_ in messaging.EnumerateArray())
-                    await ProcessSingleMessageEventAsync(event_, clinic);
+                foreach (var evt in messaging.EnumerateArray())
+                    await ProcessSingleMessageEventAsync(evt, clinic, entryId, rootObject);
             }
 
-            // ── Formato B: Instagram Graph API (object=instagram) ──────────────
-            // entry[].changes[] → cada change com field=messages tem o evento em .value
             if (entry.TryGetProperty("changes", out var changes) && changes.ValueKind == JsonValueKind.Array)
             {
-                _logger.LogInformation("[IG-WEBHOOK] Entry usando formato Instagram Graph API (changes[]). Count: {Count}", changes.GetArrayLength());
                 foreach (var change in changes.EnumerateArray())
                 {
-                    var field = change.TryGetProperty("field", out var fieldEl) ? fieldEl.GetString() : null;
+                    var field = change.TryGetProperty("field", out var fEl) ? fEl.GetString() : null;
                     if (!string.Equals(field, "messages", StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogInformation("[IG-WEBHOOK] Change ignorado (field={Field}). Só processamos field=messages.", field ?? "(null)");
+                        _logger.LogInformation("[IG-WEBHOOK] Change ignorado (field={Field}).", field ?? "(null)");
                         continue;
                     }
-
                     if (!change.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Object)
                         continue;
 
-                    // value tem a mesma estrutura de um evento de messaging
-                    await ProcessSingleMessageEventAsync(value, clinic);
+                    await ProcessSingleMessageEventAsync(value, clinic, entryId, rootObject);
                 }
             }
         }
@@ -483,370 +381,178 @@ public class InstagramWebhookController : ControllerBase
     }
 
     /// <summary>
-    /// Processa um único evento de mensagem — funciona tanto com eventos do formato
-    /// Messenger Platform (entry.messaging[i]) quanto do Instagram Graph API
-    /// (entry.changes[i].value), pois ambos têm a mesma estrutura interna.
-    /// NÃO chama SaveChangesAsync — o caller chama uma única vez no final.
+    /// REGRAS:
+    ///  - `message` é a fonte primária de novas DMs.
+    ///  - `message_edit` (com num_edit=0 e SEM sender) é APENAS diagnóstico —
+    ///    NÃO importa nem dispara fetch por mid (a menos que a config
+    ///    Instagram:EnableMidFallbackLookup esteja ligada).
+    ///  - `is_echo`, `read`, `delivery`, `postback`, `reaction` são logados e ignorados.
     /// </summary>
-    // ─── Busca conteúdo e remetente de uma mensagem via Graph API (mid) ─────────
-    // Necessário para eventos message_edit, que não incluem texto no payload.
-    private async Task<(string? text, string? senderId, DateTime? timestamp)>
-        FetchMessageInfoByMidAsync(string mid, string accessToken, string? pageId, string? igAccountId)
+    private async Task ProcessSingleMessageEventAsync(JsonElement evt, Clinic clinic, string? entryId, string? rootObject)
     {
-        var direct = await FetchMessageInfoByMidDirectAsync(mid, accessToken);
-        if (!string.IsNullOrWhiteSpace(direct.senderId))
-            return direct;
+        var diag = InstagramWebhookPayloadParser.Diagnose(evt, entryId, rootObject);
 
-        if (!string.IsNullOrWhiteSpace(pageId))
+        // ── 1) Caminho primário: message com sender + (text|attachment) ─────
+        if (diag.HasMessage)
         {
-            var fromConversations = await FetchMessageInfoFromRecentConversationsAsync(mid, accessToken, pageId, "page");
-            if (!string.IsNullOrWhiteSpace(fromConversations.senderId))
-                return fromConversations;
-        }
-
-        if (!string.IsNullOrWhiteSpace(igAccountId) &&
-            !string.Equals(igAccountId, pageId, StringComparison.Ordinal))
-        {
-            var fromConversations = await FetchMessageInfoFromRecentConversationsAsync(mid, accessToken, igAccountId, "instagram-account");
-            if (!string.IsNullOrWhiteSpace(fromConversations.senderId))
-                return fromConversations;
-        }
-
-        return direct;
-    }
-
-    private async Task<(string? text, string? senderId, DateTime? timestamp)>
-        FetchMessageInfoByMidDirectAsync(string mid, string accessToken)
-    {
-        try
-        {
-            using var http = new HttpClient();
-            var fields = Uri.EscapeDataString("id,message,from,to,created_time");
-            var url = $"{_graphBaseUrl}/{_graphVersion}/{Uri.EscapeDataString(mid)}?fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
-            var resp = await http.GetAsync(url);
-            var raw = await resp.Content.ReadAsStringAsync();
-            if (!resp.IsSuccessStatusCode)
+            if (diag.IsEcho)
             {
-                _logger.LogWarning(
-                    "[IG-WEBHOOK] Falha ao buscar message_edit por mid direto. Mid={Mid} Status={Status} Error={Error}",
-                    mid,
-                    (int)resp.StatusCode,
-                    ExtractGraphError(raw));
-                return (null, null, null);
-            }
-
-            using var doc = JsonDocument.Parse(raw);
-            var info = ParseGraphMessageInfo(doc.RootElement);
-            if (string.IsNullOrWhiteSpace(info.senderId))
-            {
-                _logger.LogWarning(
-                    "[IG-WEBHOOK] Graph retornou message_edit sem from.id no fetch direto. Mid={Mid} Keys={Keys} HasMessage={HasMessage}",
-                    mid,
-                    string.Join(",", doc.RootElement.EnumerateObject().Select(p => p.Name)),
-                    doc.RootElement.TryGetProperty("message", out _));
-            }
-
-            return info;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[IG-WEBHOOK] Excecao ao buscar message_edit por mid direto. Mid={Mid}", mid);
-            return (null, null, null);
-        }
-    }
-
-    private async Task<(string? text, string? senderId, DateTime? timestamp)>
-        FetchMessageInfoFromRecentConversationsAsync(string mid, string accessToken, string ownerId, string ownerKind)
-    {
-        try
-        {
-            using var http = new HttpClient();
-            var fields = Uri.EscapeDataString("messages.limit(20){id,message,from,to,created_time}");
-            var url = $"{_graphBaseUrl}/{_graphVersion}/{Uri.EscapeDataString(ownerId)}/conversations?platform=instagram&limit=20&fields={fields}&access_token={Uri.EscapeDataString(accessToken)}";
-            var resp = await http.GetAsync(url);
-            var raw = await resp.Content.ReadAsStringAsync();
-            if (!resp.IsSuccessStatusCode)
-            {
-                _logger.LogWarning(
-                    "[IG-WEBHOOK] Falha ao buscar message_edit em conversas recentes. Mid={Mid} OwnerKind={OwnerKind} OwnerId={OwnerId} Status={Status} Error={Error}",
-                    mid,
-                    ownerKind,
-                    ownerId,
-                    (int)resp.StatusCode,
-                    ExtractGraphError(raw));
-                return (null, null, null);
-            }
-
-            using var doc = JsonDocument.Parse(raw);
-            if (!doc.RootElement.TryGetProperty("data", out var conversations) ||
-                conversations.ValueKind != JsonValueKind.Array)
-                return (null, null, null);
-
-            foreach (var conversation in conversations.EnumerateArray())
-            {
-                if (!conversation.TryGetProperty("messages", out var messages) ||
-                    !messages.TryGetProperty("data", out var messageItems) ||
-                    messageItems.ValueKind != JsonValueKind.Array)
-                    continue;
-
-                foreach (var message in messageItems.EnumerateArray())
-                {
-                    var id = message.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
-                    var itemMid = message.TryGetProperty("mid", out var midEl) ? midEl.GetString() : null;
-                    if (!string.Equals(id, mid, StringComparison.Ordinal) &&
-                        !string.Equals(itemMid, mid, StringComparison.Ordinal))
-                        continue;
-
-                    var info = ParseGraphMessageInfo(message);
-                    _logger.LogInformation("[IG-WEBHOOK] message_edit encontrado em conversas recentes. Mid={Mid}", mid);
-                    return info;
-                }
-            }
-
-            _logger.LogWarning(
-                "[IG-WEBHOOK] message_edit nao encontrado nas conversas recentes. Mid={Mid} OwnerKind={OwnerKind} OwnerId={OwnerId}",
-                mid,
-                ownerKind,
-                ownerId);
-            return (null, null, null);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[IG-WEBHOOK] Excecao ao buscar message_edit em conversas recentes. Mid={Mid} OwnerKind={OwnerKind} OwnerId={OwnerId}", mid, ownerKind, ownerId);
-            return (null, null, null);
-        }
-    }
-
-    private static (string? text, string? senderId, DateTime? timestamp) ParseGraphMessageInfo(JsonElement message)
-    {
-        var text = message.TryGetProperty("message", out var mEl) ? mEl.GetString() : null;
-        var senderId = TryExtractId(message, "from");
-
-        DateTime? ts = null;
-        if (message.TryGetProperty("created_time", out var tsEl) &&
-            DateTime.TryParse(tsEl.GetString(), out var parsed))
-            ts = parsed.ToUniversalTime();
-
-        return (text, senderId, ts);
-    }
-
-    private static string? TryExtractId(JsonElement root, string propertyName)
-    {
-        if (!root.TryGetProperty(propertyName, out var value))
-            return null;
-
-        if (value.ValueKind == JsonValueKind.Object)
-        {
-            if (value.TryGetProperty("id", out var idEl))
-                return idEl.GetString();
-
-            if (value.TryGetProperty("data", out var dataEl) &&
-                dataEl.ValueKind == JsonValueKind.Array &&
-                dataEl.GetArrayLength() > 0 &&
-                dataEl[0].ValueKind == JsonValueKind.Object &&
-                dataEl[0].TryGetProperty("id", out var dataIdEl))
-                return dataIdEl.GetString();
-        }
-
-        if (value.ValueKind == JsonValueKind.Array &&
-            value.GetArrayLength() > 0 &&
-            value[0].ValueKind == JsonValueKind.Object &&
-            value[0].TryGetProperty("id", out var firstIdEl))
-            return firstIdEl.GetString();
-
-        return value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-    }
-
-    private static string ExtractGraphError(string raw)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(raw);
-            if (doc.RootElement.TryGetProperty("error", out var err))
-            {
-                var message = err.TryGetProperty("message", out var msgEl) ? msgEl.GetString() : null;
-                var code = err.TryGetProperty("code", out var codeEl) ? codeEl.ToString() : null;
-                return string.IsNullOrWhiteSpace(code) ? message ?? "(sem mensagem)" : $"#{code}: {message}";
-            }
-        }
-        catch
-        {
-        }
-
-        return raw.Length > 300 ? raw[..300] + "..." : raw;
-    }
-
-    private async Task ProcessSingleMessageEventAsync(JsonElement event_, Clinic clinic)
-    {
-        // ── Formato message_edit com num_edit=0 ───────────────────────────────
-        // Instagram envia um evento message_edit (num_edit=0) para toda mensagem
-        // nova desde que o recurso de edição foi lançado. O texto não vem no payload
-        // — precisamos buscá-lo via Graph API usando o mid.
-        if (!event_.TryGetProperty("message", out var messageEl))
-        {
-            if (!event_.TryGetProperty("message_edit", out var editEl))
-            {
-                _logger.LogInformation("[IG-WEBHOOK] Evento sem 'message' nem 'message_edit' — ignorado.");
+                _logger.LogInformation("[IG-WEBHOOK] Echo ignorado. mid={Mid}", diag.Mid ?? "(null)");
                 return;
             }
 
-            var numEdit = editEl.TryGetProperty("num_edit", out var nEl) && nEl.ValueKind == JsonValueKind.Number
-                ? nEl.GetInt32() : -1;
-
-            if (numEdit != 0)
+            if (string.IsNullOrWhiteSpace(diag.Mid))
             {
-                _logger.LogInformation("[IG-WEBHOOK] message_edit ignorado (num_edit={NumEdit}, é edição de mensagem existente).", numEdit);
+                _logger.LogWarning("[IG-WEBHOOK] Mensagem sem mid — ignorada.");
                 return;
             }
 
-            var editMid = editEl.TryGetProperty("mid", out var eMidEl) ? eMidEl.GetString() : null;
-            if (string.IsNullOrWhiteSpace(editMid))
+            if (await _db.PatientMessages.AnyAsync(m => m.ClinicId == clinic.Id && m.ExternalMessageId == diag.Mid))
             {
-                _logger.LogWarning("[IG-WEBHOOK] message_edit sem mid — ignorado.");
+                _logger.LogInformation("[IG-WEBHOOK] Mensagem {Mid} já importada — ignorada.", diag.Mid);
                 return;
             }
 
-            // Deduplicação
-            if (await _db.PatientMessages.AnyAsync(m => m.ClinicId == clinic.Id && m.ExternalMessageId == editMid))
+            if (string.IsNullOrWhiteSpace(diag.SenderId))
             {
-                _logger.LogInformation("[IG-WEBHOOK] Mensagem {MessageId} já importada (via message_edit) — ignorada.", editMid);
+                _logger.LogWarning("[IG-WEBHOOK] message sem sender.id — ignorada. mid={Mid}", diag.Mid);
                 return;
             }
 
-            var token = InstagramService.SanitizeToken(clinic.IgAccessToken);
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                _logger.LogWarning("[IG-WEBHOOK] Sem access token para buscar conteúdo do message_edit {Mid}.", editMid);
-                return;
-            }
-
-            _logger.LogInformation("[IG-WEBHOOK] message_edit (num_edit=0) detectado — buscando conteúdo via API para mid {Mid}.", editMid);
-            var eventSenderId = event_.TryGetProperty("sender", out var editSenderEl) &&
-                                editSenderEl.TryGetProperty("id", out var editSenderIdEl)
-                ? editSenderIdEl.GetString()
-                : null;
-            var eventText = editEl.TryGetProperty("text", out var editTextEl)
-                ? editTextEl.GetString()
-                : null;
-            var eventTs = event_.TryGetProperty("timestamp", out var editTimestampEl)
-                ? ParseMetaTimestamp(editTimestampEl)
-                : null;
-
-            if (string.IsNullOrWhiteSpace(eventSenderId) || string.IsNullOrWhiteSpace(eventText))
-            {
-                _logger.LogWarning(
-                    "[IG-WEBHOOK] message_edit incompleto recebido. Mid={Mid} HasSender={HasSender} HasText={HasText}. " +
-                    "No fluxo Page Access Token, DMs reais devem chegar pelo webhook de Page/Messenger como 'message' com sender/recipient. " +
-                    "Verifique no Meta Developers se o objeto Page do produto Webhooks/Messenger usa esta mesma URL e assina o campo 'messages'.",
-                    editMid,
-                    !string.IsNullOrWhiteSpace(eventSenderId),
-                    !string.IsNullOrWhiteSpace(eventText));
-            }
-
-            var (fetchedText, fetchedSenderId, fetchedTs) = await FetchMessageInfoByMidAsync(editMid, token, clinic.IgPageId, clinic.IgAccountId);
-            var editText = eventText ?? fetchedText;
-            var editSenderId = eventSenderId ?? fetchedSenderId;
-            var editTs = eventTs ?? fetchedTs;
-
-            if (string.IsNullOrWhiteSpace(editSenderId))
-            {
-                _logger.LogWarning(
-                    "[IG-WEBHOOK] Nao foi possivel obter senderId para message_edit {Mid}. " +
-                    "O payload veio sem sender.id e a Graph API nao retornou a mensagem. " +
-                    "Causa provavel: webhook Instagram/object=instagram esta chegando, mas o webhook Page/Messenger 'messages' nao esta entregando a DM completa.",
-                    editMid);
-                return;
-            }
-
-            var editContent = editText ?? "[Mensagem Instagram não textual]";
-            var editPatient = await FindOrCreatePatientByIgSenderAsync(clinic, editSenderId);
+            var content = ExtractMessageContent(evt.GetProperty("message"))
+                          ?? "[Mensagem Instagram não textual]";
+            var ts = diag.Timestamp.HasValue ? ParseTimestamp(diag.Timestamp.Value) : null;
+            var patient = await FindOrCreatePatientByIgSenderAsync(clinic, diag.SenderId);
 
             _db.PatientMessages.Add(new PatientMessage
             {
                 Id                = Guid.NewGuid(),
-                PatientId         = editPatient.Id,
+                PatientId         = patient.Id,
                 ClinicId          = clinic.Id,
-                Content           = editContent,
+                Content           = content,
                 Direction         = "IN",
                 Source            = "INSTAGRAM",
                 IsRead            = false,
-                ExternalMessageId = editMid,
+                ExternalMessageId = diag.Mid,
                 ExternalStatus    = "received",
                 ExternalProvider  = "INSTAGRAM",
-                ExternalTimestamp = editTs,
-                CreatedAt         = editTs ?? DateTime.UtcNow,
+                ExternalTimestamp = ts,
+                CreatedAt         = ts ?? DateTime.UtcNow,
             });
 
             _logger.LogInformation(
-                "[IG-WEBHOOK] Mensagem (message_edit→nova) {MessageId} processada. Clínica {ClinicId}. Sender: {SenderId}. Conteúdo: {Preview}",
-                editMid, clinic.Id, editSenderId,
-                editContent.Length > 80 ? editContent[..80] + "..." : editContent);
+                "[IG-WEBHOOK] message importada. mid={Mid} sender={Sender} clinic={Clinic} preview={Preview}",
+                diag.Mid, diag.SenderId, clinic.Id,
+                content.Length > 80 ? content[..80] + "..." : content);
             return;
         }
 
-        // Ignorar echos (mensagens enviadas pela própria página/conta)
-        if (messageEl.TryGetProperty("is_echo", out var isEchoEl) &&
-            isEchoEl.ValueKind == JsonValueKind.True)
+        // ── 2) message_edit: APENAS diagnóstico (não tenta importar) ────────
+        if (diag.HasMessageEdit)
         {
-            _logger.LogInformation("[IG-WEBHOOK] Mensagem ignorada (is_echo=true).");
+            // Edição de mensagem existente (num_edit > 0) é informativa.
+            if (diag.NumEdit is int n && n > 0)
+            {
+                _logger.LogInformation(
+                    "[IG-WEBHOOK] message_edit (edição real, num_edit={NumEdit}) ignorado. mid={Mid}",
+                    n, diag.Mid ?? "(null)");
+                return;
+            }
+
+            // num_edit=0 com sender + text inline: a Meta entregou tudo no edit;
+            // importamos como fallback bom (não usa Graph API).
+            if (diag.HasSender && diag.HasText && !string.IsNullOrWhiteSpace(diag.Mid))
+            {
+                if (await _db.PatientMessages.AnyAsync(m => m.ClinicId == clinic.Id && m.ExternalMessageId == diag.Mid))
+                {
+                    _logger.LogInformation("[IG-WEBHOOK] message_edit {Mid} já importada — ignorada.", diag.Mid);
+                    return;
+                }
+
+                var ts = diag.Timestamp.HasValue ? ParseTimestamp(diag.Timestamp.Value) : null;
+                var content = evt.GetProperty("message_edit").TryGetProperty("text", out var tEl)
+                    ? tEl.GetString() ?? "[Mensagem Instagram não textual]"
+                    : "[Mensagem Instagram não textual]";
+                var patient = await FindOrCreatePatientByIgSenderAsync(clinic, diag.SenderId!);
+
+                _db.PatientMessages.Add(new PatientMessage
+                {
+                    Id                = Guid.NewGuid(),
+                    PatientId         = patient.Id,
+                    ClinicId          = clinic.Id,
+                    Content           = content,
+                    Direction         = "IN",
+                    Source            = "INSTAGRAM",
+                    IsRead            = false,
+                    ExternalMessageId = diag.Mid,
+                    ExternalStatus    = "received",
+                    ExternalProvider  = "INSTAGRAM",
+                    ExternalTimestamp = ts,
+                    CreatedAt         = ts ?? DateTime.UtcNow,
+                });
+                _logger.LogInformation(
+                    "[IG-WEBHOOK] message_edit (num_edit=0) importada inline. mid={Mid} sender={Sender}",
+                    diag.Mid, diag.SenderId);
+                return;
+            }
+
+            // Caso clássico: message_edit incompleto (sem sender ou sem texto).
+            // Por padrão, NÃO buscamos mais via Graph — só logamos.
+            _logger.LogWarning(
+                "[IG-WEBHOOK] message_edit DIAGNÓSTICO. mid={Mid} hasSender={HasSender} hasText={HasText} numEdit={NumEdit}. " +
+                "Mensagem real deve chegar como `message`. Verifique no Meta Developers se o webhook do Page/Messenger está ativo " +
+                "com o campo `messages` subscrito.",
+                diag.Mid ?? "(null)", diag.HasSender, diag.HasText, diag.NumEdit?.ToString() ?? "-");
+
+            // Fallback opcional, ativável via config — útil pra investigação.
+            if (_enableMidFallback &&
+                !string.IsNullOrWhiteSpace(diag.Mid) &&
+                !string.IsNullOrWhiteSpace(clinic.IgAccessToken))
+            {
+                var token = InstagramService.SanitizeToken(clinic.IgAccessToken);
+                if (string.IsNullOrWhiteSpace(token)) return;
+
+                _logger.LogInformation("[IG-WEBHOOK] Fallback ativo: tentando recuperar mid={Mid} via Graph.", diag.Mid);
+                var (text, senderId, ts) = await _client.FetchMessageInfoByMidAsync(_client.DefaultMode, diag.Mid!, token!);
+                if (string.IsNullOrWhiteSpace(senderId))
+                {
+                    _logger.LogWarning(
+                        "[IG-WEBHOOK] Fallback retornou sem sender. mid={Mid}.",
+                        diag.Mid);
+                    return;
+                }
+
+                if (await _db.PatientMessages.AnyAsync(m => m.ClinicId == clinic.Id && m.ExternalMessageId == diag.Mid))
+                    return;
+
+                var content = text ?? "[Mensagem Instagram não textual]";
+                var patient = await FindOrCreatePatientByIgSenderAsync(clinic, senderId!);
+
+                _db.PatientMessages.Add(new PatientMessage
+                {
+                    Id                = Guid.NewGuid(),
+                    PatientId         = patient.Id,
+                    ClinicId          = clinic.Id,
+                    Content           = content,
+                    Direction         = "IN",
+                    Source            = "INSTAGRAM",
+                    IsRead            = false,
+                    ExternalMessageId = diag.Mid,
+                    ExternalStatus    = "received",
+                    ExternalProvider  = "INSTAGRAM",
+                    ExternalTimestamp = ts,
+                    CreatedAt         = ts ?? DateTime.UtcNow,
+                });
+                _logger.LogInformation("[IG-WEBHOOK] Fallback recuperou mid={Mid} sender={Sender}.", diag.Mid, senderId);
+            }
+
             return;
         }
 
-        var messageId = messageEl.TryGetProperty("mid", out var midEl) ? midEl.GetString() : null;
-        if (string.IsNullOrWhiteSpace(messageId))
-        {
-            _logger.LogWarning("[IG-WEBHOOK] Mensagem sem mid — ignorada.");
-            return;
-        }
-
-        var alreadyImported = await _db.PatientMessages.AnyAsync(m =>
-            m.ClinicId == clinic.Id &&
-            m.ExternalMessageId == messageId);
-        if (alreadyImported)
-        {
-            _logger.LogInformation("[IG-WEBHOOK] Mensagem {MessageId} já importada — ignorada (duplicata).", messageId);
-            return;
-        }
-
-        var senderId = event_.TryGetProperty("sender", out var senderEl) &&
-                       senderEl.TryGetProperty("id", out var senderIdEl)
-            ? senderIdEl.GetString() : null;
-        if (string.IsNullOrWhiteSpace(senderId))
-        {
-            _logger.LogWarning("[IG-WEBHOOK] Mensagem {MessageId} sem sender.id — ignorada.", messageId);
-            return;
-        }
-
-        var content = ExtractMessageContent(messageEl);
-        if (string.IsNullOrWhiteSpace(content))
-            content = "[Mensagem Instagram não textual]";
-
-        var externalTimestamp = event_.TryGetProperty("timestamp", out var timestampEl)
-            ? ParseMetaTimestamp(timestampEl)
-            : null;
-
-        var patient = await FindOrCreatePatientByIgSenderAsync(clinic, senderId);
-
-        _db.PatientMessages.Add(new PatientMessage
-        {
-            Id                = Guid.NewGuid(),
-            PatientId         = patient.Id,
-            ClinicId          = clinic.Id,
-            Content           = content,
-            Direction         = "IN",
-            Source            = "INSTAGRAM",
-            IsRead            = false,
-            ExternalMessageId = messageId,
-            ExternalStatus    = "received",
-            ExternalProvider  = "INSTAGRAM",
-            ExternalTimestamp = externalTimestamp,
-            CreatedAt         = externalTimestamp ?? DateTime.UtcNow,
-        });
-
+        // ── 3) Outros eventos: log e ignora ─────────────────────────────────
         _logger.LogInformation(
-            "[IG-WEBHOOK] Mensagem {MessageId} processada para clínica {ClinicId}. Sender: {SenderId}. PatientId: {PatientId}. Conteúdo: {Preview}",
-            messageId, clinic.Id, senderId, patient.Id,
-            content.Length > 80 ? content[..80] + "..." : content);
+            "[IG-WEBHOOK] Evento ignorado (kind={Kind}). entry={Entry}",
+            diag.EventKind, diag.EntryId ?? "(null)");
     }
 
     private async Task<Patient> FindOrCreatePatientByIgSenderAsync(Clinic clinic, string igSenderId)
@@ -856,10 +562,11 @@ public class InstagramWebhookController : ControllerBase
             .FirstOrDefaultAsync(p => p.ClinicId == clinic.Id && p.IsActive && p.IgUserId == igSenderId);
         if (existing != null) return existing;
 
-        // Tenta buscar o nome do remetente via Graph API
         string? igName = null;
-        if (!string.IsNullOrWhiteSpace(clinic.IgAccessToken))
-            igName = await FetchInstagramUserNameAsync(igSenderId, clinic.IgAccessToken);
+        var token = InstagramService.SanitizeToken(clinic.IgAccessToken);
+        if (!string.IsNullOrWhiteSpace(token))
+            igName = await _client.FetchProfileNameAsync(_client.DefaultMode, igSenderId, token!);
+
         var displayName = igName ?? $"Instagram {igSenderId[..Math.Min(8, igSenderId.Length)]}";
 
         var placeholderEmail = $"ig.{igSenderId}@instagram.local";
@@ -893,23 +600,8 @@ public class InstagramWebhookController : ControllerBase
         await _db.SaveChangesAsync();
 
         patient.User = user;
-        _logger.LogInformation("Instagram: novo paciente criado automaticamente para sender {SenderId} na clínica {ClinicId}.", igSenderId, clinic.Id);
+        _logger.LogInformation("Instagram: novo paciente criado para sender {Sender} clínica {Clinic}.", igSenderId, clinic.Id);
         return patient;
-    }
-
-    private static async Task<string?> FetchInstagramUserNameAsync(string igSenderId, string igAccessToken)
-    {
-        try
-        {
-            using var http = new HttpClient();
-            var url = $"https://graph.facebook.com/v19.0/{igSenderId}?fields=name&access_token={igAccessToken}";
-            var resp = await http.GetAsync(url);
-            if (!resp.IsSuccessStatusCode) return null;
-            var json = await resp.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-        }
-        catch { return null; }
     }
 
     private static string? ExtractMessageContent(JsonElement message)
@@ -935,31 +627,14 @@ public class InstagramWebhookController : ControllerBase
         return null;
     }
 
-    private static DateTime? ParseMetaTimestamp(JsonElement timestamp)
+    private static DateTime? ParseTimestamp(long value)
     {
-        long value;
-        if (timestamp.ValueKind == JsonValueKind.Number)
-        {
-            if (!timestamp.TryGetInt64(out value)) return null;
-        }
-        else if (timestamp.ValueKind == JsonValueKind.String)
-        {
-            if (!long.TryParse(timestamp.GetString(), out value)) return null;
-        }
-        else
-        {
-            return null;
-        }
-
         try
         {
             return value > 9_999_999_999
                 ? DateTimeOffset.FromUnixTimeMilliseconds(value).UtcDateTime
                 : DateTimeOffset.FromUnixTimeSeconds(value).UtcDateTime;
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 }
