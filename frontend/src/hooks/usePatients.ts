@@ -17,6 +17,7 @@ interface PatientRaw {
   notes?: string
   igUserId?: string
   isActive: boolean
+  isProvisional?: boolean
   createdAt: string
   generatedPassword?: string
 }
@@ -31,6 +32,7 @@ export interface Patient {
   notes?: string
   igUserId?: string
   generatedPassword?: string
+  isProvisional?: boolean
   user?: {
     id: string
     name: string
@@ -49,6 +51,7 @@ function mapPatient(p: PatientRaw): Patient {
     notes: p.notes,
     igUserId: p.igUserId,
     generatedPassword: p.generatedPassword,
+    isProvisional: p.isProvisional,
     user: {
       id: p.userId,
       name: p.name,
@@ -140,11 +143,11 @@ export function usePromotePatient() {
   })
 }
 
-export function useLinkInstagram() {
+export function useLinkProvisionalPatient() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ targetPatientId, fromPatientId }: { targetPatientId: string; fromPatientId: string }) => {
-      const { data } = await api.put<PatientRaw>(`/patients/${targetPatientId}/link-instagram`, { fromPatientId })
+      const { data } = await api.put<PatientRaw>(`/patients/${targetPatientId}/link-provisional`, { fromPatientId })
       return mapPatient(data)
     },
     onSuccess: () => {

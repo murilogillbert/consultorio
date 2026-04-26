@@ -44,7 +44,7 @@ public class PatientResponseDto
     public string? GeneratedPassword { get; set; }
 }
 
-public class LinkInstagramDto
+public class LinkProvisionalPatientDto
 {
     public string? FromPatientId { get; set; }
 }
