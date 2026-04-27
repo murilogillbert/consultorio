@@ -75,6 +75,8 @@ export default function AgendamentoPage() {
   const serviceInsuranceOptions = selectedService?.insurances || []
   const selectedServicePrice = selectedService ? selectedService.price / 100 : 0
   const formatMoney = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  const getServicePriceLabel = (price: number, showPrice: boolean) =>
+    showPrice && price > 0 ? formatMoney(price / 100) : 'Valor sob consulta'
 
   const handleLogin = async () => {
     setLoginError('')
@@ -163,7 +165,7 @@ export default function AgendamentoPage() {
                     style={{ accentColor: 'var(--color-accent-emerald)' }} />
                   <div style={{ flex: 1 }}>
                     <span style={{ fontWeight: 500 }}>{s.name}</span>
-                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{s.duration} min — {formatMoney(s.price / 100)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{s.duration} min — {getServicePriceLabel(s.price, s.showPrice)}</div>
                   </div>
                 </label>
               ))}

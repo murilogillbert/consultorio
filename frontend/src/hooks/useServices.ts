@@ -11,6 +11,7 @@ interface ServiceResponseDtoRaw {
   onlineBooking: boolean
   durationMinutes: number
   price: number
+  showPrice?: boolean
   category?: string
   requiresRoom: boolean
   defaultRoomId?: string
@@ -33,6 +34,7 @@ export interface Service {
   category?: string
   duration: number
   price: number          // cents
+  showPrice: boolean
   onlineBooking: boolean
   active: boolean
   defaultRoomId?: string
@@ -55,6 +57,7 @@ function mapService(raw: ServiceResponseDtoRaw): Service {
     category: raw.category,
     duration: raw.durationMinutes,
     price: Math.round(Number(raw.price) * 100),
+    showPrice: raw.showPrice ?? true,
     onlineBooking: raw.onlineBooking ?? true,
     active: raw.isActive,
     defaultRoomId: raw.defaultRoomId,
@@ -104,6 +107,7 @@ interface CreateServicePayload {
   category?: string
   duration: number
   price: number
+  showPrice?: boolean
   onlineBooking?: boolean
   imageUrl?: string
   roomId?: string
@@ -123,6 +127,7 @@ function toBackendCreate(p: CreateServicePayload) {
     onlineBooking: p.onlineBooking ?? true,
     durationMinutes: p.duration,
     price: (p.price || 0) / 100,
+    showPrice: p.showPrice ?? true,
     category: p.category,
     requiresRoom: !!(p.roomId || (p.roomIds && p.roomIds.length > 0)),
     defaultRoomId: p.roomId || null,
@@ -158,6 +163,7 @@ export function useUpdateService() {
       if (updateData.category !== undefined)         payload.category         = updateData.category
       if (updateData.duration !== undefined)         payload.durationMinutes  = updateData.duration
       if (updateData.price !== undefined)            payload.price            = updateData.price / 100
+      if (updateData.showPrice !== undefined)        payload.showPrice        = updateData.showPrice
       if (updateData.roomId !== undefined) {
         payload.requiresRoom  = !!updateData.roomId
         payload.defaultRoomId = updateData.roomId || null

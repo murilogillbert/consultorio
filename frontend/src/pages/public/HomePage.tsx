@@ -34,8 +34,8 @@ function formatPrice(cents: number): string {
   return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`
 }
 
-function hasDisplayPrice(cents: number): boolean {
-  return cents > 0
+function hasDisplayPrice(cents: number, showPrice: boolean): boolean {
+  return showPrice && cents > 0
 }
 
 export default function HomePage() {
@@ -173,7 +173,7 @@ export default function HomePage() {
                     <Clock size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
                     {formatDuration(service.duration)}
                   </div>
-                  {hasDisplayPrice(service.price) && (
+                  {hasDisplayPrice(service.price, service.showPrice) && (
                     <div className="price">{formatPrice(service.price)}</div>
                   )}
                   {service.category && (

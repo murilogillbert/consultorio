@@ -237,6 +237,9 @@ public class AppDbContext : DbContext
             .Property(s => s.Price)
             .HasPrecision(10, 2);
         modelBuilder.Entity<Service>()
+            .Property(s => s.ShowPrice)
+            .HasDefaultValue(true);
+        modelBuilder.Entity<Service>()
             .HasMany(s => s.Appointments)
             .WithOne(a => a.Service)
             .HasForeignKey(a => a.ServiceId)

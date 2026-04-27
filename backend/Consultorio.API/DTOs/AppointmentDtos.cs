@@ -98,6 +98,7 @@ public class AppointmentServiceDto
     public int Duration { get; set; }
     public string Color { get; set; } = null!;
     public decimal Price { get; set; }
+    public bool ShowPrice { get; set; }
     public bool OnlineBooking { get; set; }
 }
 

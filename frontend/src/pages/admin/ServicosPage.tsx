@@ -34,6 +34,7 @@ export default function ServicosPage() {
     description: '',
     duration: '',
     price: '',
+    showPrice: true,
     preparation: '',
     onlineBooking: true,
     roomIds: [] as string[],
@@ -76,7 +77,7 @@ export default function ServicosPage() {
 
   const emptyForm = {
     name: '', category: '', shortDescription: '', description: '',
-    duration: '', price: '', preparation: '', onlineBooking: true,
+    duration: '', price: '', showPrice: true, preparation: '', onlineBooking: true,
     roomIds: [] as string[], equipmentIds: [] as string[],
     insuranceBindings: [] as Array<{ insuranceId: string; price: string; showPrice: boolean }>, professionalIds: [] as string[]
   }
@@ -93,6 +94,7 @@ export default function ServicosPage() {
         description: formData.description || undefined,
         duration: parseInt(formData.duration) || 30,
         price: Math.round(parseFloat(priceRaw) * 100) || 0,
+        showPrice: formData.showPrice,
         preparation: formData.preparation || undefined,
         onlineBooking: formData.onlineBooking,
         roomIds: formData.roomIds,
@@ -126,6 +128,7 @@ export default function ServicosPage() {
       description: svc.description || '',
       duration: String(svc.duration),
       price: (svc.price / 100).toFixed(2).replace('.', ','),
+      showPrice: svc.showPrice ?? true,
       preparation: svc.preparation || '',
       onlineBooking: svc.onlineBooking,
       roomIds: svc.rooms?.map(r => r.id) || [],
@@ -551,6 +554,14 @@ export default function ServicosPage() {
                   value={formData.price}
                   onChange={e => setFormData({ ...formData, price: e.target.value })}
                 />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap', marginTop: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.showPrice}
+                    onChange={e => setFormData({ ...formData, showPrice: e.target.checked })}
+                  />
+                  Exibir valor
+                </label>
               </div>
               <div className="input-group full-span">
                 <label className="input-label">Preparo do Paciente</label>

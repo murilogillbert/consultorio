@@ -11,6 +11,7 @@ public class Service
     public bool OnlineBooking { get; set; } = true;
     public int DurationMinutes { get; set; } = 60;
     public decimal Price { get; set; }
+    public bool ShowPrice { get; set; } = true;
     public string? Category { get; set; }
     public bool RequiresRoom { get; set; } = false;
     public Guid? DefaultRoomId { get; set; }

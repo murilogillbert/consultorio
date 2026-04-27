@@ -452,6 +452,7 @@ public class AppointmentsController : ControllerBase
                 Duration = a.Service.DurationMinutes,
                 Color = a.Service.Color,
                 Price = a.Service.Price,
+                ShowPrice = a.Service.ShowPrice,
                 OnlineBooking = a.Service.OnlineBooking
             },
             InsurancePlan = a.InsurancePlan != null ? new AppointmentInsuranceDto
