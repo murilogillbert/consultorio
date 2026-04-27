@@ -10,6 +10,7 @@ import { api } from '../../services/api'
 
 /* ─── Types ─── */
 type ConnectionStatus = 'connected' | 'disconnected' | 'pending' | 'error'
+const GMAIL_PUBSUB_PUBLISHER = 'gmail-api-push@system.gserviceaccount.com'
 
 interface ToastMsg {
   id: number
@@ -700,10 +701,17 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           'Ative a API do Cloud Pub/Sub',
           'Crie um tópico (ex: gmail-notifications)',
           'Crie uma service account com a permissao Assinante do Pub/Sub',
+          'No topico, conceda permissao de publicacao ao principal do Gmail informado abaixo',
           'Exporte o JSON da service account e cole no campo abaixo',
         ]} />
 
         <div className="form-2col">
+          <div className="full-span">
+            <WebhookField label="Principal publicador do Gmail" url={GMAIL_PUBSUB_PUBLISHER} />
+            <span className="intg-field-hint">
+              Adicione este principal nas permissoes do topico com Publicador do Pub/Sub. Se esse papel nao aparecer, Editor Pub/Sub tambem publica mensagens, mas tem permissoes mais amplas.
+            </span>
+          </div>
           <div className="input-group">
             <label className="input-label">
               Google Cloud Project ID <span className="intg-required">*</span>
