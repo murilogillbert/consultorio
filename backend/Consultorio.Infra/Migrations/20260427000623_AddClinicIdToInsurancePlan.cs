@@ -23,8 +23,20 @@ namespace Consultorio.Infra.Migrations
                 name: "ClinicId",
                 table: "InsurancePlans",
                 type: "uniqueidentifier",
-                nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+                nullable: true);
+
+            // Backfill existing rows with the first active clinic
+            migrationBuilder.Sql(@"
+                UPDATE [InsurancePlans]
+                SET [ClinicId] = (SELECT TOP 1 [Id] FROM [Clinics] WHERE [IsActive] = 1)
+                WHERE [ClinicId] IS NULL;
+            ");
+
+            migrationBuilder.AlterColumn<Guid>(
+                name: "ClinicId",
+                table: "InsurancePlans",
+                type: "uniqueidentifier",
+                nullable: false);
 
             migrationBuilder.CreateTable(
                 name: "Categories",
