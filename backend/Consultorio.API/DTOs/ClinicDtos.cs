@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Consultorio.API.DTOs;
 
@@ -9,6 +10,19 @@ public class IntegrationSettingsResponseDto
     public string? GmailClientId            { get; set; }
     public string? GmailClientSecret        { get; set; }
     public bool    GmailConnected           { get; set; }
+    [JsonPropertyName("pubsubProjectId")]
+    public string? PubSubProjectId          { get; set; }
+    [JsonPropertyName("pubsubTopicName")]
+    public string? PubSubTopicName          { get; set; }
+    [JsonPropertyName("pubsubServiceAccountMasked")]
+    public string? PubSubServiceAccountMasked { get; set; }
+    [JsonPropertyName("pubsubServiceAccountConfigured")]
+    public bool    PubSubServiceAccountConfigured { get; set; }
+    [JsonPropertyName("pubsubConnected")]
+    public bool    PubSubConnected          { get; set; }
+    [JsonPropertyName("pubsubWatchExpiresAt")]
+    public DateTime? PubSubWatchExpiresAt   { get; set; }
+    public string? GmailWatchHistoryId      { get; set; }
     public string? AccessTokenProdMasked    { get; set; }  // last 6 chars only
     public string? AccessTokenSandboxMasked { get; set; }
     public string? PublicKey                { get; set; }  // public — no masking needed
@@ -41,6 +55,14 @@ public class UpdateIntegrationSettingsDto
     public string? GmailAccessToken  { get; set; }
     public string? GmailRefreshToken { get; set; }
     public bool?   GmailConnected    { get; set; }
+    [JsonPropertyName("pubsubProjectId")]
+    public string? PubSubProjectId    { get; set; }
+    [JsonPropertyName("pubsubTopicName")]
+    public string? PubSubTopicName    { get; set; }
+    [JsonPropertyName("pubsubServiceAccount")]
+    public string? PubSubServiceAccount { get; set; }
+    [JsonPropertyName("pubsubConnected")]
+    public bool?   PubSubConnected    { get; set; }
     public string? AccessTokenProd    { get; set; }
     public string? AccessTokenSandbox { get; set; }
     public string? PublicKey          { get; set; }

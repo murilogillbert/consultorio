@@ -610,6 +610,7 @@ model IntegrationSettings {
   pubsubProjectId      String?
   pubsubTopicName      String?
   pubsubServiceAccount String?
+  pubsubConnected      Boolean   @default(false)
   pubsubWatchExpiresAt DateTime?
   gmailHistoryId       String?
   waPhoneNumberId      String?

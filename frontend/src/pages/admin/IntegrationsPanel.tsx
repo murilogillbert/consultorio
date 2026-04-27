@@ -9,7 +9,7 @@ import { useIntegrations, useUpdateIntegrations, useTestIntegration } from '../.
 import { api } from '../../services/api'
 
 /* ─── Types ─── */
-type ConnectionStatus = 'connected' | 'disconnected' | 'error'
+type ConnectionStatus = 'connected' | 'disconnected' | 'pending' | 'error'
 
 interface ToastMsg {
   id: number
@@ -21,6 +21,7 @@ function StatusBadge({ status }: { status: ConnectionStatus }) {
   const labels: Record<ConnectionStatus, string> = {
     connected: 'Conectado',
     disconnected: 'Não conectado',
+    pending: 'Aguardando teste',
     error: 'Erro de token',
   }
   return (
@@ -203,6 +204,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const gmailStatus: ConnectionStatus = existingSettings?.gmailConnected ? 'connected' : 'disconnected'
   const waStatus: ConnectionStatus = existingSettings?.waConnected ? 'connected' : 'disconnected'
   const mpStatus: ConnectionStatus = existingSettings?.connected ? 'connected' : 'disconnected'
+  const pubsubStatus: ConnectionStatus = existingSettings?.pubsubConnected
+    ? 'connected'
+    : existingSettings?.pubsubServiceAccountConfigured || existingSettings?.pubsubProjectId || existingSettings?.pubsubTopicName
+      ? 'pending'
+      : 'disconnected'
 
   /* Toast system */
   const [toasts, setToasts] = useState<ToastMsg[]>([])
@@ -287,7 +293,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       setPubsub({
         projectId: existingSettings.pubsubProjectId || '',
         topicName: existingSettings.pubsubTopicName || '',
-        serviceKey: existingSettings.pubsubServiceAccount || '',
+        serviceKey: existingSettings.pubsubServiceAccountMasked || existingSettings.pubsubServiceAccount || '',
       })
     }
   }, [existingSettings])
@@ -686,14 +692,14 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         icon={Cloud}
         title="Google Pub/Sub"
         description="Notificações em tempo real do Gmail via Google Cloud Pub/Sub"
-        status="disconnected"
+        status={pubsubStatus}
       >
 
         <InstructionBox steps={[
           'No Google Cloud Console, acesse o mesmo projeto da Gmail API',
           'Ative a API do Cloud Pub/Sub',
           'Crie um tópico (ex: gmail-notifications)',
-          'Crie uma service account com as permissões pubsub.subscriber e gmail.readonly',
+          'Crie uma service account com a permissao Assinante do Pub/Sub',
           'Exporte o JSON da service account e cole no campo abaixo',
         ]} />
 
@@ -738,7 +744,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   "private_key_id": "key-id",
   "private_key": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n",
   "client_email": "clinic@meu-projeto.iam.gserviceaccount.com",
-  "client_id": "0000000000000000  "client_id": "0000000000000000"
+  "client_id": "0000000000000000"
 }`}
               rows={12}
               value={pubsub.serviceKey}
@@ -767,6 +773,22 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
                 : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
               valid ? 'success' : 'warning'
             )
+          }} />
+          <SaveButton label="Verificar Pub/Sub" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+            if (!validatePubSub()) {
+              addToast('Preencha Project ID, topico e Service Account antes de testar', 'warning')
+              return
+            }
+            if (!clinicId) return
+            await updateMutation.mutateAsync({
+              clinicId,
+              data: {
+                pubsubProjectId: pubsub.projectId,
+                pubsubTopicName: pubsub.topicName,
+                pubsubServiceAccount: pubsub.serviceKey,
+              }
+            })
+            await handleTest('pubsub')
           }} />
         </div>
       </IntegrationSection>

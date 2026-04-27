@@ -137,6 +137,15 @@
   background: var(--color-text-muted);
 }
 
+.intg-status-pending {
+  background: rgba(201, 168, 76, 0.12);
+  color: var(--color-accent-gold);
+}
+
+.intg-status-pending .intg-status-dot {
+  background: var(--color-accent-gold);
+}
+
 .intg-status-error {
   background: rgba(139, 32, 32, 0.08);
   color: var(--color-accent-danger);

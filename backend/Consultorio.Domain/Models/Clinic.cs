@@ -35,6 +35,14 @@ public class Clinic
     public DateTime? GmailTokenExpiresAt { get; set; }
     public bool GmailConnected { get; set; } = false;
 
+    // Google Cloud Pub/Sub settings for Gmail push notifications
+    public string? PubSubProjectId { get; set; }
+    public string? PubSubTopicName { get; set; }
+    public string? PubSubServiceAccount { get; set; }
+    public bool PubSubConnected { get; set; } = false;
+    public DateTime? PubSubWatchExpiresAt { get; set; }
+    public string? GmailWatchHistoryId { get; set; }
+
     // ── Mercado Pago credentials (stored encrypted-at-rest by SQL Server TDE) ──
     public string? MpAccessTokenProd    { get; set; }
     public string? MpAccessTokenSandbox { get; set; }

@@ -449,6 +449,9 @@ namespace Consultorio.Infra.Migrations
                     b.Property<DateTime?>("GmailTokenExpiresAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("GmailWatchHistoryId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("IgAccessToken")
                         .HasColumnType("nvarchar(max)");
 
@@ -512,6 +515,21 @@ namespace Consultorio.Infra.Migrations
 
                     b.Property<string>("PostalCode")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PubSubConnected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PubSubProjectId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubSubServiceAccount")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PubSubTopicName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PubSubWatchExpiresAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("State")
                         .HasColumnType("nvarchar(max)");

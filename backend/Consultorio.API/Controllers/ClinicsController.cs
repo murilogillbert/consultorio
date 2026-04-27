@@ -1,7 +1,13 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Consultorio.API.DTOs;
 using Consultorio.API.Services;
 using Consultorio.Domain.Models;
@@ -19,6 +25,8 @@ public class ClinicsController : ControllerBase
     private readonly WhatsAppCloudService _whatsApp;
     private readonly InstagramService     _instagram;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly HttpClient _pubSubHttp = new();
+    private const string PubSubScope = "https://www.googleapis.com/auth/pubsub";
 
     public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp, InstagramService instagram)
     {
@@ -54,6 +62,145 @@ public class ClinicsController : ControllerBase
          value.TrimStart().StartsWith("â€¢", StringComparison.Ordinal) ||
          value.TrimStart().StartsWith("•", StringComparison.Ordinal));
 
+    private static string? EmptyToNull(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static string? MaskServiceAccount(string? rawJson)
+    {
+        if (string.IsNullOrWhiteSpace(rawJson))
+            return null;
+
+        var account = ParsePubSubServiceAccount(rawJson, out _);
+        var suffix = string.IsNullOrWhiteSpace(account?.ClientEmail) ? "configurado" : account.ClientEmail;
+        return $"******************{suffix}";
+    }
+
+    private static PubSubServiceAccount? ParsePubSubServiceAccount(string? rawJson, out string? error)
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(rawJson))
+        {
+            error = "Service Account Key (JSON) e obrigatoria.";
+            return null;
+        }
+
+        try
+        {
+            var account = JsonSerializer.Deserialize<PubSubServiceAccount>(
+                rawJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (account == null ||
+                !string.Equals(account.Type, "service_account", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(account.ProjectId) ||
+                string.IsNullOrWhiteSpace(account.PrivateKey) ||
+                string.IsNullOrWhiteSpace(account.ClientEmail))
+            {
+                error = "JSON da service account incompleto ou invalido.";
+                return null;
+            }
+
+            return account;
+        }
+        catch
+        {
+            error = "JSON da service account invalido.";
+            return null;
+        }
+    }
+
+    private static string NormalizeTopicName(string topicName, string projectId)
+    {
+        var trimmed = topicName.Trim();
+        var prefix = $"projects/{projectId}/topics/";
+        return trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? trimmed[prefix.Length..]
+            : trimmed;
+    }
+
+    private static string BuildTopicResource(string projectId, string topicName)
+    {
+        var normalizedTopic = NormalizeTopicName(topicName, projectId);
+        return $"projects/{Uri.EscapeDataString(projectId)}/topics/{Uri.EscapeDataString(normalizedTopic)}";
+    }
+
+    private static async Task<string> CreatePubSubAccessTokenAsync(PubSubServiceAccount account)
+    {
+        using var rsa = RSA.Create();
+        rsa.ImportFromPem(account.PrivateKey);
+
+        var credentials = new SigningCredentials(
+            new RsaSecurityKey(rsa) { KeyId = account.PrivateKeyId },
+            SecurityAlgorithms.RsaSha256);
+
+        var now = DateTime.UtcNow;
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Issuer = account.ClientEmail,
+            Audience = "https://oauth2.googleapis.com/token",
+            IssuedAt = now,
+            NotBefore = now,
+            Expires = now.AddMinutes(55),
+            Subject = new ClaimsIdentity([new Claim("scope", PubSubScope)]),
+            SigningCredentials = credentials,
+        };
+
+        var handler = new JwtSecurityTokenHandler();
+        var assertion = handler.WriteToken(handler.CreateToken(descriptor));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                ["assertion"] = assertion,
+            })
+        };
+
+        using var response = await _pubSubHttp.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        var token = JsonSerializer.Deserialize<GoogleAccessTokenResponse>(body);
+
+        if (!response.IsSuccessStatusCode || string.IsNullOrWhiteSpace(token?.AccessToken))
+            throw new InvalidOperationException(ExtractGoogleError(body) ?? "Falha ao autenticar a service account do Pub/Sub.");
+
+        return token.AccessToken;
+    }
+
+    private static string? ExtractGoogleError(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.TryGetProperty("error_description", out var errorDescription) &&
+                errorDescription.ValueKind == JsonValueKind.String)
+                return errorDescription.GetString();
+
+            if (root.TryGetProperty("error", out var error))
+            {
+                if (error.ValueKind == JsonValueKind.String)
+                    return error.GetString();
+
+                if (error.ValueKind == JsonValueKind.Object &&
+                    error.TryGetProperty("message", out var message) &&
+                    message.ValueKind == JsonValueKind.String)
+                    return message.GetString();
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
     private IntegrationSettingsResponseDto ToIntegrationSettingsDto(Clinic clinic)
     {
         var mode    = _instagram.Mode;
@@ -65,6 +212,13 @@ public class ClinicsController : ControllerBase
             GmailClientId = clinic.GmailClientId,
             GmailClientSecret = clinic.GmailClientSecret,
             GmailConnected = clinic.GmailConnected,
+            PubSubProjectId = clinic.PubSubProjectId,
+            PubSubTopicName = clinic.PubSubTopicName,
+            PubSubServiceAccountMasked = MaskServiceAccount(clinic.PubSubServiceAccount),
+            PubSubServiceAccountConfigured = !string.IsNullOrWhiteSpace(clinic.PubSubServiceAccount),
+            PubSubConnected = clinic.PubSubConnected,
+            PubSubWatchExpiresAt = clinic.PubSubWatchExpiresAt,
+            GmailWatchHistoryId = clinic.GmailWatchHistoryId,
             AccessTokenProdMasked = MaskSafe(clinic.MpAccessTokenProd),
             AccessTokenSandboxMasked = MaskSafe(clinic.MpAccessTokenSandbox),
             PublicKey = clinic.MpPublicKey,
@@ -217,6 +371,40 @@ public class ClinicsController : ControllerBase
         if (dto.GmailRefreshToken != null) clinic.GmailRefreshToken = dto.GmailRefreshToken == "" ? null : dto.GmailRefreshToken;
         if (dto.GmailConnected.HasValue)   clinic.GmailConnected    = dto.GmailConnected.Value;
 
+        var pubSubSettingsChanged = false;
+        if (dto.PubSubProjectId != null)
+        {
+            var value = EmptyToNull(dto.PubSubProjectId);
+            if (!string.Equals(clinic.PubSubProjectId, value, StringComparison.Ordinal))
+            {
+                clinic.PubSubProjectId = value;
+                pubSubSettingsChanged = true;
+            }
+        }
+        if (dto.PubSubTopicName != null)
+        {
+            var value = EmptyToNull(dto.PubSubTopicName);
+            if (!string.Equals(clinic.PubSubTopicName, value, StringComparison.Ordinal))
+            {
+                clinic.PubSubTopicName = value;
+                pubSubSettingsChanged = true;
+            }
+        }
+        if (dto.PubSubServiceAccount != null && !IsMasked(dto.PubSubServiceAccount))
+        {
+            var normalizedServiceAccount = EmptyToNull(dto.PubSubServiceAccount);
+            if (normalizedServiceAccount != null && ParsePubSubServiceAccount(normalizedServiceAccount, out var serviceAccountError) == null)
+                return BadRequest(new { message = serviceAccountError });
+
+            if (!string.Equals(clinic.PubSubServiceAccount, normalizedServiceAccount, StringComparison.Ordinal))
+            {
+                clinic.PubSubServiceAccount = normalizedServiceAccount;
+                pubSubSettingsChanged = true;
+            }
+        }
+        if (dto.PubSubConnected.HasValue) clinic.PubSubConnected = dto.PubSubConnected.Value;
+        else if (pubSubSettingsChanged) clinic.PubSubConnected = false;
+
         // MP tokens: only overwrite if the client sent a non-null, non-masked value.
         // Empty string "" still clears the field. Sanitization strips BOM, whitespace
         // and non-ASCII to prevent "Request headers must contain only ASCII characters"
@@ -270,6 +458,82 @@ public class ClinicsController : ControllerBase
         catch (GoogleOAuthException ex)
         {
             return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/settings/integrations/pubsub/test")]
+    [Authorize]
+    public async Task<ActionResult> TestPubSub(Guid id)
+    {
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+            return NotFound(new { message = "Clinica nao encontrada." });
+
+        if (string.IsNullOrWhiteSpace(clinic.PubSubProjectId) ||
+            string.IsNullOrWhiteSpace(clinic.PubSubTopicName) ||
+            string.IsNullOrWhiteSpace(clinic.PubSubServiceAccount))
+        {
+            clinic.PubSubConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return StatusCode(StatusCodes.Status422UnprocessableEntity, new
+            {
+                message = "Salve Project ID, nome do topico e JSON da service account antes de testar.",
+            });
+        }
+
+        var serviceAccount = ParsePubSubServiceAccount(clinic.PubSubServiceAccount, out var serviceAccountError);
+        if (serviceAccount == null)
+        {
+            clinic.PubSubConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return BadRequest(new { message = serviceAccountError });
+        }
+
+        try
+        {
+            var accessToken = await CreatePubSubAccessTokenAsync(serviceAccount);
+            var topicResource = BuildTopicResource(clinic.PubSubProjectId, clinic.PubSubTopicName);
+
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"https://pubsub.googleapis.com/v1/{topicResource}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            using var response = await _pubSubHttp.SendAsync(request);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                clinic.PubSubConnected = false;
+                clinic.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+
+                var message = response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? "Topico Pub/Sub nao encontrado. Confirme o Project ID e o nome do topico."
+                    : ExtractGoogleError(body) ?? "Falha ao validar o topico Pub/Sub.";
+
+                return StatusCode((int)response.StatusCode, new { message });
+            }
+
+            clinic.PubSubConnected = true;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                ok = true,
+                message = "Pub/Sub conectado com sucesso",
+                detail = $"{clinic.PubSubProjectId}/{NormalizeTopicName(clinic.PubSubTopicName, clinic.PubSubProjectId)}",
+            });
+        }
+        catch (Exception ex)
+        {
+            clinic.PubSubConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return BadRequest(new { message = ex.Message });
         }
     }
 
@@ -474,5 +738,29 @@ public class ClinicsController : ControllerBase
             await _db.SaveChangesAsync();
             return Ok(new { ok = false, message = ex.Message });
         }
+    }
+
+    private sealed class PubSubServiceAccount
+    {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("project_id")]
+        public string? ProjectId { get; set; }
+
+        [JsonPropertyName("private_key_id")]
+        public string? PrivateKeyId { get; set; }
+
+        [JsonPropertyName("private_key")]
+        public string? PrivateKey { get; set; }
+
+        [JsonPropertyName("client_email")]
+        public string? ClientEmail { get; set; }
+    }
+
+    private sealed class GoogleAccessTokenResponse
+    {
+        [JsonPropertyName("access_token")]
+        public string? AccessToken { get; set; }
     }
 }

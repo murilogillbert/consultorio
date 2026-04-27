@@ -12,7 +12,12 @@ export interface IntegrationSettings {
   // ── Pub/Sub (seção do frontend preservada — backend ainda não implementa) ──
   pubsubProjectId?: string
   pubsubTopicName?: string
-  pubsubServiceAccount?: string
+  pubsubServiceAccount?: string        // escrita: enviado ao backend (plain ou masked)
+  pubsubServiceAccountMasked?: string  // leitura: retornado mascarado pelo backend
+  pubsubServiceAccountConfigured?: boolean
+  pubsubConnected?: boolean
+  pubsubWatchExpiresAt?: string | null
+  gmailWatchHistoryId?: string | null
 
   // ── Mercado Pago ──
   accessTokenProdMasked?: string
@@ -88,6 +93,8 @@ export function useUpdateIntegrations() {
 }
 
 export function useTestIntegration() {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: async ({ clinicId, type }: { clinicId: string; type: string }) => {
       const { data } = await api.post<{ ok: boolean; message: string; detail?: string }>(
@@ -95,6 +102,9 @@ export function useTestIntegration() {
         {}
       )
       return data
+    },
+    onSettled: (_data, _error, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['integrations', variables.clinicId] })
     },
   })
 }
