@@ -30,6 +30,8 @@ import AdminMarketing from './pages/admin/MarketingPage'
 import AdminMovimento from './pages/admin/MovimentoPage'
 import AdminRecrutamento from './pages/admin/RecrutamentoPage'
 import LoginPage from './pages/auth/LoginPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import ThemeProvider from './components/ThemeProvider'
 import ProfissionalDashboard from './pages/profissional/DashboardPage'
 
@@ -53,6 +55,8 @@ export default function App() {
 
       {/* Auth */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+      <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="/portal-profissional" element={<ProfessionalDashboardPage />} />
 
       {/* Reception */}

@@ -145,9 +145,16 @@ public class AppDbContext : DbContext
         // ───── USER (Base identity) ─────
         modelBuilder.Entity<User>()
             .HasKey(u => u.Id);
+        // Email is no longer globally unique — patients may share an email
+        // (e.g. mother and children). Uniqueness is enforced at application
+        // level when creating staff/professional accounts.
         modelBuilder.Entity<User>()
-            .HasIndex(u => u.Email)
-            .IsUnique();
+            .HasIndex(u => u.Email);
+        // Username, when set, is globally unique. Filtered index allows NULLs.
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
+            .IsUnique()
+            .HasFilter("[Username] IS NOT NULL");
         modelBuilder.Entity<User>()
             .HasOne(u => u.SystemUser)
             .WithOne(su => su.User)

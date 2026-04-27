@@ -82,6 +82,7 @@ builder.Services.AddHttpClient<WhatsAppCloudService>();
 builder.Services.AddHttpClient<MetaInstagramMessagingClient>();
 builder.Services.AddScoped<InstagramService>();
 builder.Services.AddScoped<MessageTemplateRenderer>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 

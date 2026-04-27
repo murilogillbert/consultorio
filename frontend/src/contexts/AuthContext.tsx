@@ -5,6 +5,7 @@ export interface User {
   id: string
   name: string
   email: string
+  username?: string
   role: 'ADMIN' | 'RECEPTIONIST' | 'PROFESSIONAL' | 'PATIENT'
   avatarUrl?: string
   clinicId?: string
@@ -36,8 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = !!token && !!user
 
-  const signIn = useCallback(async (email: string, password: string): Promise<User> => {
-    const response = await api.post('/auth/login', { email, password })
+  // Identifier may be an email or a username. Backend resolves by username
+  // first (globally unique when set), then by email. When multiple users
+  // share an email (patients), the backend returns 401 asking for username.
+  const signIn = useCallback(async (identifier: string, password: string): Promise<User> => {
+    const looksLikeEmail = identifier.includes('@')
+    const payload = looksLikeEmail
+      ? { email: identifier, password }
+      : { username: identifier, password }
+    const response = await api.post('/auth/login', payload)
     const { user: userData, token: tokenData } = response.data
 
     localStorage.setItem(STORAGE_TOKEN_KEY, tokenData)

@@ -24,7 +24,7 @@ function ClinicLogo({ logoUrl, name }: { logoUrl?: string; name?: string }) {
 }
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -35,7 +35,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password) {
+    if (!identifier || !password) {
       setError('Preencha todos os campos')
       return
     }
@@ -44,7 +44,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const user = await signIn(email, password)
+      const user = await signIn(identifier, password)
 
       if (user.role === 'ADMIN') {
         navigate('/admin')
@@ -52,6 +52,8 @@ export default function LoginPage() {
         navigate('/recepcao')
       } else if (user.role === 'PROFESSIONAL') {
         navigate('/profissional')
+      } else if (user.role === 'PATIENT') {
+        navigate('/minhas-consultas')
       } else {
         navigate('/')
       }
@@ -80,13 +82,14 @@ export default function LoginPage() {
           )}
 
           <div className="input-group login-field">
-            <label className="input-label">E-mail</label>
+            <label className="input-label">E-mail ou usuário</label>
             <input
               className="input-field"
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError('') }}
+              type="text"
+              autoComplete="username"
+              placeholder="seu@email.com ou usuário"
+              value={identifier}
+              onChange={e => { setIdentifier(e.target.value); setError('') }}
               style={{ width: '100%' }}
             />
           </div>
@@ -117,9 +120,9 @@ export default function LoginPage() {
           </button>
 
           <div className="login-forgot">
-            <button type="button" className="btn btn-ghost btn-sm">
+            <Link to="/esqueci-senha" className="btn btn-ghost btn-sm">
               Esqueci minha senha
-            </button>
+            </Link>
           </div>
         </form>
 

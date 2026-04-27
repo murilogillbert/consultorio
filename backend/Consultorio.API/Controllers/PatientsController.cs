@@ -94,9 +94,9 @@ public class PatientsController : ControllerBase
         if (clinicId == Guid.Empty)
             return BadRequest(new { message = "Usuário não vinculado a uma clínica." });
 
-        // Verifica email duplicado
-        if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
-            return Conflict(new { message = "Email já cadastrado." });
+        // Para pacientes não há restrição de e-mail único — múltiplos pacientes
+        // (ex.: mãe e filhos) podem compartilhar o mesmo e-mail. A unicidade
+        // só é verificada para staff/profissional.
 
         var generatedPassword = GenerateDefaultPassword(dto.Name);
 
@@ -135,22 +135,39 @@ public class PatientsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = patient.Id }, response);
     }
 
-    // DELETE /api/patients/{id}
+    // DELETE /api/patients/{id} — exclui paciente.
+    // Soft delete quando há agendamentos para preservar histórico financeiro
+    // e clínico; hard delete caso contrário. O User vinculado é desativado em
+    // ambos os modos para liberar futuras criações sem conflito.
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(Guid id)
     {
-        var patient = await _db.Patients.FindAsync(id);
+        var patient = await _db.Patients
+            .Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.Id == id);
         if (patient == null)
             return NotFound(new { message = "Paciente não encontrado." });
 
-        var hasActive = await _db.Appointments
-            .AnyAsync(a => a.PatientId == id && a.Status != "CANCELLED");
-        if (hasActive)
-            return Conflict(new { message = "Paciente possui consultas ativas. Cancele-as antes de remover." });
+        var hasAnyAppointments = await _db.Appointments.AnyAsync(a => a.PatientId == id);
 
+        if (hasAnyAppointments)
+        {
+            patient.IsActive = false;
+            patient.UpdatedAt = DateTime.UtcNow;
+            if (patient.User != null)
+            {
+                patient.User.IsActive = false;
+                patient.User.UpdatedAt = DateTime.UtcNow;
+            }
+            await _db.SaveChangesAsync();
+            return Ok(new { mode = "soft", message = "Paciente inativado. Histórico preservado." });
+        }
+
+        if (patient.User != null)
+            _db.Users.Remove(patient.User);
         _db.Patients.Remove(patient);
         await _db.SaveChangesAsync();
-        return NoContent();
+        return Ok(new { mode = "hard", message = "Paciente excluído." });
     }
 
     // PUT /api/patients/{id}
@@ -276,8 +293,11 @@ public class PatientsController : ControllerBase
         if (IsProvisionalEmail(newEmail))
             return BadRequest(new { message = "Email inválido para cadastro." });
 
+        // Pacientes podem compartilhar e-mail (mãe e filhos). Bloqueia somente
+        // se o e-mail estiver em uso por staff/profissional ativo.
         var emailTaken = await _db.Users
-            .AnyAsync(u => u.Id != patient.UserId && u.Email == newEmail);
+            .AnyAsync(u => u.Id != patient.UserId && u.Email == newEmail && u.IsActive
+                           && (u.SystemUser != null || u.Professional != null));
         if (emailTaken)
             return Conflict(new { message = "Email já cadastrado para outro usuário." });
 

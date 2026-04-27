@@ -4,11 +4,13 @@ import { useProfessionals, useCreateProfessional, useUpdateProfessional } from '
 import { api } from '../../services/api'
 import { useUpload } from '../../hooks/useUpload'
 import { useRooms } from '../../hooks/useRooms'
+import { useEquipments } from '../../hooks/useEquipment'
 import { useInsurances } from '../../hooks/useInsurances'
 import { useCategories } from '../../hooks/useCategories'
 import ComboBox from '../../components/ComboBox'
 
-const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+// Order matches backend convention (DayOfWeek: 0=Sunday, 1=Monday, ..., 6=Saturday)
+const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const times = ['07:00', '08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']
 
 export default function ProfissionaisPage() {
@@ -27,7 +29,8 @@ export default function ProfissionaisPage() {
     bio: '',
     languages: '',
     userId: '',
-    roomId: '',
+    roomIds: [] as string[],
+    equipmentIds: [] as string[],
     insuranceIds: [] as string[],
     commissionPct: '50'
   })
@@ -38,6 +41,7 @@ export default function ProfissionaisPage() {
 
   const { data: professionals = [], isLoading } = useProfessionals()
   const { data: rooms = [] } = useRooms()
+  const { data: equipments = [] } = useEquipments()
   const { data: insurancePlans = [] } = useInsurances()
   const { data: specialties = [] } = useCategories({ type: 'SPECIALTY', activeOnly: true })
   const createMutation = useCreateProfessional()
@@ -118,7 +122,8 @@ export default function ProfissionaisPage() {
         bio: '',
         languages: '',
         userId: '',
-        roomId: '',
+        roomIds: [],
+        equipmentIds: [],
         insuranceIds: [],
         commissionPct: '50'
       })
@@ -149,8 +154,9 @@ export default function ProfissionaisPage() {
       bio: pro.bio || '',
       languages: pro.languages || '',
       userId: pro.userId,
-      roomId: '', // Set from actual data if available
-      insuranceIds: [], // Set from actual data if available
+      roomIds: [],
+      equipmentIds: [],
+      insuranceIds: [],
       commissionPct: String(pro.commissionPct ?? 50)
     })
 
@@ -208,7 +214,7 @@ export default function ProfissionaisPage() {
                 />
               </div>
             </div>
-            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', password: '', phone: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomId: '', insuranceIds: [], commissionPct: '50' }); setAvatarPreview(null); setShowForm(true); }}>
+            <button className="btn btn-primary" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', password: '', phone: '', crm: '', councilType: 'CRM', specialty: '', bio: '', languages: '', userId: '', roomIds: [], equipmentIds: [], insuranceIds: [], commissionPct: '50' }); setAvatarPreview(null); setShowForm(true); }}>
               <Plus size={16} /> Novo Profissional
             </button>
           </div>
@@ -458,12 +464,23 @@ export default function ProfissionaisPage() {
                 <input className="input-field" type="number" placeholder="50" min="0" max="100" value={formData.commissionPct} onChange={e => setFormData({ ...formData, commissionPct: e.target.value })} />
               </div>
               <div className="input-group">
-                <ComboBox 
-                  label="Sala / Equipamento"
-                  placeholder="Selecione a sala..."
+                <ComboBox
+                  label="Salas"
+                  placeholder="Selecione as salas..."
+                  multiple
                   options={rooms.map(r => ({ value: r.id, label: r.name }))}
-                  value={formData.roomId}
-                  onChange={val => setFormData({ ...formData, roomId: val })}
+                  value={formData.roomIds}
+                  onChange={vals => setFormData({ ...formData, roomIds: vals })}
+                />
+              </div>
+              <div className="input-group">
+                <ComboBox
+                  label="Equipamentos"
+                  placeholder="Selecione os equipamentos..."
+                  multiple
+                  options={equipments.map(e => ({ value: e.id, label: e.name }))}
+                  value={formData.equipmentIds}
+                  onChange={vals => setFormData({ ...formData, equipmentIds: vals })}
                 />
               </div>
               <div className="input-group">

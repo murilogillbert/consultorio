@@ -57,7 +57,7 @@ public class ProfessionalsController : ControllerBase
             .Include(p => p.User)
             .Include(p => p.Services)
             .Include(p => p.Schedules)
-            .Where(p => p.IsAvailable)
+            .Where(p => p.IsAvailable && p.User.IsActive)
             .OrderBy(p => p.User.Name)
             .ToListAsync();
 
@@ -89,8 +89,10 @@ public class ProfessionalsController : ControllerBase
         if (clinicId == Guid.Empty)
             return BadRequest(new { message = "Usuário não vinculado a uma clínica." });
 
-        // Verifica se email já existe
-        if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
+        // Verifica se email já existe entre usuários ATIVOS de staff/profissional.
+        // Pacientes inativos não bloqueiam reuso.
+        if (await _db.Users.AnyAsync(u => u.Email == dto.Email && u.IsActive
+                                          && (u.SystemUser != null || u.Professional != null)))
             return Conflict(new { message = "Email já cadastrado." });
 
         // Cria o User base
@@ -159,6 +161,44 @@ public class ProfessionalsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(ToDto(pro));
+    }
+
+    // DELETE /api/professionals/{id} — exclui profissional.
+    // Soft delete quando há agendamentos (preserva histórico/financeiro);
+    // hard delete caso contrário. Sempre desativa o User vinculado para
+    // liberar reuso de e-mail em futuras criações.
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var pro = await _db.Professionals
+            .Include(p => p.User)
+            .Include(p => p.Schedules)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (pro == null)
+            return NotFound(new { message = "Profissional não encontrado." });
+
+        var hasAppointments = await _db.Appointments.AnyAsync(a => a.ProfessionalId == id);
+
+        if (hasAppointments)
+        {
+            pro.IsAvailable = false;
+            pro.UpdatedAt = DateTime.UtcNow;
+            if (pro.User != null)
+            {
+                pro.User.IsActive = false;
+                pro.User.UpdatedAt = DateTime.UtcNow;
+            }
+            foreach (var s in pro.Schedules)
+                s.IsActive = false;
+            await _db.SaveChangesAsync();
+            return Ok(new { mode = "soft", message = "Profissional inativado. Histórico de agendamentos preservado." });
+        }
+
+        if (pro.User != null)
+            _db.Users.Remove(pro.User);
+        _db.Professionals.Remove(pro);
+        await _db.SaveChangesAsync();
+        return Ok(new { mode = "hard", message = "Profissional excluído." });
     }
 
     // POST /api/professionals/{id}/services/{serviceId} — vincular serviço

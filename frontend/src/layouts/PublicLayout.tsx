@@ -61,13 +61,23 @@ export default function PublicLayout() {
     RECEPTIONIST: 'Recepcionista',
   }
 
+  // "Minhas Consultas" routes per role:
+  //   - Anonymous / Patient → /minhas-consultas (public patient portal)
+  //   - Professional        → /profissional/minhas-consultas
+  //   - Receptionist        → /recepcao
+  //   - Admin               → /admin
+  const consultasHref = !isAuthenticated
+    ? '/minhas-consultas'
+    : user?.role === 'PROFESSIONAL' ? '/profissional/minhas-consultas'
+    : user?.role === 'RECEPTIONIST' ? '/recepcao'
+    : user?.role === 'ADMIN' ? '/admin'
+    : '/minhas-consultas'
+
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/servicos', label: 'Serviços' },
     { to: '/profissionais', label: 'Equipe' },
-    ...(!isAuthenticated || user?.role === 'PATIENT'
-      ? [{ to: '/minhas-consultas', label: 'Minhas Consultas' }]
-      : []),
+    { to: consultasHref, label: 'Minhas Consultas' },
     { to: '/sobre', label: 'Sobre' },
     { to: '/trabalhe-conosco', label: 'Trabalhe Conosco' },
   ]

@@ -142,6 +142,22 @@ export function useCreateProfessional() {
   })
 }
 
+export interface DeleteProfessionalResult {
+  mode: 'soft' | 'hard'
+  message?: string
+}
+
+export function useDeleteProfessional() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string): Promise<DeleteProfessionalResult> => {
+      const { data } = await api.delete<DeleteProfessionalResult>(`/professionals/${id}`)
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['professionals'] })
+  })
+}
+
 export function useUpdateProfessional() {
   const queryClient = useQueryClient()
   return useMutation({
