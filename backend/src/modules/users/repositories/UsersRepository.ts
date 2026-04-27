@@ -8,12 +8,11 @@ export class UsersRepository extends BaseRepository<User, Prisma.UserCreateInput
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return prisma.user.findUnique({
+    return prisma.user.findFirst({
       where: { email },
     })
   }
 
-  // Model-specific list with relation filtering or fields
   async listWithRelations(): Promise<User[]> {
     return prisma.user.findMany({
       where: { active: true },

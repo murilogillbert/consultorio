@@ -16,5 +16,6 @@ r.post('/', ensureAuthenticated, patientsController.create)
 r.get('/', ensureAuthenticated, ensureRole(['ADMIN', 'RECEPTIONIST']), patientsController.index)
 r.get('/:id', ensureAuthenticated, patientsController.show)
 r.put('/:id', ensureAuthenticated, patientsController.update)
+r.delete('/:id', ensureAuthenticated, ensureRole(['ADMIN', 'RECEPTIONIST']), patientsController.delete)
 
 export default r

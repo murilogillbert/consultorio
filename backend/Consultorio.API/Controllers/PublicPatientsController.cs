@@ -35,37 +35,28 @@ public class PublicPatientsController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Email))
             return BadRequest(new { message = "Nome e e-mail são obrigatórios." });
 
-        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+        if (dto.Password != null && dto.Password.Length > 0 && dto.Password.Length < 6)
             return BadRequest(new { message = "A senha deve ter no mínimo 6 caracteres." });
 
         var email = dto.Email.ToLower().Trim();
-        var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
-
-        if (existingUser != null)
-        {
-            var existingPatient = await _db.Patients.FirstOrDefaultAsync(p => p.UserId == existingUser.Id);
-            if (existingPatient != null)
-                return Conflict(new { message = "Este e-mail já possui cadastro. Faça login para continuar." });
-        }
 
         var clinic = await _db.Clinics.FirstOrDefaultAsync();
         if (clinic == null)
             return StatusCode(503, new { message = "Sistema ainda não configurado." });
 
-        var user = existingUser ?? new User
+        // Múltiplos usuários podem compartilhar o mesmo e-mail (ex.: responsável e dependentes)
+        var rawPassword = string.IsNullOrWhiteSpace(dto.Password) ? "123456" : dto.Password.Trim();
+        var user = new User
         {
-            Id        = Guid.NewGuid(),
-            Name      = dto.Name.Trim(),
-            Email     = email,
-            Phone     = dto.Phone?.Trim(),
-            IsActive  = true,
-            CreatedAt = DateTime.UtcNow,
+            Id           = Guid.NewGuid(),
+            Name         = dto.Name.Trim(),
+            Email        = email,
+            Phone        = dto.Phone?.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(rawPassword),
+            IsActive     = true,
+            CreatedAt    = DateTime.UtcNow,
         };
-
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
-        if (existingUser == null)
-            _db.Users.Add(user);
+        _db.Users.Add(user);
 
         var patient = new Patient
         {
@@ -93,13 +84,22 @@ public class PublicPatientsController : ControllerBase
             return BadRequest(new { message = "E-mail e senha são obrigatórios." });
 
         var email = dto.Email.ToLower().Trim();
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var candidates = await _db.Users
+            .Where(u => u.Email == email && u.IsActive)
+            .ToListAsync();
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        User? user = null;
+        foreach (var candidate in candidates)
+        {
+            if (BCrypt.Net.BCrypt.Verify(dto.Password, candidate.PasswordHash ?? string.Empty))
+            {
+                user = candidate;
+                break;
+            }
+        }
+
+        if (user == null)
             return Unauthorized(new { message = "E-mail ou senha incorretos." });
-
-        if (!user.IsActive)
-            return Unauthorized(new { message = "Conta desativada. Entre em contato com a clínica." });
 
         // Check if user is a Professional
         var professional = await _db.Professionals.FirstOrDefaultAsync(p => p.UserId == user.Id);
@@ -306,7 +306,7 @@ public class PublicRegisterPatientDto
 {
     public string Name { get; set; } = null!;
     public string Email { get; set; } = null!;
-    public string Password { get; set; } = null!;
+    public string? Password { get; set; }
     public string? CPF { get; set; }
     public string? Phone { get; set; }
 }

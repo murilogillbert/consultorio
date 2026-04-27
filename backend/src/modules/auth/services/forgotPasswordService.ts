@@ -1,11 +1,11 @@
 import { prisma } from '../../../config/database'
-import { AppError } from '../../../shared/errors/AppError'
 import { sendOtpEmail } from '../../../shared/services/emailService'
 
 export async function forgotPasswordService(email: string): Promise<void> {
-  const user = await prisma.user.findUnique({ where: { email } })
+  // Multiple users can share the same email — find the first active one.
+  const user = await prisma.user.findFirst({ where: { email, active: true } })
   if (!user) {
-    // Don't reveal if email exists
+    // Don't reveal whether the email exists
     return
   }
 

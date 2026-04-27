@@ -7,6 +7,8 @@ import { env } from '../../../config/env'
 import { prisma } from '../../../config/database'
 import bcrypt from 'bcrypt'
 
+const DEFAULT_PASSWORD = '123456'
+
 export class PatientsService {
   private patientsRepository: PatientsRepository
   private appointmentsRepository: AppointmentsRepository
@@ -24,26 +26,19 @@ export class PatientsService {
     return this.patientsRepository.search(query)
   }
 
-  async executeCreate(data: any): Promise<Patient> {
+  async executeCreate(data: any): Promise<Patient & { generatedPassword?: string }> {
     const { name, email, notes, ...patientData } = data
 
-    // Se não tem userId mas tem name+email, cria o User primeiro
+    // If no userId is provided but name+email are given, create a new User.
+    // Each person gets their own User account — multiple people may share the same email
+    // (e.g. a dependent using the responsible's email).
     if (!patientData.userId && name && email) {
-      const existingUser = await prisma.user.findUnique({ where: { email } })
-      if (existingUser) {
-        // Vincular ao user existente se já é PATIENT
-        if (existingUser.role !== 'PATIENT') {
-          throw new AppError('Email já pertence a um usuário não-paciente', 400)
-        }
-        patientData.userId = existingUser.id
-      } else {
-        const tempPassword = Math.random().toString(36).slice(-10)
-        const passwordHash = await bcrypt.hash(tempPassword, 10)
-        const newUser = await prisma.user.create({
-          data: { name, email, passwordHash, role: 'PATIENT' },
-        })
-        patientData.userId = newUser.id
-      }
+      const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10)
+      const newUser = await prisma.user.create({
+        data: { name, email, passwordHash, role: 'PATIENT' },
+      })
+      patientData.userId = newUser.id
+      patientData._generatedPassword = DEFAULT_PASSWORD
     }
 
     if (!patientData.userId) {
@@ -62,7 +57,11 @@ export class PatientsService {
       }
     }
 
-    return this.patientsRepository.create({ ...patientData, notes } as any)
+    const generatedPassword = patientData._generatedPassword
+    delete patientData._generatedPassword
+
+    const patient = await this.patientsRepository.create({ ...patientData, notes } as any)
+    return Object.assign(patient, { generatedPassword })
   }
 
   async executeFindById(id: string): Promise<Patient | null> {
@@ -109,7 +108,6 @@ export class PatientsService {
       throw new AppError('Código expirado.', 400)
     }
 
-    // Limpa código após uso
     await this.patientsRepository.updateOtp(user.id, '', new Date(0))
 
     const token = jwt.sign(

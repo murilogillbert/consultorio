@@ -17,41 +17,45 @@ export class AuthService {
       throw new AppError('Email e senha obrigatórios', 400)
     }
 
-    const user = await this.authRepository.findUserByEmail(email)
+    // Multiple users can share the same email (e.g. dependents).
+    // Try each active user with this email until one matches the password.
+    const users = await this.authRepository.findUsersByEmail(email)
 
-    if (!user) {
+    if (users.length === 0) {
       throw new AppError('Credenciais incorretas', 401)
     }
 
-    if (!user.active) {
-      throw new AppError('Usuário inativo. Contate o suporte', 403)
+    let matchedUser = null
+    for (const user of users) {
+      const isPasswordValid = await compare(password, user.passwordHash)
+      if (isPasswordValid) {
+        matchedUser = user
+        break
+      }
     }
 
-    const isPasswordValid = await compare(password, user.passwordHash)
-
-    if (!isPasswordValid) {
-      // Avoid exposing "wrong password" vs "wrong email" for security
+    if (!matchedUser) {
       throw new AppError('Credenciais incorretas', 401)
     }
 
     const token = sign(
       {
-        role: user.role,
+        role: matchedUser.role,
       },
       env.JWT_SECRET,
       {
-        subject: user.id,
-        expiresIn: '1d', // Token expira em 1 dia
+        subject: matchedUser.id,
+        expiresIn: '1d',
       }
     )
 
     return {
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatarUrl: user.avatarUrl,
+        id: matchedUser.id,
+        name: matchedUser.name,
+        email: matchedUser.email,
+        role: matchedUser.role,
+        avatarUrl: matchedUser.avatarUrl,
       },
       token,
     }

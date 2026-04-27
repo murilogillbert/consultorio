@@ -242,8 +242,11 @@ export default function PatientsPage() {
                   </div>
                   {!editingPatient ? (
                     <div className="input-group">
-                      <label className="input-label">E-mail <span className="required">*</span></label>
+                      <label className="input-label">E-mail do paciente ou responsável <span className="required">*</span></label>
                       <input className="input-field" type="email" placeholder="email@exemplo.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 3, display: 'block' }}>
+                        Para dependentes, pode-se usar o e-mail do responsável.
+                      </span>
                     </div>
                   ) : (
                     <div className="input-group">

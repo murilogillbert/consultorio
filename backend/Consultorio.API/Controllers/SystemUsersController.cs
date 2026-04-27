@@ -45,11 +45,9 @@ public class SystemUsersController : ControllerBase
             return BadRequest(new { message = "Nome e e-mail são obrigatórios." });
 
         var email = dto.Email.Trim().ToLowerInvariant();
-        if (await _db.Users.AnyAsync(u => u.Email == email))
-            return Conflict(new { message = "E-mail já cadastrado." });
 
         var password = string.IsNullOrWhiteSpace(dto.Password)
-            ? GenerateDefaultPassword(dto.Name)
+            ? "123456"
             : dto.Password.Trim();
 
         var role = NormalizeRole(dto.Role);
@@ -98,11 +96,7 @@ public class SystemUsersController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(dto.Email))
         {
-            var email = dto.Email.Trim().ToLowerInvariant();
-            var emailTaken = await _db.Users.AnyAsync(u => u.Email == email && u.Id != systemUser.UserId);
-            if (emailTaken)
-                return Conflict(new { message = "E-mail já cadastrado." });
-            systemUser.User.Email = email;
+            systemUser.User.Email = dto.Email.Trim().ToLowerInvariant();
         }
 
         if (!string.IsNullOrWhiteSpace(dto.Role))
@@ -121,16 +115,12 @@ public class SystemUsersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(Guid id)
     {
-        var systemUser = await _db.SystemUsers
-            .Include(su => su.User)
-            .FirstOrDefaultAsync(su => su.Id == id);
+        var systemUser = await _db.SystemUsers.FindAsync(id);
 
         if (systemUser == null)
             return NotFound(new { message = "Usuário não encontrado." });
 
-        systemUser.User.IsActive = false;
-        systemUser.UpdatedAt = DateTime.UtcNow;
-        systemUser.User.UpdatedAt = DateTime.UtcNow;
+        _db.SystemUsers.Remove(systemUser);
         await _db.SaveChangesAsync();
 
         return NoContent();
@@ -164,14 +154,6 @@ public class SystemUsersController : ControllerBase
             : "RECEPTIONIST";
     }
 
-    private static string GenerateDefaultPassword(string name)
-    {
-        var cleaned = new string(name.Where(char.IsLetter).ToArray());
-        var prefix = cleaned.Length > 0
-            ? cleaned[..Math.Min(4, cleaned.Length)]
-            : "user";
-        return $"{prefix.ToLowerInvariant()}123!";
-    }
 }
 
 public class CreateSystemUserDto

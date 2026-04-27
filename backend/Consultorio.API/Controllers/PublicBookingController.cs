@@ -1,6 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Consultorio.Domain.Models;
 using Consultorio.Infra.Context;
 
@@ -12,8 +16,36 @@ namespace Consultorio.API.Controllers;
 public class PublicBookingController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IConfiguration _config;
 
-    public PublicBookingController(AppDbContext db) => _db = db;
+    public PublicBookingController(AppDbContext db, IConfiguration config)
+    {
+        _db = db;
+        _config = config;
+    }
+
+    private Guid? TryExtractPatientId(string? bearerHeader)
+    {
+        if (string.IsNullOrWhiteSpace(bearerHeader) ||
+            !bearerHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var token = bearerHeader[7..].Trim();
+        try
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Secret"]!));
+            var principal = new JwtSecurityTokenHandler().ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuer = true, ValidIssuer = _config["Jwt:Issuer"],
+                ValidateAudience = true, ValidAudience = _config["Jwt:Audience"],
+                ValidateLifetime = true,
+                IssuerSigningKey = key,
+            }, out _);
+            var patientIdStr = principal.FindFirst("patientId")?.Value;
+            return Guid.TryParse(patientIdStr, out var id) ? id : null;
+        }
+        catch { return null; }
+    }
 
     // POST /api/public/book
     // Agendamento público: localiza ou cria paciente e cria a consulta.
@@ -67,37 +99,46 @@ public class PublicBookingController : ControllerBase
         if (conflict)
             return Conflict(new { message = "Este horário não está mais disponível. Por favor, escolha outro horário." });
 
-        // Localiza ou cria o User/Patient
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
-        bool isNewUser = user == null;
+        // Se o frontend enviou um token de paciente, reutiliza a conta existente.
+        // Caso contrário, sempre cria novo usuário — isso permite agendar dependentes
+        // com o mesmo e-mail do responsável.
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        var patientIdFromToken = TryExtractPatientId(authHeader);
 
-        if (isNewUser)
+        Patient? patient = null;
+        User? user = null;
+        bool isNewUser = false;
+
+        if (patientIdFromToken.HasValue)
         {
-            // Novo paciente: senha é obrigatória
-            if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
-                return BadRequest(new { message = "Crie uma senha de acesso com pelo menos 6 caracteres para acompanhar suas consultas." });
+            patient = await _db.Patients
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.Id == patientIdFromToken.Value);
+            if (patient != null)
+                user = patient.User;
+        }
 
+        if (patient == null)
+        {
+            var rawPassword = string.IsNullOrWhiteSpace(dto.Password) ? "123456" : dto.Password.Trim();
             user = new User
             {
                 Id           = Guid.NewGuid(),
                 Name         = dto.Name.Trim(),
                 Email        = email,
                 Phone        = dto.Phone?.Trim(),
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(rawPassword),
                 IsActive     = true,
                 CreatedAt    = DateTime.UtcNow,
             };
             _db.Users.Add(user);
-        }
+            isNewUser = true;
 
-        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.UserId == user!.Id);
-        if (patient == null)
-        {
             patient = new Patient
             {
                 Id        = Guid.NewGuid(),
                 ClinicId  = clinic.Id,
-                UserId    = user!.Id,
+                UserId    = user.Id,
                 CPF       = dto.CPF?.Trim(),
                 Phone     = dto.Phone?.Trim(),
                 IsActive  = true,

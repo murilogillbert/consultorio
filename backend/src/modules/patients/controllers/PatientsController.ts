@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import { PatientsService } from '../services/PatientsService'
 import { PatientsRepository } from '../repositories/PatientsRepository'
 import { AppError } from '../../../shared/errors/AppError'
+import { deleteUserService } from '../../users/services/deleteUserService'
 
 export class PatientsController {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -78,6 +79,26 @@ export class PatientsController {
     }
   }
 
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params as { id: string }
+
+      const patientsRepository = new PatientsRepository()
+      const patient = await patientsRepository.findById(id)
+
+      if (!patient) {
+        throw new AppError('Paciente não encontrado', 404)
+      }
+
+      // Delete the underlying User (which also deletes the Patient profile)
+      const result = await deleteUserService(patient.userId)
+
+      res.status(200).json(result)
+    } catch (err) {
+      next(err)
+    }
+  }
+
   async requestOtp(req: Request, res: Response, next: NextFunction) {
     try {
       const { email } = req.body
@@ -106,7 +127,6 @@ export class PatientsController {
 
   async getMyAppointments(req: Request, res: Response, next: NextFunction) {
     try {
-      // req.user.id é o ID do User. Precisamos buscar o Patient associado.
       const userId = req.user.id
       const patientsRepository = new PatientsRepository()
       const patientsService = new PatientsService(patientsRepository)

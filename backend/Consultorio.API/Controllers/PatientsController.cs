@@ -98,7 +98,7 @@ public class PatientsController : ControllerBase
         // (ex.: mãe e filhos) podem compartilhar o mesmo e-mail. A unicidade
         // só é verificada para staff/profissional.
 
-        var generatedPassword = GenerateDefaultPassword(dto.Name);
+        var generatedPassword = "123456";
 
         var user = new User
         {
@@ -320,13 +320,4 @@ public class PatientsController : ControllerBase
         return Ok(ToDto(patient));
     }
 
-    private static string GenerateDefaultPassword(string name)
-    {
-        var cleaned = new string((name ?? string.Empty).Where(char.IsLetter).ToArray());
-        var prefix = cleaned.Length > 0
-            ? cleaned[..Math.Min(4, cleaned.Length)]
-            : "pac";
-
-        return $"{prefix.ToLowerInvariant()}123!";
-    }
 }

@@ -11,9 +11,10 @@ const systemUsersController = new SystemUsersController()
 // Create User (Public for PATIENT registration)
 r.post('/', usersController.create)
 
-// Protected Routes (Admin only for list)
+// Protected Routes
 r.get('/', ensureAuthenticated, ensureRole(['ADMIN']), usersController.index)
 r.get('/:id', ensureAuthenticated, usersController.show)
+r.delete('/:id', ensureAuthenticated, ensureRole(['ADMIN']), usersController.delete)
 
 // System Users (Clinic Team Management)
 r.get('/system/list', ensureAuthenticated, systemUsersController.index)

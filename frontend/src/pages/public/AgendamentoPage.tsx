@@ -104,12 +104,10 @@ export default function AgendamentoPage() {
     if (currentStep === 2) return formData.date !== '' && formData.time !== ''
     if (currentStep === 3) {
       if (isLoggedIn) return formData.name !== '' && formData.email !== ''
-      return (
-        formData.name !== '' &&
-        formData.email !== '' &&
-        formData.password.length >= 6 &&
-        formData.password === formData.confirmPassword
-      )
+      if (formData.name === '' || formData.email === '') return false
+      // Password is optional — if filled in, both fields must match and be at least 6 chars
+      if (formData.password !== '' && (formData.password.length < 6 || formData.password !== formData.confirmPassword)) return false
+      return true
     }
     return true
   }
@@ -397,9 +395,12 @@ export default function AgendamentoPage() {
                   </div>
                   <div className="form-row">
                     <div className="input-group">
-                      <label className="input-label">E-mail <span className="required">*</span></label>
-                      <input className="input-field" type="email" placeholder="seu@email.com" value={formData.email}
+                      <label className="input-label">E-mail do usuário ou responsável <span className="required">*</span></label>
+                      <input className="input-field" type="email" placeholder="email@exemplo.com" value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                      <span style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
+                        Você pode usar o e-mail do responsável caso esteja cadastrando um dependente.
+                      </span>
                     </div>
                     <div className="input-group">
                       <label className="input-label">Telefone</label>
@@ -409,10 +410,10 @@ export default function AgendamentoPage() {
                   </div>
                   <div className="form-row">
                     <div className="input-group">
-                      <label className="input-label">Senha de acesso <span className="required">*</span></label>
+                      <label className="input-label">Senha de acesso</label>
                       <div style={{ position: 'relative' }}>
                         <input className="input-field" type={showPass ? 'text' : 'password'}
-                          placeholder="Minimo 6 caracteres" value={formData.password}
+                          placeholder="Opcional — mínimo 6 caracteres" value={formData.password}
                           onChange={e => setFormData({ ...formData, password: e.target.value })}
                           style={{ paddingRight: 40 }} />
                         <button type="button" onClick={() => setShowPass(v => !v)}
@@ -421,11 +422,11 @@ export default function AgendamentoPage() {
                         </button>
                       </div>
                       <span style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
-                        Usada para acessar "Minhas Consultas" e acompanhar seu historico.
+                        Se não informada, a senha padrão <strong>123456</strong> será definida. Usada para acessar "Minhas Consultas".
                       </span>
                     </div>
                     <div className="input-group">
-                      <label className="input-label">Confirmar senha <span className="required">*</span></label>
+                      <label className="input-label">Confirmar senha</label>
                       <div style={{ position: 'relative' }}>
                         <input className="input-field" type={showConf ? 'text' : 'password'}
                           placeholder="Repita a senha" value={formData.confirmPassword}

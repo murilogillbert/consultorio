@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { api } from '../services/api'
+import { getPatientToken } from './usePatientPortal'
 
 export interface BookingData {
   name: string
@@ -15,20 +16,19 @@ export interface BookingData {
   notes?: string
 }
 
-// NOTE: backend has no /api/public/book endpoint yet. Until it's implemented,
-// surface a clear error message instead of a silent 404.
 export function usePublicBooking() {
   return useMutation({
     mutationFn: async (bookingData: BookingData) => {
-      try {
-        const { data } = await api.post('/public/book', bookingData)
-        return data
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          throw new Error('Agendamento público ainda não implementado no backend.')
-        }
-        throw err
+      const patientToken = getPatientToken()
+
+      const headers: Record<string, string> = {}
+      if (patientToken) {
+        // Send patient token so the backend reuses the existing account
+        headers['Authorization'] = `Bearer ${patientToken}`
       }
+
+      const { data } = await api.post('/public/book', bookingData, { headers })
+      return data
     }
   })
 }

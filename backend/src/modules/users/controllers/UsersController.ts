@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { UsersService } from '../services/UsersService'
 import { UsersRepository } from '../repositories/UsersRepository'
+import { deleteUserService } from '../services/deleteUserService'
 
 export class UsersController {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -13,7 +14,7 @@ export class UsersController {
       const result = await usersService.executeCreate({
         name,
         email,
-        passwordHash: password, // Raw password
+        passwordHash: password,
         role,
         phone,
       })
@@ -45,6 +46,18 @@ export class UsersController {
       const usersService = new UsersService(usersRepository)
 
       const result = await usersService.executeFindById(id)
+
+      res.status(200).json(result)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params as { id: string }
+
+      const result = await deleteUserService(id)
 
       res.status(200).json(result)
     } catch (err) {

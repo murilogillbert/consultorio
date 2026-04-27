@@ -1,12 +1,13 @@
 import { hash } from 'bcrypt'
 import { AppError } from '../../../shared/errors/AppError'
 import { UsersRepository } from '../repositories/UsersRepository'
-import { Prisma } from '@prisma/client'
+
+const DEFAULT_PASSWORD = '123456'
 
 interface ICreateUserDTO {
   name: string
   email: string
-  passwordHash?: string // Input can be raw password
+  passwordHash?: string
   role?: string
   phone?: string
 }
@@ -15,17 +16,13 @@ export class UsersService {
   constructor(private usersRepository: UsersRepository) { }
 
   async executeCreate({ name, email, passwordHash, role, phone }: ICreateUserDTO) {
-    if (!name || !email || !passwordHash) {
-      throw new AppError('Nome, email e senha são obrigatórios', 400)
+    if (!name || !email) {
+      throw new AppError('Nome e email são obrigatórios', 400)
     }
 
-    const userExists = await this.usersRepository.findByEmail(email)
-
-    if (userExists) {
-      throw new AppError('Este e-mail já está em uso', 400)
-    }
-
-    const hashed = await hash(passwordHash, 10)
+    // Use provided password or fall back to the default
+    const rawPassword = passwordHash?.trim() || DEFAULT_PASSWORD
+    const hashed = await hash(rawPassword, 10)
 
     const user = await this.usersRepository.create({
       name,
