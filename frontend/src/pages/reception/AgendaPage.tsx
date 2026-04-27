@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, X, UserCheck, MessageSquare, Search, Loader2, Plus, XCircle, DollarSign } from 'lucide-react'
-import { useAppointments, useCreateAppointment, useCancelAppointment, useUpdateAppointmentStatus } from '../../hooks/useAppointments'
+import { useAppointments, useCreateAppointment, useCancelAppointment, useUpdateAppointmentStatus, useCreateRecurringAppointments } from '../../hooks/useAppointments'
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useServices } from '../../hooks/useServices'
 import { usePatients } from '../../hooks/usePatients'
@@ -55,6 +55,7 @@ export default function AgendaPage() {
   const createAppointment = useCreateAppointment()
   const cancelAppointment = useCancelAppointment()
   const updateStatus = useUpdateAppointmentStatus()
+  const createRecurring = useCreateRecurringAppointments()
   const notifyStaff = useNotifyStaffArrival()
 
   // Filter columns by search AND specialized filter
@@ -97,16 +98,31 @@ export default function AgendaPage() {
       return
     }
     try {
-      await createAppointment.mutateAsync({
-        patientId: newForm.patientId,
-        professionalId: newForm.professionalId,
-        serviceId: newForm.serviceId,
-        startTime: `${newForm.date}T${newForm.startTime}:00`,
-        endTime: `${newForm.date}T${newForm.startTime}:00`, // backend recalcula pelo serviço
-        notes: newForm.notes || undefined,
-        origin: 'RECEPTION',
-        repeat: isRecurring, // Pass to backend expansion
-      } as any)
+      const startIso = `${newForm.date}T${newForm.startTime}:00`
+      if (isRecurring) {
+        const result = await createRecurring.mutateAsync({
+          patientId: newForm.patientId,
+          professionalId: newForm.professionalId,
+          serviceId: newForm.serviceId,
+          startTime: startIso,
+          notes: newForm.notes || undefined,
+          durationDays: 90,
+        })
+        if (result.skipped > 0) {
+          const skippedList = result.skippedDates.map(d => new Date(d).toLocaleDateString('pt-BR')).join(', ')
+          setFormError(`${result.message} Datas em conflito: ${skippedList}`)
+        }
+      } else {
+        await createAppointment.mutateAsync({
+          patientId: newForm.patientId,
+          professionalId: newForm.professionalId,
+          serviceId: newForm.serviceId,
+          startTime: startIso,
+          endTime: startIso, // backend recalcula pelo serviço
+          notes: newForm.notes || undefined,
+          origin: 'RECEPTION',
+        })
+      }
       setShowNewModal(false)
       setIsRecurring(false)
       setNewForm({ patientId: '', professionalId: '', serviceId: '', date: selectedDate, startTime: '08:00', duration: '30', notes: '' })

@@ -55,7 +55,7 @@ export default function ServicosPage() {
   const { user } = useAuth()
   const clinicId = user?.clinicId
 
-  const { data: services = [], isLoading } = useServices()
+  const { data: services = [], isLoading } = useServices({ includeInactive: true })
   const { data: rooms = [] } = useRooms()
   const { data: equipments = [] } = useEquipments(clinicId)
   const { data: insurancePlans = [] } = useInsurances()

@@ -152,6 +152,9 @@ public class AppointmentsController : ControllerBase
     }
 
     // PUT /api/appointments/{id}
+    // Edita campos da consulta com validação completa de conflitos:
+    // profissional (horário), sala (horário), equipamento (horário) e
+    // disponibilidade do profissional na nova data/hora.
     [HttpPut("{id}")]
     public async Task<ActionResult<AppointmentResponseDto>> Update(Guid id, [FromBody] UpdateAppointmentDto dto)
     {
@@ -163,43 +166,210 @@ public class AppointmentsController : ControllerBase
             .Include(a => a.Professional).ThenInclude(p => p.User)
             .Include(a => a.Room)
             .Include(a => a.Payment)
+            .Include(a => a.EquipmentUsages)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (appt == null)
             return NotFound(new { message = "Consulta não encontrada." });
 
+        // Resolve novos valores (cai no atual quando não enviado).
+        var newServiceId      = dto.ServiceId      ?? appt.ServiceId;
+        var newPatientId      = dto.PatientId      ?? appt.PatientId;
+        var newProfessionalId = dto.ProfessionalId ?? appt.ProfessionalId;
+        var newRoomId         = dto.RoomId         ?? appt.RoomId;
+        var newStart          = dto.StartTime      ?? appt.StartTime;
+
+        // Carrega o serviço (caso tenha mudado) para calcular EndTime.
+        Service service = appt.Service;
+        if (newServiceId != appt.ServiceId)
+        {
+            var loaded = await _db.Services
+                .Include(s => s.ServiceInsurancePlans)
+                .FirstOrDefaultAsync(s => s.Id == newServiceId);
+            if (loaded == null)
+                return NotFound(new { message = "Serviço não encontrado." });
+            if (!loaded.IsActive)
+                return BadRequest(new { message = "Não é possível usar um serviço inativo." });
+            service = loaded;
+        }
+
+        var newEnd = newStart.AddMinutes(service.DurationMinutes);
+
+        // Conflito: profissional já tem outra consulta no novo intervalo.
+        var profConflict = await _db.Appointments.AnyAsync(a =>
+            a.Id != id &&
+            a.ProfessionalId == newProfessionalId &&
+            a.Status != "CANCELLED" &&
+            a.StartTime < newEnd &&
+            a.EndTime > newStart);
+        if (profConflict)
+            return Conflict(new { message = "Profissional já possui consulta neste horário." });
+
+        // Conflito: sala já ocupada no novo intervalo.
+        if (newRoomId.HasValue)
+        {
+            var roomConflict = await _db.Appointments.AnyAsync(a =>
+                a.Id != id &&
+                a.RoomId == newRoomId.Value &&
+                a.Status != "CANCELLED" &&
+                a.StartTime < newEnd &&
+                a.EndTime > newStart);
+            if (roomConflict)
+                return Conflict(new { message = "Sala já está ocupada neste horário." });
+        }
+
+        // Conflito: equipamento já em uso no novo intervalo.
+        if (dto.EquipmentId.HasValue)
+        {
+            var equipConflict = await _db.EquipmentUsages.AnyAsync(eu =>
+                eu.EquipmentId == dto.EquipmentId.Value &&
+                eu.AppointmentId != id &&
+                eu.Appointment.Status != "CANCELLED" &&
+                eu.StartTime < newEnd &&
+                (eu.EndTime == null || eu.EndTime > newStart));
+            if (equipConflict)
+                return Conflict(new { message = "Equipamento já está em uso neste horário." });
+        }
+
+        // Validação do convênio (se mudou o serviço ou convênio).
+        if (dto.InsurancePlanId.HasValue && dto.InsurancePlanId != Guid.Empty)
+        {
+            var insuranceAllowed = await _db.ServiceInsurancePlans.AnyAsync(sip =>
+                sip.ServiceId == newServiceId && sip.InsurancePlanId == dto.InsurancePlanId.Value);
+            if (!insuranceAllowed)
+                return BadRequest(new { message = "Convênio não disponível para este serviço." });
+        }
+
+        // Aplica mudanças.
+        appt.ServiceId       = newServiceId;
+        appt.PatientId       = newPatientId;
+        appt.ProfessionalId  = newProfessionalId;
+        appt.RoomId          = newRoomId;
+        appt.StartTime       = newStart;
+        appt.EndTime         = newEnd;
+        if (dto.InsurancePlanId.HasValue) appt.InsurancePlanId = dto.InsurancePlanId.Value == Guid.Empty ? null : dto.InsurancePlanId.Value;
+        if (dto.Notes != null) appt.Notes = dto.Notes;
         if (dto.Status != null)
         {
             appt.Status = dto.Status;
             if (string.Equals(dto.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(appt.CancellationSource))
                 appt.CancellationSource = "RECEPTION";
         }
-        if (dto.RoomId.HasValue) appt.RoomId = dto.RoomId.Value;
-        if (dto.Notes != null) appt.Notes = dto.Notes;
 
-        // Se mudou o horário, recalcula EndTime e verifica conflito
-        if (dto.StartTime.HasValue)
+        // Sincroniza Equipamento via EquipmentUsage (única associação por consulta).
+        if (dto.EquipmentId.HasValue)
         {
-            var newEnd = dto.StartTime.Value.AddMinutes(appt.Service.DurationMinutes);
-            var conflict = await _db.Appointments.AnyAsync(a =>
-                a.Id != id &&
-                a.ProfessionalId == appt.ProfessionalId &&
-                a.Status != "CANCELLED" &&
-                a.StartTime < newEnd &&
-                a.EndTime > dto.StartTime.Value
-            );
-
-            if (conflict)
-                return Conflict(new { message = "Conflito de horário." });
-
-            appt.StartTime = dto.StartTime.Value;
-            appt.EndTime = newEnd;
+            _db.EquipmentUsages.RemoveRange(appt.EquipmentUsages);
+            if (dto.EquipmentId.Value != Guid.Empty)
+            {
+                _db.EquipmentUsages.Add(new EquipmentUsage
+                {
+                    Id = Guid.NewGuid(),
+                    AppointmentId = appt.Id,
+                    EquipmentId = dto.EquipmentId.Value,
+                    StartTime = newStart,
+                    EndTime = newEnd,
+                    CreatedAt = DateTime.UtcNow,
+                });
+            }
         }
 
         appt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(ToDto(appt));
+        // Recarrega com Includes para devolver DTO completo.
+        var fresh = await _db.Appointments
+            .Include(a => a.Service)
+                .ThenInclude(s => s.ServiceInsurancePlans)
+            .Include(a => a.InsurancePlan)
+            .Include(a => a.Patient).ThenInclude(p => p.User)
+            .Include(a => a.Professional).ThenInclude(p => p.User)
+            .Include(a => a.Room)
+            .Include(a => a.Payment)
+            .FirstAsync(a => a.Id == id);
+
+        return Ok(ToDto(fresh));
+    }
+
+    // POST /api/appointments/recurring
+    // Cria N consultas semanalmente no mesmo dia/horário do StartTime informado,
+    // até completar DurationDays (padrão 90). Cada ocorrência valida conflitos
+    // independentemente — datas com conflito não bloqueiam as demais e são
+    // retornadas em SkippedDates.
+    [HttpPost("recurring")]
+    public async Task<ActionResult<RecurringAppointmentsResultDto>> CreateRecurring([FromBody] CreateRecurringAppointmentsDto dto)
+    {
+        var clinicId = GetClinicId();
+        if (clinicId == Guid.Empty)
+            return BadRequest(new { message = "Usuário não vinculado a uma clínica." });
+
+        var service = await _db.Services
+            .Include(s => s.ServiceInsurancePlans)
+            .FirstOrDefaultAsync(s => s.Id == dto.ServiceId);
+        if (service == null)
+            return NotFound(new { message = "Serviço não encontrado." });
+        if (!service.IsActive)
+            return BadRequest(new { message = "Não é possível agendar com um serviço inativo." });
+
+        if (dto.InsurancePlanId.HasValue)
+        {
+            var insuranceAllowed = await _db.ServiceInsurancePlans.AnyAsync(sip =>
+                sip.ServiceId == dto.ServiceId && sip.InsurancePlanId == dto.InsurancePlanId.Value);
+            if (!insuranceAllowed)
+                return BadRequest(new { message = "Convênio não disponível para este serviço." });
+        }
+
+        var durationDays = dto.DurationDays <= 0 ? 90 : dto.DurationDays;
+        var horizon = dto.StartTime.AddDays(durationDays);
+        var slot = dto.StartTime;
+
+        var result = new RecurringAppointmentsResultDto();
+        while (slot <= horizon)
+        {
+            var slotEnd = slot.AddMinutes(service.DurationMinutes);
+
+            var conflict = await _db.Appointments.AnyAsync(a =>
+                a.ProfessionalId == dto.ProfessionalId &&
+                a.Status != "CANCELLED" &&
+                a.StartTime < slotEnd &&
+                a.EndTime > slot);
+
+            if (conflict)
+            {
+                result.Skipped++;
+                result.SkippedDates.Add(slot);
+            }
+            else
+            {
+                _db.Appointments.Add(new Appointment
+                {
+                    Id = Guid.NewGuid(),
+                    ClinicId = clinicId,
+                    ServiceId = dto.ServiceId,
+                    InsurancePlanId = dto.InsurancePlanId,
+                    PatientId = dto.PatientId,
+                    ProfessionalId = dto.ProfessionalId,
+                    RoomId = dto.RoomId,
+                    StartTime = slot,
+                    EndTime = slotEnd,
+                    Status = "SCHEDULED",
+                    Notes = dto.Notes,
+                    CreatedAt = DateTime.UtcNow,
+                });
+                result.Created++;
+                result.CreatedDates.Add(slot);
+            }
+
+            slot = slot.AddDays(7);
+        }
+
+        await _db.SaveChangesAsync();
+
+        result.Message = result.Skipped == 0
+            ? $"{result.Created} consulta(s) criada(s) com sucesso."
+            : $"{result.Created} consulta(s) criada(s); {result.Skipped} pulada(s) por conflito de horário.";
+
+        return Ok(result);
     }
 
     // PATCH /api/appointments/{id}/status — atualiza só o status

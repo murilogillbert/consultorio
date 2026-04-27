@@ -127,6 +127,63 @@ export function useUpdateAppointmentStatus() {
   })
 }
 
+export interface UpdateAppointmentInput {
+  id: string
+  status?: string
+  patientId?: string
+  professionalId?: string
+  serviceId?: string
+  roomId?: string | null
+  equipmentId?: string | null
+  insurancePlanId?: string | null
+  startTime?: string
+  notes?: string
+}
+
+export function useUpdateAppointment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...rest }: UpdateAppointmentInput) => {
+      const { data } = await api.put<AppointmentRaw>(`/appointments/${id}`, rest)
+      return mapAppointment(data)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  })
+}
+
+export interface RecurringAppointmentsInput {
+  patientId: string
+  professionalId: string
+  serviceId: string
+  roomId?: string
+  insurancePlanId?: string
+  startTime: string
+  notes?: string
+  durationDays?: number
+}
+
+export interface RecurringAppointmentsResult {
+  created: number
+  skipped: number
+  createdDates: string[]
+  skippedDates: string[]
+  message: string
+}
+
+export function useCreateRecurringAppointments() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: RecurringAppointmentsInput): Promise<RecurringAppointmentsResult> => {
+      const { data } = await api.post<RecurringAppointmentsResult>('/appointments/recurring', {
+        ...input,
+        durationDays: input.durationDays ?? 90,
+      })
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  })
+}
+
 export function useCancelAppointment() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -25,9 +25,39 @@ public class CancelAppointmentDto
 public class UpdateAppointmentDto
 {
     public string? Status { get; set; }
+    public Guid? PatientId { get; set; }
+    public Guid? ProfessionalId { get; set; }
+    public Guid? ServiceId { get; set; }
     public Guid? RoomId { get; set; }
+    public Guid? EquipmentId { get; set; }
+    public Guid? InsurancePlanId { get; set; }
     public DateTime? StartTime { get; set; }
     public string? Notes { get; set; }
+}
+
+// Cria N consultas semanalmente no mesmo dia/horário até completar o período
+// solicitado (ex.: 90 dias). Retorna estatísticas de criação e conflitos.
+public class CreateRecurringAppointmentsDto
+{
+    public Guid ServiceId { get; set; }
+    public Guid? InsurancePlanId { get; set; }
+    public Guid PatientId { get; set; }
+    public Guid ProfessionalId { get; set; }
+    public Guid? RoomId { get; set; }
+    public DateTime StartTime { get; set; }
+    public string? Notes { get; set; }
+    // Período total (em dias) durante o qual as consultas devem ser repetidas
+    // semanalmente. Padrão: 90.
+    public int DurationDays { get; set; } = 90;
+}
+
+public class RecurringAppointmentsResultDto
+{
+    public int Created { get; set; }
+    public int Skipped { get; set; }
+    public List<DateTime> CreatedDates { get; set; } = new();
+    public List<DateTime> SkippedDates { get; set; } = new();
+    public string Message { get; set; } = "";
 }
 
 public class AppointmentResponseDto

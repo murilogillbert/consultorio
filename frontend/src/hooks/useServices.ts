@@ -73,11 +73,13 @@ function mapService(raw: ServiceResponseDtoRaw): Service {
   }
 }
 
-export function useServices() {
+export function useServices(options?: { includeInactive?: boolean }) {
+  const includeInactive = !!options?.includeInactive
   return useQuery({
-    queryKey: ['services'],
+    queryKey: ['services', { includeInactive }],
     queryFn: async () => {
-      const { data } = await api.get<ServiceResponseDtoRaw[]>('/services')
+      const url = includeInactive ? '/services?activeOnly=false' : '/services'
+      const { data } = await api.get<ServiceResponseDtoRaw[]>(url)
       return data.map(mapService)
     }
   })

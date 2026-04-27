@@ -73,12 +73,15 @@ public class ServicesController : ControllerBase
             .Include(s => s.Rooms);
 
     // ─── GET /api/services ─────────────────────────────────────────────
+    // Por padrão retorna SOMENTE serviços ativos. Admin/Configurações passam
+    // ?activeOnly=false para listar todos (incluindo inativos) e gerenciar
+    // reativação. Selectores de agendamento e vitrine pública nunca devem
+    // ver inativos.
     [HttpGet]
     [AllowAnonymous]
     public async Task<ActionResult<List<ServiceResponseDto>>> GetAll([FromQuery] bool? activeOnly)
     {
-        bool isAuthenticated = User.Identity?.IsAuthenticated == true;
-        bool filterActive = activeOnly ?? !isAuthenticated;
+        bool filterActive = activeOnly ?? true;
 
         var query = FullQuery();
 
