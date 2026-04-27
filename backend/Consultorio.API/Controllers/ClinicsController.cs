@@ -132,9 +132,15 @@ public class ClinicsController : ControllerBase
         using var rsa = RSA.Create();
         rsa.ImportFromPem(account.PrivateKey);
 
-        var credentials = new SigningCredentials(
-            new RsaSecurityKey(rsa) { KeyId = account.PrivateKeyId },
-            SecurityAlgorithms.RsaSha256);
+        var securityKey = new RsaSecurityKey(rsa)
+        {
+            KeyId = account.PrivateKeyId,
+            CryptoProviderFactory = new CryptoProviderFactory
+            {
+                CacheSignatureProviders = false,
+            },
+        };
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.RsaSha256);
 
         var now = DateTime.UtcNow;
         var descriptor = new SecurityTokenDescriptor
