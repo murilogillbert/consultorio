@@ -352,7 +352,7 @@ public class AppDbContext : DbContext
             .HasOne(ip => ip.Clinic)
             .WithMany()
             .HasForeignKey(ip => ip.ClinicId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InsurancePlan>()
             .HasIndex(ip => new { ip.ClinicId, ip.Name });
 
