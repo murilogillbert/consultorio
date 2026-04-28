@@ -9,6 +9,8 @@ public class CreateAppointmentDto
     public Guid? RoomId { get; set; }
     public DateTime StartTime { get; set; }
     public string? Notes { get; set; }
+    public string? AppointmentType { get; set; }      // "ONLINE" | "IN_PERSON"
+    public string? PatientConfirmation { get; set; }  // "PENDING" | "CONFIRMED" | "NOT_CONFIRMED"
 }
 
 public class UpdateStatusDto
@@ -17,6 +19,13 @@ public class UpdateStatusDto
 }
 
 public class CancelAppointmentDto
+{
+    public string? Reason { get; set; }
+    public string? Source { get; set; }
+}
+
+// Payload do cancelamento de futuras ocorrências de uma recorrência.
+public class CancelFutureDto
 {
     public string? Reason { get; set; }
     public string? Source { get; set; }
@@ -33,6 +42,8 @@ public class UpdateAppointmentDto
     public Guid? InsurancePlanId { get; set; }
     public DateTime? StartTime { get; set; }
     public string? Notes { get; set; }
+    public string? AppointmentType { get; set; }
+    public string? PatientConfirmation { get; set; }
 }
 
 // Cria N consultas semanalmente no mesmo dia/horário até completar o período
@@ -46,6 +57,7 @@ public class CreateRecurringAppointmentsDto
     public Guid? RoomId { get; set; }
     public DateTime StartTime { get; set; }
     public string? Notes { get; set; }
+    public string? AppointmentType { get; set; } // "ONLINE" | "IN_PERSON"
     // Período total (em dias) durante o qual as consultas devem ser repetidas
     // semanalmente. Padrão: 90.
     public int DurationDays { get; set; } = 90;
@@ -77,6 +89,9 @@ public class AppointmentResponseDto
     public AppointmentRoomDto? Room { get; set; }
     public string? CancellationSource { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public string AppointmentType { get; set; } = "IN_PERSON";
+    public string PatientConfirmation { get; set; } = "PENDING";
+    public Guid? RecurrenceGroupId { get; set; }
     public string? PaymentStatus { get; set; }
     public decimal? PaymentAmount { get; set; }
     public string? PaymentMethod { get; set; }

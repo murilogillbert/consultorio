@@ -11,7 +11,7 @@ const steps = ['Serviço', 'Profissional', 'Data e Hora', 'Seus Dados', 'Confirm
 export default function AgendamentoPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [formData, setFormData] = useState({
-    service: '', serviceId: '', insurancePlanId: '', professional: '', professionalId: '', date: '', time: '', startTime: '', endTime: '', name: '', cpf: '', phone: '', email: '', password: '', confirmPassword: '', notes: ''
+    service: '', serviceId: '', insurancePlanId: '', professional: '', professionalId: '', date: '', time: '', startTime: '', endTime: '', name: '', cpf: '', phone: '', email: '', password: '', confirmPassword: '', notes: '', appointmentType: 'IN_PERSON'
   })
   const [showPass, setShowPass]   = useState(false)
   const [showConf, setShowConf]   = useState(false)
@@ -176,6 +176,50 @@ export default function AgendamentoPage() {
                   </div>
                 </label>
               ))}
+              {selectedService && (
+                <div style={{
+                  marginTop: 'var(--space-5)',
+                  padding: 'var(--space-4)',
+                  border: '1px solid var(--color-border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--color-bg-secondary)',
+                }}>
+                  <h3 style={{ fontSize: 'var(--text-ui)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>
+                    Modalidade do atendimento
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {[
+                      { value: 'IN_PERSON', label: 'Presencial', desc: 'Atendimento na clínica.' },
+                      { value: 'ONLINE', label: 'Online', desc: 'Por vídeo, à distância.' },
+                    ].map(opt => {
+                      const isSel = formData.appointmentType === opt.value
+                      return (
+                        <label
+                          key={opt.value}
+                          style={{
+                            display: 'flex', flexDirection: 'column', gap: 4,
+                            padding: '12px 14px',
+                            border: `1px solid ${isSel ? 'var(--color-accent-emerald)' : 'var(--color-border-default)'}`,
+                            background: isSel ? 'rgba(45,106,79,0.08)' : 'transparent',
+                            borderRadius: 'var(--radius-sm)', cursor: 'pointer'
+                          }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="radio"
+                              name="appointmentType"
+                              checked={isSel}
+                              onChange={() => setFormData({ ...formData, appointmentType: opt.value })}
+                              style={{ accentColor: 'var(--color-accent-emerald)' }}
+                            />
+                            <strong style={{ fontSize: 14 }}>{opt.label}</strong>
+                          </span>
+                          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{opt.desc}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               {selectedService && serviceInsuranceOptions.length > 0 && (
                 <div style={{
                   marginTop: 'var(--space-6)',
@@ -531,7 +575,8 @@ export default function AgendamentoPage() {
                         professionalId: formData.professionalId,
                         startTime: formData.startTime,
                         endTime: formData.endTime,
-                        notes: formData.notes
+                        notes: formData.notes,
+                        appointmentType: formData.appointmentType,
                       }, {
                         onSuccess: (data: any) => {
                           setBookingSuccess(true)

@@ -2,12 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 // Backend AppointmentResponseDto:
-// { id, startTime, endTime, status, notes, createdAt,
-//   service: { id, name, duration, color },
-//   insurancePlan?: { id, name, price, showPrice },
-//   patient: { id, name, avatarUrl },
-//   professional: { id, name, avatarUrl },
-//   room?: { id, name } }
+//   { id, startTime, endTime, status, notes, createdAt,
+//     appointmentType, patientConfirmation, recurrenceGroupId,
+//     service: { id, name, duration, color },
+//     insurancePlan?: { id, name, price, showPrice },
+//     patient: { id, name, avatarUrl },
+//     professional: { id, name, avatarUrl },
+//     room?: { id, name } }
 interface AppointmentRaw {
   id: string
   startTime: string
@@ -15,6 +16,9 @@ interface AppointmentRaw {
   status: string
   notes?: string
   createdAt: string
+  appointmentType?: string
+  patientConfirmation?: string
+  recurrenceGroupId?: string | null
   cancellationSource?: string | null
   cancelledAt?: string | null
   service: { id: string; name: string; duration: number; color?: string; price?: number; showPrice?: boolean; onlineBooking?: boolean }
@@ -28,6 +32,19 @@ interface AppointmentRaw {
   paymentId?: string | null
 }
 
+export type AppointmentStatus =
+  | 'SCHEDULED'
+  | 'CONFIRMED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW'
+  | string
+
+export type AppointmentType = 'ONLINE' | 'IN_PERSON' | string
+
+export type PatientConfirmation = 'PENDING' | 'CONFIRMED' | 'NOT_CONFIRMED' | string
+
 export interface Appointment {
   id: string
   patientId: string
@@ -36,10 +53,13 @@ export interface Appointment {
   insurancePlanId?: string
   startTime: string
   endTime: string
-  status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
+  status: AppointmentStatus
   notes?: string
+  appointmentType?: AppointmentType
+  patientConfirmation?: PatientConfirmation
+  recurrenceGroupId?: string
   patient?: { name: string; user?: { name: string } }
-  service?: { name: string; price?: number; showPrice?: boolean; onlineBooking?: boolean }
+  service?: { id?: string; name: string; price?: number; showPrice?: boolean; onlineBooking?: boolean }
   insurancePlan?: { id: string; name: string; price?: number | null; showPrice?: boolean }
   professional?: { user?: { name: string } }
   cancellationSource?: string
@@ -61,8 +81,11 @@ function mapAppointment(a: AppointmentRaw): Appointment {
     endTime: a.endTime,
     status: a.status,
     notes: a.notes,
+    appointmentType: a.appointmentType ?? 'IN_PERSON',
+    patientConfirmation: a.patientConfirmation ?? 'PENDING',
+    recurrenceGroupId: a.recurrenceGroupId ?? undefined,
     patient: { name: a.patient.name, user: { name: a.patient.name } },
-    service: { name: a.service.name, price: a.service.price, showPrice: a.service.showPrice ?? true, onlineBooking: a.service.onlineBooking },
+    service: { id: a.service.id, name: a.service.name, price: a.service.price, showPrice: a.service.showPrice ?? true, onlineBooking: a.service.onlineBooking },
     insurancePlan: a.insurancePlan ? { id: a.insurancePlan.id, name: a.insurancePlan.name, price: a.insurancePlan.price, showPrice: a.insurancePlan.showPrice } : undefined,
     professional: { user: { name: a.professional.name } },
     cancellationSource: a.cancellationSource ?? undefined,
@@ -86,20 +109,24 @@ export function useAppointments(start: string, end: string) {
   })
 }
 
+export interface CreateAppointmentInput {
+  patientId: string
+  professionalId: string
+  serviceId: string
+  roomId?: string
+  insurancePlanId?: string
+  startTime: string
+  endTime: string
+  notes?: string
+  origin?: string
+  appointmentType?: AppointmentType
+  patientConfirmation?: PatientConfirmation
+}
+
 export function useCreateAppointment() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (appointmentData: {
-      patientId: string
-      professionalId: string
-      serviceId: string
-      roomId?: string
-      insurancePlanId?: string
-      startTime: string
-      endTime: string
-      notes?: string
-      origin?: string
-    }) => {
+    mutationFn: async (appointmentData: CreateAppointmentInput) => {
       const payload = {
         patientId: appointmentData.patientId,
         professionalId: appointmentData.professionalId,
@@ -108,6 +135,8 @@ export function useCreateAppointment() {
         roomId: appointmentData.roomId,
         startTime: appointmentData.startTime,
         notes: appointmentData.notes,
+        appointmentType: appointmentData.appointmentType,
+        patientConfirmation: appointmentData.patientConfirmation,
       }
       const { data } = await api.post<AppointmentRaw>('/appointments', payload)
       return mapAppointment(data)
@@ -127,6 +156,21 @@ export function useUpdateAppointmentStatus() {
   })
 }
 
+// Atualiza apenas a confirmação de presença do paciente (independente do status)
+export function useUpdatePatientConfirmation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: PatientConfirmation }) => {
+      // C# expõe via PATCH /appointments/{id}/confirmation com { status }
+      // Node.js expõe a mesma rota com { value }. Mandamos os dois para
+      // funcionar em ambos os backends sem if/else.
+      const { data } = await api.patch<AppointmentRaw>(`/appointments/${id}/confirmation`, { status: value, value })
+      return mapAppointment(data)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  })
+}
+
 export interface UpdateAppointmentInput {
   id: string
   status?: string
@@ -138,6 +182,8 @@ export interface UpdateAppointmentInput {
   insurancePlanId?: string | null
   startTime?: string
   notes?: string
+  appointmentType?: AppointmentType
+  patientConfirmation?: PatientConfirmation
 }
 
 export function useUpdateAppointment() {
@@ -160,6 +206,7 @@ export interface RecurringAppointmentsInput {
   startTime: string
   notes?: string
   durationDays?: number
+  appointmentType?: AppointmentType
 }
 
 export interface RecurringAppointmentsResult {
@@ -187,8 +234,23 @@ export function useCreateRecurringAppointments() {
 export function useCancelAppointment() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      await api.patch(`/appointments/${id}/cancel`, { reason })
+    mutationFn: async ({ id, reason, source }: { id: string; reason: string; source?: string }) => {
+      await api.patch(`/appointments/${id}/cancel`, { reason, source: source || 'RECEPTION' })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  })
+}
+
+// Cancela este e todos os agendamentos futuros da mesma série de recorrência.
+export function useCancelFutureAppointments() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, reason, source }: { id: string; reason?: string; source?: string }) => {
+      const { data } = await api.patch<{ count: number; message: string }>(`/appointments/${id}/cancel-future`, {
+        reason,
+        source: source || 'RECEPTION',
+      })
+      return data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
   })

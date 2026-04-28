@@ -327,7 +327,7 @@ r.post('/patients/message', requirePatient, async (req: Request, res: Response, 
 
 r.post('/book', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, email, password, cpf, phone, serviceId, insurancePlanId, professionalId, startTime, endTime, notes } = req.body
+    const { name, email, password, cpf, phone, serviceId, insurancePlanId, professionalId, startTime, endTime, notes, appointmentType } = req.body
 
     if (!name || !email || !serviceId || !professionalId || !startTime || !endTime) {
       throw new AppError('Preencha todos os campos obrigatórios', 400)
@@ -373,6 +373,10 @@ r.post('/book', async (req: Request, res: Response, next: NextFunction) => {
       }
 
       // 3. Agendamento
+      const apptType = (() => {
+        const v = (appointmentType ?? '').toString().trim().toUpperCase()
+        return v === 'ONLINE' ? 'ONLINE' : 'IN_PERSON'
+      })()
       const appointment = await tx.appointment.create({
         data: {
           patientId: patient.id,
@@ -383,6 +387,8 @@ r.post('/book', async (req: Request, res: Response, next: NextFunction) => {
           endTime: new Date(endTime),
           status: 'SCHEDULED',
           origin: 'ONLINE',
+          appointmentType: apptType,
+          patientConfirmation: 'PENDING',
           notes,
         },
         include: {
@@ -505,7 +511,12 @@ r.post('/patients/appointments/:appointmentId/cancel', requirePatient, async (re
 
     await prisma.appointment.update({
       where: { id: appointmentId },
-      data: { status: 'CANCELLED', cancellationReason: 'Cancelado pelo paciente' },
+      data: {
+        status: 'CANCELLED',
+        cancellationReason: 'Cancelado pelo paciente',
+        cancellationSource: 'PATIENT',
+        cancelledAt: new Date(),
+      },
     })
 
     res.json({ message: 'Consulta cancelada com sucesso' })

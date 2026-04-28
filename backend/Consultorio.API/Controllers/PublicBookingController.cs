@@ -149,6 +149,14 @@ public class PublicBookingController : ControllerBase
             _db.Patients.Add(patient);
         }
 
+        // Tipo do atendimento. Default: presencial. Aceita "ONLINE" ou "IN_PERSON"/"PRESENCIAL".
+        var apptType = "IN_PERSON";
+        if (!string.IsNullOrWhiteSpace(dto.AppointmentType))
+        {
+            var v = dto.AppointmentType.Trim().ToUpperInvariant();
+            apptType = v == "ONLINE" ? "ONLINE" : "IN_PERSON";
+        }
+
         // Cria o agendamento
         var appointment = new Appointment
         {
@@ -161,6 +169,8 @@ public class PublicBookingController : ControllerBase
             StartTime      = dto.StartTime,
             EndTime        = endTime,
             Status         = "SCHEDULED",
+            AppointmentType = apptType,
+            PatientConfirmation = "PENDING",
             Notes          = dto.Notes,
             CreatedAt      = DateTime.UtcNow,
         };
@@ -194,4 +204,5 @@ public class PublicBookingDto
     public DateTime StartTime   { get; set; }
     public DateTime EndTime     { get; set; }
     public string? Notes        { get; set; }
+    public string? AppointmentType { get; set; } // "ONLINE" | "IN_PERSON"
 }

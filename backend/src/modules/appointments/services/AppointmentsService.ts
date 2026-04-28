@@ -111,8 +111,24 @@ export class AppointmentsService {
       appointmentData.serviceId
     )
 
+    // Marca a série de recorrência (se aplicável) para permitir o
+    // cancelamento futuro de todos os agendamentos relacionados.
+    let recurrenceGroupId: string | null = null
+    if (repeat) {
+      // Usa crypto.randomUUID quando disponível; fallback simples caso contrário.
+      try {
+        const { randomUUID } = await import('crypto')
+        recurrenceGroupId = randomUUID()
+      } catch {
+        recurrenceGroupId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      }
+    }
+
+    const baseData: any = { ...appointmentData }
+    if (recurrenceGroupId) baseData.recurrenceGroupId = recurrenceGroupId
+
     // 1. Create the main appointment
-    const mainAppointment = await this.appointmentsRepository.create(appointmentData as any)
+    const mainAppointment = await this.appointmentsRepository.create(baseData)
     await this.handleEquipmentUsage(mainAppointment)
 
     // 2. Handle recurrence (90 days = ~13 weeks)
@@ -141,7 +157,8 @@ export class AppointmentsService {
         const recurringAppt = await this.appointmentsRepository.create({
           ...appointmentData,
           startTime: nextStart,
-          endTime: nextEnd
+          endTime: nextEnd,
+          recurrenceGroupId,
         } as any)
 
         await this.handleEquipmentUsage(recurringAppt)
@@ -230,14 +247,16 @@ export class AppointmentsService {
     }
   }
 
-  async executeCancel(id: string, reason: string): Promise<Appointment> {
+  async executeCancel(id: string, reason: string, source: string = 'RECEPTION'): Promise<Appointment> {
     const appointment = await this.appointmentsRepository.findById(id)
     if (!appointment) {
       throw new AppError('Agendamento não encontrado', 404)
     }
-    return this.appointmentsRepository.update(id, { 
+    return this.appointmentsRepository.update(id, {
       status: 'CANCELLED',
-      cancellationReason: reason
+      cancellationReason: reason,
+      cancellationSource: source,
+      cancelledAt: new Date(),
     })
   }
 }

@@ -131,6 +131,8 @@ public class AppointmentsController : ControllerBase
             EndTime = endTime,
             Status = "SCHEDULED",
             Notes = dto.Notes,
+            AppointmentType = NormalizeAppointmentType(dto.AppointmentType),
+            PatientConfirmation = NormalizeConfirmation(dto.PatientConfirmation),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -249,11 +251,20 @@ public class AppointmentsController : ControllerBase
         appt.EndTime         = newEnd;
         if (dto.InsurancePlanId.HasValue) appt.InsurancePlanId = dto.InsurancePlanId.Value == Guid.Empty ? null : dto.InsurancePlanId.Value;
         if (dto.Notes != null) appt.Notes = dto.Notes;
+        if (!string.IsNullOrWhiteSpace(dto.AppointmentType))
+            appt.AppointmentType = NormalizeAppointmentType(dto.AppointmentType);
+        if (!string.IsNullOrWhiteSpace(dto.PatientConfirmation))
+            appt.PatientConfirmation = NormalizeConfirmation(dto.PatientConfirmation);
         if (dto.Status != null)
         {
-            appt.Status = dto.Status;
-            if (string.Equals(dto.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(appt.CancellationSource))
-                appt.CancellationSource = "RECEPTION";
+            appt.Status = NormalizeStatus(dto.Status);
+            if (string.Equals(appt.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(appt.CancellationSource))
+                    appt.CancellationSource = "RECEPTION";
+                if (!appt.CancelledAt.HasValue)
+                    appt.CancelledAt = DateTime.UtcNow;
+            }
         }
 
         // Sincroniza Equipamento via EquipmentUsage (única associação por consulta).
@@ -322,6 +333,8 @@ public class AppointmentsController : ControllerBase
         var durationDays = dto.DurationDays <= 0 ? 90 : dto.DurationDays;
         var horizon = dto.StartTime.AddDays(durationDays);
         var slot = dto.StartTime;
+        var recurrenceGroupId = Guid.NewGuid();
+        var appointmentType = NormalizeAppointmentType(dto.AppointmentType);
 
         var result = new RecurringAppointmentsResultDto();
         while (slot <= horizon)
@@ -353,6 +366,9 @@ public class AppointmentsController : ControllerBase
                     StartTime = slot,
                     EndTime = slotEnd,
                     Status = "SCHEDULED",
+                    AppointmentType = appointmentType,
+                    PatientConfirmation = "PENDING",
+                    RecurrenceGroupId = recurrenceGroupId,
                     Notes = dto.Notes,
                     CreatedAt = DateTime.UtcNow,
                 });
@@ -372,7 +388,7 @@ public class AppointmentsController : ControllerBase
         return Ok(result);
     }
 
-    // PATCH /api/appointments/{id}/status — atualiza só o status
+    // PATCH /api/appointments/{id}/status — atualiza só o status (aceita seletor de status)
     [HttpPatch("{id}/status")]
     public async Task<ActionResult<AppointmentResponseDto>> UpdateStatus(Guid id, [FromBody] UpdateStatusDto dto)
     {
@@ -388,12 +404,40 @@ public class AppointmentsController : ControllerBase
 
         if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
 
-        appt.Status = dto.Status;
-        if (string.Equals(dto.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(appt.CancellationSource))
-            appt.CancellationSource = "RECEPTION";
+        var newStatus = NormalizeStatus(dto.Status);
+        appt.Status = newStatus;
+        if (string.Equals(newStatus, "CANCELLED", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(appt.CancellationSource))
+                appt.CancellationSource = "RECEPTION";
+            if (!appt.CancelledAt.HasValue)
+                appt.CancelledAt = DateTime.UtcNow;
+        }
         appt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        return Ok(ToDto(appt));
+    }
+
+    // PATCH /api/appointments/{id}/confirmation — atualiza apenas a confirmação do paciente
+    [HttpPatch("{id}/confirmation")]
+    public async Task<ActionResult<AppointmentResponseDto>> UpdateConfirmation(Guid id, [FromBody] UpdateStatusDto dto)
+    {
+        var appt = await _db.Appointments
+            .Include(a => a.Service)
+                .ThenInclude(s => s.ServiceInsurancePlans)
+            .Include(a => a.InsurancePlan)
+            .Include(a => a.Patient).ThenInclude(p => p.User)
+            .Include(a => a.Professional).ThenInclude(p => p.User)
+            .Include(a => a.Room)
+            .Include(a => a.Payment)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
+
+        appt.PatientConfirmation = NormalizeConfirmation(dto.Status);
+        appt.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
         return Ok(ToDto(appt));
     }
 
@@ -415,6 +459,50 @@ public class AppointmentsController : ControllerBase
         return NoContent();
     }
 
+    // PATCH /api/appointments/{id}/cancel-future — cancela este e todos os
+    // agendamentos futuros (a partir do StartTime atual) que pertencem à
+    // mesma série de recorrência. Não toca em consultas passadas.
+    [HttpPatch("{id}/cancel-future")]
+    public async Task<ActionResult> CancelFuture(Guid id, [FromBody] CancelFutureDto dto)
+    {
+        var appt = await _db.Appointments.FindAsync(id);
+        if (appt == null) return NotFound(new { message = "Consulta não encontrada." });
+
+        var source = string.IsNullOrWhiteSpace(dto.Source) ? "RECEPTION" : dto.Source.Trim().ToUpperInvariant();
+        var cancelledAt = DateTime.UtcNow;
+
+        // Constrói a lista de afetados:
+        //  - se houver RecurrenceGroupId: todos da mesma série a partir desta data
+        //  - caso contrário: apenas este
+        List<Appointment> affected;
+        if (appt.RecurrenceGroupId.HasValue)
+        {
+            affected = await _db.Appointments
+                .Where(a => a.RecurrenceGroupId == appt.RecurrenceGroupId.Value
+                            && a.StartTime >= appt.StartTime
+                            && a.Status != "CANCELLED"
+                            && a.Status != "COMPLETED")
+                .ToListAsync();
+        }
+        else
+        {
+            affected = new List<Appointment> { appt };
+        }
+
+        foreach (var a in affected)
+        {
+            a.Status = "CANCELLED";
+            a.CancellationSource = source;
+            a.CancelledAt = cancelledAt;
+            if (!string.IsNullOrWhiteSpace(dto.Reason))
+                a.Notes = $"[CANCELADO] {dto.Reason}";
+            a.UpdatedAt = cancelledAt;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { count = affected.Count, message = $"{affected.Count} agendamento(s) cancelado(s)." });
+    }
+
     // DELETE /api/appointments/{id} — cancela a consulta
     [HttpDelete("{id}")]
     public async Task<ActionResult> Cancel(Guid id)
@@ -430,6 +518,46 @@ public class AppointmentsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private static string NormalizeAppointmentType(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "IN_PERSON";
+        var v = value.Trim().ToUpperInvariant();
+        return v switch
+        {
+            "ONLINE" => "ONLINE",
+            "IN_PERSON" or "PRESENCIAL" or "PRESENTIAL" => "IN_PERSON",
+            _ => "IN_PERSON"
+        };
+    }
+
+    private static string NormalizeConfirmation(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "PENDING";
+        var v = value.Trim().ToUpperInvariant();
+        return v switch
+        {
+            "CONFIRMED" or "CONFIRMADO" => "CONFIRMED",
+            "NOT_CONFIRMED" or "NAO_CONFIRMADO" or "DECLINED" => "NOT_CONFIRMED",
+            _ => "PENDING"
+        };
+    }
+
+    private static string NormalizeStatus(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "SCHEDULED";
+        var v = value.Trim().ToUpperInvariant();
+        return v switch
+        {
+            "SCHEDULED" => "SCHEDULED",
+            "CONFIRMED" => "CONFIRMED",
+            "IN_PROGRESS" => "IN_PROGRESS",
+            "COMPLETED" => "COMPLETED",
+            "CANCELLED" or "CANCELED" => "CANCELLED",
+            "NO_SHOW" or "NOSHOW" or "AUSENTE" => "NO_SHOW",
+            _ => v
+        };
     }
 
     private static AppointmentResponseDto ToDto(Appointment a)
@@ -481,6 +609,9 @@ public class AppointmentsController : ControllerBase
             } : null,
             CancellationSource = a.CancellationSource,
             CancelledAt = a.CancelledAt,
+            AppointmentType = a.AppointmentType,
+            PatientConfirmation = a.PatientConfirmation,
+            RecurrenceGroupId = a.RecurrenceGroupId,
             PaymentStatus = a.Payment?.Status,
             PaymentAmount = a.Payment?.Amount,
             PaymentMethod = a.Payment?.PaymentMethod,

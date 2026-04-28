@@ -7,7 +7,10 @@ const appointmentsController = new AppointmentsController()
 
 r.get('/', ensureAuthenticated, appointmentsController.index)
 r.post('/', ensureAuthenticated, appointmentsController.create)
+r.put('/:id', ensureAuthenticated, appointmentsController.update)
 r.patch('/:id/status', ensureAuthenticated, appointmentsController.updateStatus)
+r.patch('/:id/confirmation', ensureAuthenticated, appointmentsController.updateConfirmation)
 r.patch('/:id/cancel', ensureAuthenticated, appointmentsController.cancel)
+r.patch('/:id/cancel-future', ensureAuthenticated, appointmentsController.cancelFuture)
 
 export default r

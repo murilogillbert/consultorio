@@ -265,30 +265,38 @@ model Patient {
 }
 
 model Appointment {
-  id                 String           @id @default(uuid())
-  patientId          String
-  professionalId     String
-  serviceId          String
-  roomId             String?
-  insurancePlanId    String?
-  status             String           @default("SCHEDULED")
-  origin             String           @default("ONLINE")
-  source             String?
-  startTime          DateTime
-  endTime            DateTime
-  notes              String?
-  cancellationReason String?
-  reminderSent       Boolean          @default(false)
-  checkinAt          DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  insurancePlan      InsurancePlan?   @relation(fields: [insurancePlanId], references: [id])
-  room               Room?            @relation(fields: [roomId], references: [id])
-  service            Service          @relation(fields: [serviceId], references: [id])
-  professional       Professional     @relation(fields: [professionalId], references: [id])
-  patient            Patient          @relation(fields: [patientId], references: [id])
-  equipmentUsages    EquipmentUsage[]
-  payments           Payment[]
+  id                  String           @id @default(uuid())
+  patientId           String
+  professionalId      String
+  serviceId           String
+  roomId              String?
+  insurancePlanId     String?
+  status              String           @default("SCHEDULED")
+  origin              String           @default("ONLINE")
+  source              String?
+  appointmentType     String           @default("IN_PERSON")
+  patientConfirmation String           @default("PENDING")
+  recurrenceGroupId   String?
+  startTime           DateTime
+  endTime             DateTime
+  notes               String?
+  cancellationReason  String?
+  cancellationSource  String?
+  cancelledAt         DateTime?
+  reminderSent        Boolean          @default(false)
+  checkinAt           DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  insurancePlan       InsurancePlan?   @relation(fields: [insurancePlanId], references: [id])
+  room                Room?            @relation(fields: [roomId], references: [id])
+  service             Service          @relation(fields: [serviceId], references: [id])
+  professional        Professional     @relation(fields: [professionalId], references: [id])
+  patient             Patient          @relation(fields: [patientId], references: [id])
+  equipmentUsages     EquipmentUsage[]
+  payments            Payment[]
+
+  @@index([recurrenceGroupId])
+  @@index([professionalId, startTime])
 }
 
 model Payment {

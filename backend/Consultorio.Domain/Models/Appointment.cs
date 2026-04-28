@@ -11,10 +11,22 @@ public class Appointment
     public Guid? RoomId { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
-    public string Status { get; set; } = "SCHEDULED"; // SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
-    public string? CancellationSource { get; set; } // PATIENT, RECEPTION
+    public string Status { get; set; } = "SCHEDULED"; // SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+    public string? CancellationSource { get; set; } // PATIENT, RECEPTION, PROFESSIONAL
     public DateTime? CancelledAt { get; set; }
     public string? Notes { get; set; }
+
+    // Tipo do atendimento: ONLINE | IN_PERSON
+    public string AppointmentType { get; set; } = "IN_PERSON";
+
+    // Confirmação de comparecimento informada pelo paciente:
+    // PENDING | CONFIRMED | NOT_CONFIRMED
+    public string PatientConfirmation { get; set; } = "PENDING";
+
+    // Identificador do grupo de recorrência. Todos os agendamentos
+    // criados na mesma série compartilham este Guid.
+    public Guid? RecurrenceGroupId { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

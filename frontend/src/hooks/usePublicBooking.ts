@@ -14,6 +14,8 @@ export interface BookingData {
   startTime: string
   endTime: string
   notes?: string
+  /** "ONLINE" ou "IN_PERSON". Define se o atendimento será presencial ou online. */
+  appointmentType?: string
 }
 
 export function usePublicBooking() {

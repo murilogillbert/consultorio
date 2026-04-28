@@ -10,4 +10,6 @@ export interface UpdateAppointmentDto {
   status?: string
   origin?: string
   source?: string
+  appointmentType?: string
+  patientConfirmation?: string
 }

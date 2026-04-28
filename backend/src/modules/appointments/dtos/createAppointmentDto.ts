@@ -9,5 +9,7 @@ export interface CreateAppointmentDto {
   notes?: string
   origin?: string
   source?: string
+  appointmentType?: string      // "ONLINE" | "IN_PERSON"
+  patientConfirmation?: string  // "PENDING" | "CONFIRMED" | "NOT_CONFIRMED"
   repeat?: boolean
 }
