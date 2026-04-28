@@ -87,9 +87,14 @@ public class SchedulesController : ControllerBase
         [FromQuery] Guid serviceId)
     {
         // Busca duração do serviço
-        var service = await _db.Services.FindAsync(serviceId);
+        var service = await _db.Services
+            .Include(s => s.Professionals).ThenInclude(p => p.User)
+            .FirstOrDefaultAsync(s => s.Id == serviceId && s.IsActive && s.OnlineBooking);
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
+
+        if (!service.Professionals.Any(p => p.Id == professionalId && p.IsAvailable && p.User.IsActive))
+            return BadRequest(new { message = "Profissional não habilitado para este serviço." });
 
         var duration = service.DurationMinutes;
 

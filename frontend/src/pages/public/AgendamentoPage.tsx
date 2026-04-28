@@ -45,15 +45,22 @@ export default function AgendamentoPage() {
   const dateInputRef = useRef<HTMLInputElement>(null)
 
   const { data: services = [], isLoading: loadingServices } = useServices()
-  const { data: allProfessionals = [], isLoading: loadingProfessionals } = useProfessionals()
+  const { data: professionals = [], isLoading: loadingProfessionals } = useProfessionals(formData.serviceId || undefined)
 
-  // Filtra profissionais que têm o serviço selecionado vinculado.
-  // Se nenhum estiver vinculado (serviço sem restrição), mostra todos.
-  const professionals = formData.serviceId
-    ? allProfessionals.filter(p =>
-        !p.serviceIds?.length || p.serviceIds.includes(formData.serviceId)
-      )
-    : allProfessionals
+  useEffect(() => {
+    if (!formData.professionalId) return
+    if (!professionals.some(p => p.id === formData.professionalId)) {
+      setFormData(prev => ({
+        ...prev,
+        professional: '',
+        professionalId: '',
+        date: '',
+        time: '',
+        startTime: '',
+        endTime: '',
+      }))
+    }
+  }, [professionals, formData.professionalId])
 
   // Abre o picker de data automaticamente ao entrar no passo 2
   useEffect(() => {
@@ -234,6 +241,10 @@ export default function AgendamentoPage() {
               </h2>
               {loadingProfessionals ? (
                 <p style={{ color: 'var(--color-text-muted)' }}>Carregando profissionais...</p>
+              ) : professionals.length === 0 ? (
+                <p style={{ color: 'var(--color-text-muted)' }}>
+                  Nenhum profissional disponível para este serviço no momento.
+                </p>
               ) : professionals.map(p => {
                 const name = p.user?.name || 'Profissional'
                 const initials = name.split(' ').filter((_, j, arr) => j === 0 || j === arr.length - 1).map(n => n[0]).join('')

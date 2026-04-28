@@ -76,11 +76,13 @@ function mapProfessional(raw: ProfessionalResponseDtoRaw): Professional {
   }
 }
 
-export function useProfessionals() {
+export function useProfessionals(serviceId?: string) {
   return useQuery({
-    queryKey: ['professionals'],
+    queryKey: ['professionals', { serviceId: serviceId || null }],
     queryFn: async () => {
-      const { data } = await api.get<ProfessionalResponseDtoRaw[]>('/professionals')
+      const { data } = await api.get<ProfessionalResponseDtoRaw[]>('/professionals', {
+        params: serviceId ? { serviceId } : undefined,
+      })
       return data.map(mapProfessional)
     }
   })

@@ -51,13 +51,23 @@ public class ProfessionalsController : ControllerBase
     // GET /api/professionals — público para o site mostrar profissionais
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<List<ProfessionalResponseDto>>> GetAll()
+    public async Task<ActionResult<List<ProfessionalResponseDto>>> GetAll([FromQuery] Guid? serviceId)
     {
-        var pros = await _db.Professionals
+        var query = _db.Professionals
             .Include(p => p.User)
             .Include(p => p.Services)
             .Include(p => p.Schedules)
             .Where(p => p.IsAvailable && p.User.IsActive)
+            .AsQueryable();
+
+        if (serviceId.HasValue)
+        {
+            query = query.Where(p =>
+                p.Services.Any(s => s.Id == serviceId.Value && s.IsActive && s.OnlineBooking) &&
+                p.Schedules.Any(s => s.IsActive));
+        }
+
+        var pros = await query
             .OrderBy(p => p.User.Name)
             .ToListAsync();
 

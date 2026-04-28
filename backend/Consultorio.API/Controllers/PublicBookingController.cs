@@ -65,7 +65,8 @@ public class PublicBookingController : ControllerBase
         // Busca o serviço
         var service = await _db.Services
             .Include(s => s.ServiceInsurancePlans)
-            .FirstOrDefaultAsync(s => s.Id == dto.ServiceId);
+            .Include(s => s.Professionals).ThenInclude(p => p.User)
+            .FirstOrDefaultAsync(s => s.Id == dto.ServiceId && s.IsActive && s.OnlineBooking);
         if (service == null)
             return NotFound(new { message = "Serviço não encontrado." });
 
@@ -82,9 +83,10 @@ public class PublicBookingController : ControllerBase
         }
 
         // Verifica se o profissional existe
-        var professional = await _db.Professionals.FindAsync(dto.ProfessionalId);
+        var professional = service.Professionals
+            .FirstOrDefault(p => p.Id == dto.ProfessionalId && p.IsAvailable && p.User.IsActive);
         if (professional == null)
-            return NotFound(new { message = "Profissional não encontrado." });
+            return BadRequest(new { message = "Profissional não habilitado para este serviço." });
 
         // Calcula EndTime a partir da duração do serviço (ignora o endTime do cliente)
         var endTime = dto.StartTime.AddMinutes(service.DurationMinutes);
