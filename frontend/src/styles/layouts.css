@@ -479,7 +479,8 @@ body.mobile-menu-open {
 
 .footer-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  /* Atualmente o footer tem 3 colunas (Links / Contato / Legal). */
+  grid-template-columns: 2fr 1fr 1fr;
   gap: var(--space-8);
   margin-bottom: var(--space-8);
 }
@@ -612,6 +613,15 @@ body.mobile-menu-open {
 }
 
 /* ---- Responsive ---- */
+
+/* Tablet (≤1024px): footer condensa para 2 colunas. */
+@media (max-width: 1024px) {
+  .footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-6);
+  }
+}
+
 @media (max-width: 768px) {
   .navbar-links {
     display: none;
@@ -1013,6 +1023,39 @@ body.mobile-menu-open {
 
 @media (max-width: 768px) {
   .navbar-auth {
+    display: none;
+  }
+}
+
+/* ============================================
+   HOME / PUBLIC LAYOUT — Refinamentos finais
+   ============================================ */
+
+/* Mobile pequeno (≤480px): nome da clínica reduzido para
+   garantir que o conjunto logo + hamburguer caiba sem overflow. */
+@media (max-width: 480px) {
+  .navbar-logo svg {
+    width: 32px;
+    height: 32px;
+  }
+  .navbar-logo span {
+    font-size: var(--text-body);
+    max-width: 60vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .floating-contact {
+    bottom: var(--space-4);
+    right: var(--space-4);
+  }
+  .floating-btn {
+    width: 48px;
+    height: 48px;
+  }
+  /* No mobile, o tooltip "Fale Conosco" ao lado do botão flutuante
+     pode ultrapassar a viewport — remove o offset visual. */
+  .floating-label {
     display: none;
   }
 }
