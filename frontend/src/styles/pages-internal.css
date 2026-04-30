@@ -2588,3 +2588,219 @@
     right: var(--space-4);
   }
 }
+
+/* ================================================================
+   Agenda Mobile View — lista por dia + swipe
+   ================================================================ */
+.agenda-desktop-view {
+  display: contents;
+}
+
+.agenda-mobile-view {
+  display: none;
+}
+
+.agenda-mobile-day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+}
+
+.agenda-mobile-day-label {
+  font-weight: var(--weight-bold);
+  text-transform: capitalize;
+  font-size: var(--text-body);
+  color: var(--color-text-primary);
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-mobile-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.agenda-mobile-empty svg {
+  color: var(--color-accent-emerald);
+  opacity: 0.6;
+}
+
+.agenda-mobile-hint,
+.agenda-mobile-swipe-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-top: var(--space-2);
+  display: block;
+}
+
+.agenda-mobile-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.agenda-mobile-card {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-left: 4px solid #F59E0B;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  box-shadow: var(--shadow-card);
+  min-height: 64px;
+}
+
+.agenda-mobile-card:active {
+  transform: scale(0.99);
+  box-shadow: var(--shadow-modal);
+}
+
+.agenda-mobile-card.confirmed { border-left-color: #2563EB; }
+.agenda-mobile-card.in_progress,
+.agenda-mobile-card.completed,
+.agenda-mobile-card.concluded { border-left-color: #16A34A; }
+.agenda-mobile-card.no_show { border-left-color: #374151; }
+.agenda-mobile-card.cancelled {
+  border-left-color: #9CA3AF;
+  opacity: 0.7;
+}
+.agenda-mobile-card.cancelled .agenda-mobile-card-name {
+  text-decoration: line-through;
+}
+
+.agenda-mobile-card-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-border-default);
+  padding-right: var(--space-3);
+}
+
+.agenda-mobile-card-time .time-start {
+  font-weight: var(--weight-bold);
+  font-size: var(--text-body);
+  color: var(--color-text-primary);
+}
+
+.agenda-mobile-card-time .time-end {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.agenda-mobile-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agenda-mobile-card-name {
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-mobile-card-meta {
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-mobile-card-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.agenda-mobile-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.agenda-mobile-tag.tag-status.status-scheduled,
+.agenda-mobile-tag.tag-status.status-pending {
+  background: #FEF3C7;
+  color: #92400E;
+}
+.agenda-mobile-tag.tag-status.status-confirmed {
+  background: #DBEAFE;
+  color: #1E3A8A;
+}
+.agenda-mobile-tag.tag-status.status-in_progress,
+.agenda-mobile-tag.tag-status.status-completed {
+  background: #D1FAE5;
+  color: #065F46;
+}
+.agenda-mobile-tag.tag-status.status-cancelled {
+  background: #E5E7EB;
+  color: #374151;
+}
+.agenda-mobile-tag.tag-status.status-no_show {
+  background: #E5E7EB;
+  color: #1F2937;
+}
+.agenda-mobile-tag.tag-check {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+@media (max-width: 768px) {
+  .agenda-desktop-view {
+    display: none;
+  }
+  .agenda-mobile-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    /* allow vertical swipe by default; horizontal swipe handled by JS */
+    touch-action: pan-y;
+  }
+  /* Esconde toggle dia/semana — mobile usa apenas dia */
+  .agenda-view-toggle {
+    display: none !important;
+  }
+}

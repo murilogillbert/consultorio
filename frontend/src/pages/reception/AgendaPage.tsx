@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { ChevronLeft, ChevronRight, X, MessageSquare, Search, Loader2, Plus, XCircle, DollarSign, Calendar, CalendarRange, Edit2, Trash2 } from 'lucide-react'
 import {
   useAppointments,
@@ -385,7 +385,7 @@ export default function AgendaPage() {
 
         <div className="agenda-filter-bottom">
           {/* Toggle de visão dia/semana */}
-          <div style={{ display: 'inline-flex', border: '1px solid var(--color-border-default)', borderRadius: 8, overflow: 'hidden' }}>
+          <div className="agenda-view-toggle" style={{ display: 'inline-flex', border: '1px solid var(--color-border-default)', borderRadius: 8, overflow: 'hidden' }}>
             <button
               className="btn btn-sm"
               style={{
@@ -443,26 +443,47 @@ export default function AgendaPage() {
 
       {/* Calendar Grid */}
       <div className="agenda-main-layout" style={{ display: 'flex', gap: 0, position: 'relative' }}>
-        {viewMode === 'day' ? (
-          <DayGrid
-            displayedProfs={displayedProfs}
-            visibleAppts={visibleAppts}
-            calendarColumnCount={calendarColumnCount}
-            calendarMinWidth={calendarMinWidth}
-            stripTz={stripTz}
-            onCellClick={handleCellClick}
-            onAppointmentClick={(a) => { setSelectedAppointment(a); setDrawerMsg(null) }}
-          />
-        ) : (
-          <WeekGrid
-            selectedDate={selectedDate}
-            displayedProfs={displayedProfs}
-            visibleAppts={visibleAppts}
-            stripTz={stripTz}
-            onCellClick={(profId, time, date) => handleCellClick(profId, time, date)}
-            onAppointmentClick={(a) => { setSelectedAppointment(a); setDrawerMsg(null) }}
-          />
-        )}
+        <div className="agenda-desktop-view">
+          {viewMode === 'day' ? (
+            <DayGrid
+              displayedProfs={displayedProfs}
+              visibleAppts={visibleAppts}
+              calendarColumnCount={calendarColumnCount}
+              calendarMinWidth={calendarMinWidth}
+              stripTz={stripTz}
+              onCellClick={handleCellClick}
+              onAppointmentClick={(a) => { setSelectedAppointment(a); setDrawerMsg(null) }}
+            />
+          ) : (
+            <WeekGrid
+              selectedDate={selectedDate}
+              displayedProfs={displayedProfs}
+              visibleAppts={visibleAppts}
+              stripTz={stripTz}
+              onCellClick={(profId, time, date) => handleCellClick(profId, time, date)}
+              onAppointmentClick={(a) => { setSelectedAppointment(a); setDrawerMsg(null) }}
+            />
+          )}
+        </div>
+
+        <MobileDayList
+          selectedDate={selectedDate}
+          displayedProfs={displayedProfs}
+          visibleAppts={visibleAppts}
+          stripTz={stripTz}
+          onAppointmentClick={(a) => { setSelectedAppointment(a); setDrawerMsg(null) }}
+          onPrev={() => {
+            const d = new Date(selectedDate + 'T12:00:00')
+            d.setDate(d.getDate() - 1)
+            setSelectedDate(fmtDate(d))
+          }}
+          onNext={() => {
+            const d = new Date(selectedDate + 'T12:00:00')
+            d.setDate(d.getDate() + 1)
+            setSelectedDate(fmtDate(d))
+          }}
+          onNew={() => openNewModal()}
+        />
 
         {/* Detail Drawer */}
         {selectedAppointment && (
@@ -965,6 +986,137 @@ function DayGrid({ displayedProfs, visibleAppts, calendarColumnCount, calendarMi
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ─── Mobile Day List (visão mobile: lista por dia + swipe) ───────────────────
+
+interface MobileDayListProps {
+  selectedDate: string
+  displayedProfs: any[]
+  visibleAppts: Appointment[]
+  stripTz: (iso: string) => string
+  onAppointmentClick: (a: Appointment) => void
+  onPrev: () => void
+  onNext: () => void
+  onNew: () => void
+}
+
+function MobileDayList({
+  selectedDate,
+  displayedProfs,
+  visibleAppts,
+  stripTz,
+  onAppointmentClick,
+  onPrev,
+  onNext,
+  onNew,
+}: MobileDayListProps) {
+  const profIds = useMemo(() => new Set(displayedProfs.map(p => p.id)), [displayedProfs])
+
+  const dayAppts = useMemo(() => {
+    return visibleAppts
+      .filter(a => profIds.size === 0 || profIds.has(a.professionalId))
+      .filter(a => stripTz(a.startTime).split('T')[0] === selectedDate)
+      .sort((a, b) => stripTz(a.startTime).localeCompare(stripTz(b.startTime)))
+  }, [visibleAppts, profIds, selectedDate, stripTz])
+
+  const dateObj = new Date(selectedDate + 'T12:00:00')
+  const dayLabel = dateObj.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+
+  const touchStart = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart.current == null || touchStartY.current == null) return
+    const dx = e.changedTouches[0].clientX - touchStart.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    // Trata como swipe horizontal apenas se for predominantemente lateral.
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) onNext()
+      else onPrev()
+    }
+    touchStart.current = null
+    touchStartY.current = null
+  }
+
+  return (
+    <div
+      className="agenda-mobile-view"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className="agenda-mobile-day-nav">
+        <button className="btn btn-icon btn-sm" onClick={onPrev} aria-label="Dia anterior">
+          <ChevronLeft size={18} />
+        </button>
+        <div className="agenda-mobile-day-label">{dayLabel}</div>
+        <button className="btn btn-icon btn-sm" onClick={onNext} aria-label="Próximo dia">
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
+      {dayAppts.length === 0 ? (
+        <div className="agenda-mobile-empty">
+          <Calendar size={28} />
+          <p style={{ margin: 0 }}>Nenhum agendamento neste dia.</p>
+          <button className="btn btn-primary btn-sm" onClick={onNew}>
+            <Plus size={14} /> Novo Agendamento
+          </button>
+          <span className="agenda-mobile-hint">Arraste para ver outro dia</span>
+        </div>
+      ) : (
+        <ul className="agenda-mobile-list">
+          {dayAppts.map(appt => {
+            const start = new Date(stripTz(appt.startTime))
+            const end = new Date(stripTz(appt.endTime))
+            const time = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+            const endTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+            const cancelledByPatient = appt.status === 'CANCELLED' && appt.cancellationSource === 'PATIENT'
+            const cardClass = `agenda-mobile-card ${appt.status.toLowerCase()}${cancelledByPatient ? ' cancelled-by-patient' : ''}`
+            return (
+              <li
+                key={appt.id}
+                className={cardClass}
+                onClick={() => onAppointmentClick(appt)}
+              >
+                <div className="agenda-mobile-card-time">
+                  <span className="time-start">{time}</span>
+                  <span className="time-end">{endTime}</span>
+                </div>
+                <div className="agenda-mobile-card-body">
+                  <div className="agenda-mobile-card-name">
+                    {appt.patient?.user?.name || appt.patient?.name || 'Paciente'}
+                  </div>
+                  <div className="agenda-mobile-card-meta">
+                    {appt.service?.name || 'Serviço'}
+                    {appt.professional?.user?.name ? ` • ${appt.professional.user.name}` : ''}
+                  </div>
+                  <div className="agenda-mobile-card-tags">
+                    <span className="agenda-mobile-tag tag-mode">
+                      {appt.appointmentType === 'ONLINE' ? 'Online' : 'Presencial'}
+                    </span>
+                    <span className={`agenda-mobile-tag tag-status status-${appt.status.toLowerCase()}`}>
+                      {STATUS_LABEL[appt.status] || appt.status}
+                    </span>
+                    {appt.patientConfirmation === 'CONFIRMED' && (
+                      <span className="agenda-mobile-tag tag-check">✓ Confirmado</span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      <span className="agenda-mobile-swipe-hint" aria-hidden="true">
+        ← arraste para mudar de dia →
+      </span>
     </div>
   )
 }
