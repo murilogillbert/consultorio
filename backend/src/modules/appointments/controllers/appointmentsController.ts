@@ -114,4 +114,33 @@ export class AppointmentsController {
       next(err)
     }
   }
+
+  // DELETE /appointments/:id/permanent
+  // Exclusão real: remove o agendamento e todas as suas dependências
+  // (EquipmentUsage, Payment, ProfessionalReview). Diferente do cancelamento,
+  // o registro deixa de existir no histórico. Usar com cuidado.
+  async deletePermanent(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params as { id: string }
+
+      const appt = await prisma.appointment.findUnique({ where: { id } })
+      if (!appt) throw new AppError('Agendamento não encontrado', 404)
+
+      await prisma.$transaction(async (tx) => {
+        // Deleta dependências em ordem (filhos antes do pai)
+        await tx.equipmentUsage.deleteMany({ where: { appointmentId: id } })
+        await tx.payment.deleteMany({ where: { appointmentId: id } })
+        // Reviews vinculadas a este agendamento são limpas (não bloqueiam o delete)
+        await tx.professionalReview.updateMany({
+          where: { appointmentId: id },
+          data: { appointmentId: null },
+        })
+        await tx.appointment.delete({ where: { id } })
+      })
+
+      res.status(200).json({ message: 'Agendamento excluído permanentemente.' })
+    } catch (err) {
+      next(err)
+    }
+  }
 }

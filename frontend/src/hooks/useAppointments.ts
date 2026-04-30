@@ -255,3 +255,17 @@ export function useCancelFutureAppointments() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
   })
 }
+
+// Exclui o agendamento de forma permanente (DELETE real). Diferente do
+// cancelamento (que mantém o registro em cinza), aqui o agendamento e
+// suas dependências (Payment, EquipmentUsage) são removidos do banco.
+export function useDeleteAppointmentPermanent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete<{ message: string }>(`/appointments/${id}/permanent`)
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  })
+}

@@ -423,37 +423,41 @@
   z-index: 2;
 }
 
-.appointment-block.scheduled {
-  background: var(--color-accent-gold);
-  color: white;
+/* Padrão de cores da agenda — leitura visual rápida do status:
+     🟠 Laranja      → Agendado (aguardando confirmação)
+     🔵 Azul         → Confirmado
+     🟢 Verde        → Em atendimento / Realizado (compareceu)
+     ⚫ Cinza escuro → Desmarcado pelo paciente / Faltou (NO_SHOW)
+     🩶 Cinza claro  → Cancelado (slot liberado, riscado)
+*/
+.appointment-block.scheduled,
+.appointment-block.pending {
+  background: #F59E0B; /* laranja — aguardando confirmação */
+  color: #1F2937;
 }
 
 .appointment-block.confirmed {
-  background: var(--color-accent-emerald);
+  background: #2563EB; /* azul — confirmado */
   color: white;
 }
 
-.appointment-block.in_progress {
-  background: var(--color-accent-brand);
-  color: white;
-}
-
-.appointment-block.pending {
-  background: var(--color-accent-gold);
-  color: white;
-}
-
+.appointment-block.in_progress,
 .appointment-block.completed,
 .appointment-block.concluded {
-  background: var(--color-text-muted);
+  background: #16A34A; /* verde — compareceu / realizado */
   color: white;
-  opacity: 0.7;
+}
+
+.appointment-block.no_show {
+  background: #374151; /* cinza escuro — paciente faltou / desmarcou */
+  color: white;
 }
 
 .appointment-block.cancelled {
-  background: var(--color-accent-danger);
+  background: #9CA3AF; /* cinza claro — cancelado / slot liberado */
   color: white;
-  opacity: 0.6;
+  opacity: 0.7;
+  text-decoration: line-through;
 }
 
 .appointment-block .patient-name {

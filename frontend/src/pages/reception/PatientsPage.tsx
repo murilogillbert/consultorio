@@ -2,14 +2,27 @@ import { useState } from 'react'
 import { Search, Plus, Edit, Trash2, X, AlertTriangle } from 'lucide-react'
 import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient } from '../../hooks/usePatients'
 
+// Normaliza um identificador (CPF/telefone) removendo qualquer não-dígito
+// para comparar valores formatados ou não. Retorna string vazia se input
+// for falsy.
+function digits(value: string | null | undefined): string {
+  return (value || '').replace(/\D/g, '')
+}
+
 export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const { data: patients = [], isLoading } = usePatients(searchTerm)
+  // Lista completa (sem filtro) usada para detectar duplicidade na criação.
+  const { data: allPatients = [] } = usePatients('')
   const [showModal, setShowModal] = useState(false)
   const [editingPatient, setEditingPatient] = useState<any | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
   const [deleteError, setDeleteError] = useState('')
   const [createdPassword, setCreatedPassword] = useState('')
+
+  // Quando há candidatos potencialmente duplicados, abrimos um diálogo
+  // listando os existentes antes de prosseguir com a criação.
+  const [duplicateMatches, setDuplicateMatches] = useState<any[] | null>(null)
 
   const createPatient = useCreatePatient()
   const updatePatient = useUpdatePatient()
@@ -39,8 +52,46 @@ export default function PatientsPage() {
     setShowModal(true)
   }
 
+  // Procura pacientes existentes que combinem por CPF, e-mail ou telefone.
+  // Ordem de prioridade: CPF > e-mail > telefone (o mais confiável primeiro).
+  // Ignora o paciente em edição (não é duplicidade contra si próprio).
+  const findDuplicates = (form: typeof formData): any[] => {
+    const cpfDigits = digits(form.cpf)
+    const phoneDigits = digits(form.phone)
+    const email = form.email.trim().toLowerCase()
+    const matches: any[] = []
+    const seen = new Set<string>()
+    for (const p of allPatients) {
+      if (editingPatient && p.id === editingPatient.id) continue
+      const matchCpf = !!cpfDigits && digits(p.cpf) === cpfDigits
+      const matchEmail = !!email && (p.user?.email || '').trim().toLowerCase() === email
+      const matchPhone = !!phoneDigits && digits(p.phone) === phoneDigits
+      if ((matchCpf || matchEmail || matchPhone) && !seen.has(p.id)) {
+        seen.add(p.id)
+        matches.push(p)
+      }
+    }
+    return matches
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Antes de criar, verifica duplicidade (CPF/email/telefone). Edição
+    // não passa por essa checagem.
+    if (!editingPatient) {
+      const matches = findDuplicates(formData)
+      if (matches.length > 0) {
+        setDuplicateMatches(matches)
+        return
+      }
+    }
+    await persistPatient()
+  }
+
+  // Persiste o paciente (cria ou edita) sem checar duplicidade — chamado
+  // tanto pelo handleSave normal quanto pelo "Cadastrar mesmo assim" do
+  // diálogo de duplicidade.
+  const persistPatient = async () => {
     try {
       if (editingPatient) {
         await updatePatient.mutateAsync({
@@ -66,6 +117,7 @@ export default function PatientsPage() {
       }
       setShowModal(false)
       setEditingPatient(null)
+      setDuplicateMatches(null)
       setFormData({ name: '', email: '', cpf: '', phone: '', birthDate: '', address: '', notes: '' })
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Erro ao salvar paciente.')
@@ -193,6 +245,71 @@ export default function PatientsPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* Duplicate detection modal */}
+      {duplicateMatches && duplicateMatches.length > 0 && (
+        <div className="modal-overlay" onClick={() => setDuplicateMatches(null)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={20} color="var(--color-accent-warning)" />
+                Possível paciente duplicado
+              </h3>
+              <button className="modal-close" onClick={() => setDuplicateMatches(null)}><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 13, marginBottom: 12 }}>
+                Já existe um cadastro com os mesmos dados (CPF, e-mail ou telefone).
+                Verifique se não é o mesmo paciente antes de continuar.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                {duplicateMatches.map(p => (
+                  <div
+                    key={p.id}
+                    style={{
+                      padding: '10px 12px',
+                      border: '1px solid var(--color-border-default)',
+                      borderRadius: 8,
+                      background: 'var(--color-bg-secondary)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{p.user?.name || '—'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                      {p.user?.email && <span>{p.user.email}</span>}
+                      {p.cpf && <span> · CPF {p.cpf}</span>}
+                      {p.phone && <span> · {p.phone}</span>}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ marginTop: 6, padding: '2px 8px' }}
+                      onClick={() => {
+                        setDuplicateMatches(null)
+                        setShowModal(false)
+                        handleEdit(p)
+                      }}
+                    >
+                      Ver / editar este cadastro
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setDuplicateMatches(null)}>
+                Voltar e revisar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => persistPatient()}
+                disabled={createPatient.isPending}
+              >
+                {createPatient.isPending ? 'Cadastrando...' : 'Cadastrar mesmo assim'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete confirmation modal */}

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, X, MessageSquare, Search, Loader2, Plus, XCircle, DollarSign, Calendar, CalendarRange, Edit2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, MessageSquare, Search, Loader2, Plus, XCircle, DollarSign, Calendar, CalendarRange, Edit2, Trash2 } from 'lucide-react'
 import {
   useAppointments,
   useCreateAppointment,
@@ -9,6 +9,7 @@ import {
   useUpdateAppointment,
   useUpdatePatientConfirmation,
   useCancelFutureAppointments,
+  useDeleteAppointmentPermanent,
 } from '../../hooks/useAppointments'
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useServices } from '../../hooks/useServices'
@@ -20,15 +21,16 @@ import type { Appointment } from '../../hooks/useAppointments'
 
 const timeSlots = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
 
-// Status disponíveis no seletor (ordem de exibição). NO_SHOW mantém o
-// horário ocupado — o paciente não compareceu mas o slot aconteceu.
+// Status disponíveis no seletor (ordem de exibição).
+// "Desmarcado pelo paciente" (NO_SHOW) mantém o horário ocupado — o paciente
+// não compareceu/desmarcou, mas o slot aconteceu e fica registrado no histórico.
 const STATUS_OPTIONS: { value: string; label: string; tone: string }[] = [
-  { value: 'SCHEDULED',   label: 'Agendado',         tone: 'gold' },
-  { value: 'CONFIRMED',   label: 'Confirmado',       tone: 'emerald' },
-  { value: 'IN_PROGRESS', label: 'Em Atendimento',   tone: 'emerald' },
-  { value: 'COMPLETED',   label: 'Realizado',        tone: 'muted' },
-  { value: 'NO_SHOW',     label: 'Ausente',          tone: 'danger' },
-  { value: 'CANCELLED',   label: 'Cancelado',        tone: 'danger' },
+  { value: 'SCHEDULED',   label: 'Agendado',                  tone: 'gold' },
+  { value: 'CONFIRMED',   label: 'Confirmado',                tone: 'emerald' },
+  { value: 'IN_PROGRESS', label: 'Em Atendimento',            tone: 'emerald' },
+  { value: 'COMPLETED',   label: 'Realizado',                 tone: 'emerald' },
+  { value: 'NO_SHOW',     label: 'Desmarcado pelo paciente',  tone: 'muted' },
+  { value: 'CANCELLED',   label: 'Cancelado',                 tone: 'danger' },
 ]
 
 const STATUS_LABEL: Record<string, string> = Object.fromEntries(
@@ -90,6 +92,7 @@ export default function AgendaPage() {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelChoice, setCancelChoice] = useState<'one' | 'future' | null>(null)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [formError, setFormError] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [drawerMsg, setDrawerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -133,6 +136,7 @@ export default function AgendaPage() {
   const updateAppointment = useUpdateAppointment()
   const cancelAppointment = useCancelAppointment()
   const cancelFuture = useCancelFutureAppointments()
+  const deleteAppointment = useDeleteAppointmentPermanent()
   const updateStatus = useUpdateAppointmentStatus()
   const updateConfirmation = useUpdatePatientConfirmation()
   const createRecurring = useCreateRecurringAppointments()
@@ -280,6 +284,18 @@ export default function AgendaPage() {
       setDrawerMsg({ type: 'success', text: 'Confirmação atualizada.' })
     } catch (err: any) {
       setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao atualizar confirmação.' })
+    }
+  }
+
+  const handleDeletePermanent = async () => {
+    if (!selectedAppointment) return
+    try {
+      await deleteAppointment.mutateAsync(selectedAppointment.id)
+      setShowDeleteConfirm(false)
+      setSelectedAppointment(null)
+      setDrawerMsg(null)
+    } catch (err: any) {
+      setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao excluir agendamento.' })
     }
   }
 
@@ -607,11 +623,54 @@ export default function AgendaPage() {
                   <XCircle size={14} /> Cancelar Agendamento
                 </button>
               )}
+
+              {/* Excluir = remoção real do banco. Diferente do cancelamento
+                  (que mantém histórico em cinza), o registro deixa de existir. */}
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ color: 'var(--color-accent-danger)', opacity: 0.85 }}
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 size={14} /> Excluir Agendamento
+              </button>
             </div>
           </div>
           </>
         )}
       </div>
+
+      {/* Confirmação de exclusão permanente */}
+      {showDeleteConfirm && selectedAppointment && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Trash2 size={18} color="var(--color-accent-danger)" /> Excluir Agendamento
+              </h3>
+              <button className="modal-close" onClick={() => setShowDeleteConfirm(false)}><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 13, marginBottom: 8 }}>
+                Esta ação <strong>não pode ser desfeita</strong>. O agendamento e seus registros relacionados
+                (cobrança, uso de equipamento) serão removidos do banco.
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                Para preservar o histórico, prefira <strong>Cancelar</strong> em vez de excluir.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)}>Voltar</button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDeletePermanent}
+                disabled={deleteAppointment.isPending}
+              >
+                {deleteAppointment.isPending ? 'Excluindo...' : 'Excluir Permanentemente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel modal: este apenas / este e futuros */}
       {showCancelModal && selectedAppointment && (
@@ -753,7 +812,34 @@ export default function AgendaPage() {
                 </div>
                 <div className="input-group">
                   <label className="input-label">Duração (min)</label>
-                  <input type="number" className="input-field" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} min={15} step={15} />
+                  <select
+                    className="input-field"
+                    value={[15, 30, 45, 60, 90, 120].includes(parseInt(form.duration)) ? form.duration : 'custom'}
+                    onChange={e => {
+                      if (e.target.value === 'custom') return
+                      setForm({ ...form, duration: e.target.value })
+                    }}
+                  >
+                    <option value="15">15 min</option>
+                    <option value="30">30 min</option>
+                    <option value="45">45 min</option>
+                    <option value="60">60 min (1h)</option>
+                    <option value="90">90 min (1h30)</option>
+                    <option value="120">120 min (2h)</option>
+                    <option value="custom">Outro...</option>
+                  </select>
+                  {!['15', '30', '45', '60', '90', '120'].includes(form.duration) && (
+                    <input
+                      type="number"
+                      className="input-field"
+                      style={{ marginTop: 6 }}
+                      placeholder="Duração customizada (min)"
+                      value={form.duration}
+                      onChange={e => setForm({ ...form, duration: e.target.value })}
+                      min={5}
+                      step={5}
+                    />
+                  )}
                 </div>
                 <div className="input-group full-span">
                   <label className="input-label">Observações</label>
@@ -853,9 +939,8 @@ function DayGrid({ displayedProfs, visibleAppts, calendarColumnCount, calendarMi
 
           const durationSlots = ((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 30
 
-          // Cancelados pelo paciente são cinza para sinalizar slot liberado.
+          // Status agora aplicado puramente via CSS (.appointment-block.<status>).
           const cancelledByPatient = appt.status === 'CANCELLED' && appt.cancellationSource === 'PATIENT'
-          const cancelled = appt.status === 'CANCELLED'
           const blockClass = `appointment-block ${appt.status.toLowerCase()}${cancelledByPatient ? ' cancelled-by-patient' : ''}`
 
           return (
@@ -867,10 +952,6 @@ function DayGrid({ displayedProfs, visibleAppts, calendarColumnCount, calendarMi
                 height: Math.max(1, durationSlots) * 48 - 4,
                 left: `calc(60px + ${profIndex} * ((100% - 60px) / ${displayedProfs.length}) + 2px)`,
                 width: `calc((100% - 60px) / ${displayedProfs.length} - 4px)`,
-                opacity: cancelled ? 0.55 : 1,
-                background: cancelled ? '#9ca3af' : undefined,
-                color: cancelled ? '#ffffff' : undefined,
-                textDecoration: cancelled ? 'line-through' : undefined,
               }}
               onClick={() => onAppointmentClick(appt)}
             >
@@ -975,8 +1056,7 @@ function WeekGrid({ selectedDate, displayedProfs, visibleAppts, stripTz, onCellC
             })
             if (slotIndex === -1) return null
             const durationSlots = ((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 30
-            const cancelled = appt.status === 'CANCELLED'
-            const cancelledByPatient = cancelled && appt.cancellationSource === 'PATIENT'
+            const cancelledByPatient = appt.status === 'CANCELLED' && appt.cancellationSource === 'PATIENT'
             const blockClass = `appointment-block ${appt.status.toLowerCase()}${cancelledByPatient ? ' cancelled-by-patient' : ''}`
 
             return (
@@ -988,10 +1068,6 @@ function WeekGrid({ selectedDate, displayedProfs, visibleAppts, stripTz, onCellC
                   height: Math.max(1, durationSlots) * 48 - 4,
                   left: `calc(60px + ${dayIndex} * ((100% - 60px) / 7) + 2px)`,
                   width: `calc((100% - 60px) / 7 - 4px)`,
-                  opacity: cancelled ? 0.55 : 1,
-                  background: cancelled ? '#9ca3af' : undefined,
-                  color: cancelled ? '#ffffff' : undefined,
-                  textDecoration: cancelled ? 'line-through' : undefined,
                 }}
                 onClick={() => onAppointmentClick(appt)}
               >

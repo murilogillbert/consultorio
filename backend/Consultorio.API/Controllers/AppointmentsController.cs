@@ -503,7 +503,7 @@ public class AppointmentsController : ControllerBase
         return Ok(new { count = affected.Count, message = $"{affected.Count} agendamento(s) cancelado(s)." });
     }
 
-    // DELETE /api/appointments/{id} — cancela a consulta
+    // DELETE /api/appointments/{id} — cancela a consulta (soft, mantém histórico)
     [HttpDelete("{id}")]
     public async Task<ActionResult> Cancel(Guid id)
     {
@@ -518,6 +518,37 @@ public class AppointmentsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    // DELETE /api/appointments/{id}/permanent — exclusão real
+    // Remove o agendamento e todas as suas dependências (EquipmentUsage,
+    // Payment). Diferente do cancelamento, o registro deixa de existir
+    // no histórico — usar com cautela.
+    [HttpDelete("{id}/permanent")]
+    public async Task<ActionResult> DeletePermanent(Guid id)
+    {
+        var appt = await _db.Appointments
+            .Include(a => a.EquipmentUsages)
+            .Include(a => a.Payment)
+            .FirstOrDefaultAsync(a => a.Id == id);
+        if (appt == null)
+            return NotFound(new { message = "Consulta não encontrada." });
+
+        if (appt.EquipmentUsages != null && appt.EquipmentUsages.Count > 0)
+            _db.EquipmentUsages.RemoveRange(appt.EquipmentUsages);
+        if (appt.Payment != null)
+            _db.Payments.Remove(appt.Payment);
+
+        // Reviews vinculadas: limpa o vínculo (mantém a review)
+        var reviews = await _db.ProfessionalReviews
+            .Where(r => r.AppointmentId == id)
+            .ToListAsync();
+        foreach (var r in reviews) r.AppointmentId = null;
+
+        _db.Appointments.Remove(appt);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Agendamento excluído permanentemente." });
     }
 
     private static string NormalizeAppointmentType(string? value)
