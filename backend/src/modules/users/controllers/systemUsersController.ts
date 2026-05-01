@@ -99,12 +99,32 @@ export class SystemUsersController {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params as { id: string }
-      const { role, active, permissions } = req.body
+      const { role, active, permissions, name, email, phone, password } = req.body
+
+      // Carrega o SystemUser com o User vinculado para permitir editar
+      // dados do User junto (nome, e-mail, telefone, senha).
+      const existing = await prisma.systemUser.findUnique({ where: { id }, include: { user: true } })
+      if (!existing) throw new AppError('Usuário não encontrado', 404)
+
+      // 1) Atualiza o SystemUser (role/active/permissions).
+      const userUpdates: any = {}
+      if (typeof name === 'string' && name.trim()) userUpdates.name = name.trim()
+      if (typeof email === 'string' && email.trim()) userUpdates.email = email.trim().toLowerCase()
+      if (typeof phone === 'string') userUpdates.phone = phone.trim() || null
+      if (typeof active === 'boolean') userUpdates.active = active
+      if (typeof password === 'string' && password.trim()) {
+        if (password.trim().length < 6) throw new AppError('A senha deve ter ao menos 6 caracteres', 400)
+        userUpdates.passwordHash = await bcrypt.hash(password.trim(), 8)
+      }
+
+      if (Object.keys(userUpdates).length > 0) {
+        await prisma.user.update({ where: { id: existing.userId }, data: userUpdates })
+      }
 
       const updated = await prisma.systemUser.update({
         where: { id },
         data: { role, active, permissions },
-        include: { user: { select: { id: true, name: true, email: true, active: true } } }
+        include: { user: { select: { id: true, name: true, email: true, active: true, phone: true } } }
       })
 
       res.json(updated)

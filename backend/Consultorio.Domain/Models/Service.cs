@@ -12,6 +12,12 @@ public class Service
     public int DurationMinutes { get; set; } = 60;
     public decimal Price { get; set; }
     public bool ShowPrice { get; set; } = true;
+    /// <summary>
+    /// Se TRUE, a duração/horário aparece nas listagens públicas para
+    /// o cliente. Padrão TRUE para serviços antigos manterem o
+    /// comportamento atual.
+    /// </summary>
+    public bool ShowDuration { get; set; } = true;
     public string? Category { get; set; }
     public bool RequiresRoom { get; set; } = false;
     public Guid? DefaultRoomId { get; set; }

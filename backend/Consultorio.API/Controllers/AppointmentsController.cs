@@ -551,6 +551,57 @@ public class AppointmentsController : ControllerBase
         return Ok(new { message = "Agendamento excluído permanentemente." });
     }
 
+    // DELETE /api/appointments/{id}/permanent-future — exclusão real em massa
+    // Exclui este agendamento e todos os futuros da mesma série de
+    // recorrência (a partir do StartTime selecionado). Não toca em consultas
+    // passadas. Diferente de cancel-future (mantém em cinza), aqui o
+    // registro deixa de existir.
+    [HttpDelete("{id}/permanent-future")]
+    public async Task<ActionResult> DeletePermanentFuture(Guid id)
+    {
+        var target = await _db.Appointments.FindAsync(id);
+        if (target == null)
+            return NotFound(new { message = "Consulta não encontrada." });
+
+        List<Appointment> targets;
+        if (target.RecurrenceGroupId.HasValue)
+        {
+            targets = await _db.Appointments
+                .Include(a => a.EquipmentUsages)
+                .Include(a => a.Payment)
+                .Where(a => a.RecurrenceGroupId == target.RecurrenceGroupId.Value
+                            && a.StartTime >= target.StartTime)
+                .ToListAsync();
+        }
+        else
+        {
+            // Recarrega o único alvo com Includes para limpar dependências.
+            var single = await _db.Appointments
+                .Include(a => a.EquipmentUsages)
+                .Include(a => a.Payment)
+                .FirstAsync(a => a.Id == id);
+            targets = new List<Appointment> { single };
+        }
+
+        var ids = targets.Select(t => t.Id).ToList();
+
+        // Limpa dependências antes de remover (FK).
+        var usages = targets.SelectMany(t => t.EquipmentUsages ?? new List<EquipmentUsage>()).ToList();
+        if (usages.Count > 0) _db.EquipmentUsages.RemoveRange(usages);
+        var payments = targets.Where(t => t.Payment != null).Select(t => t.Payment!).ToList();
+        if (payments.Count > 0) _db.Payments.RemoveRange(payments);
+
+        var reviews = await _db.ProfessionalReviews
+            .Where(r => r.AppointmentId.HasValue && ids.Contains(r.AppointmentId.Value))
+            .ToListAsync();
+        foreach (var r in reviews) r.AppointmentId = null;
+
+        _db.Appointments.RemoveRange(targets);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { count = targets.Count, message = $"{targets.Count} agendamento(s) excluído(s) permanentemente." });
+    }
+
     private static string NormalizeAppointmentType(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return "IN_PERSON";

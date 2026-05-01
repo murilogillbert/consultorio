@@ -147,6 +147,7 @@ model Service {
   price            Float
   preparation      String?
   onlineBooking    Boolean               @default(true)
+  showDuration     Boolean               @default(true)
   active           Boolean               @default(true)
   imageUrl         String?
   createdAt        DateTime              @default(now())

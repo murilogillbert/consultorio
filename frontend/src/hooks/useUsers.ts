@@ -57,8 +57,10 @@ export function useUpdateSystemUser() {
       id: string
       name?: string
       email?: string
+      phone?: string
       role?: string
       active?: boolean
+      password?: string
       permissions?: Record<string, boolean>
     }) => {
       const { id, ...payload } = input

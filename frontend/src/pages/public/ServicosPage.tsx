@@ -82,7 +82,9 @@ export default function ServicosPage() {
                     <div>
                       <h3>{service.name}</h3>
                       <div className="service-list-meta">
-                        <span><Clock size={14} /> {formatDuration(service.duration)}</span>
+                        {service.showDuration && (
+                          <span><Clock size={14} /> {formatDuration(service.duration)}</span>
+                        )}
                         {hasDisplayPrice(service.price, service.showPrice) && (
                           <span><CreditCard size={14} /> {formatPrice(service.price)}</span>
                         )}

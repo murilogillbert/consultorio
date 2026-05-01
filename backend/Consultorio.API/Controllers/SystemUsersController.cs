@@ -105,6 +105,20 @@ public class SystemUsersController : ControllerBase
         if (dto.Active.HasValue)
             systemUser.User.IsActive = dto.Active.Value;
 
+        if (!string.IsNullOrWhiteSpace(dto.Phone))
+            systemUser.User.Phone = dto.Phone.Trim();
+
+        // Troca de senha por admin: hash com BCrypt antes de salvar.
+        // Mínimo de 6 caracteres é validado aqui mesmo para evitar
+        // senhas excessivamente fracas vindas da UI.
+        if (!string.IsNullOrWhiteSpace(dto.Password))
+        {
+            var pwd = dto.Password.Trim();
+            if (pwd.Length < 6)
+                return BadRequest(new { message = "A senha deve ter ao menos 6 caracteres." });
+            systemUser.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(pwd);
+        }
+
         systemUser.UpdatedAt = DateTime.UtcNow;
         systemUser.User.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -172,8 +186,10 @@ public class UpdateSystemUserDto
 {
     public string? Name { get; set; }
     public string? Email { get; set; }
+    public string? Phone { get; set; }
     public string? Role { get; set; }
     public bool? Active { get; set; }
+    public string? Password { get; set; }
     public Dictionary<string, bool>? Permissions { get; set; }
 }
 

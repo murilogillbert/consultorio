@@ -175,7 +175,12 @@ export default function ConfiguracoesPage() {
   const updateSystemUser = useUpdateSystemUser()
   const deleteSystemUser = useDeleteSystemUser()
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
-  const [userForm, setUserForm] = useState({ name: '', email: '', role: 'RECEPTIONIST', active: true, permissions: {} as Record<string, boolean> })
+  const [userForm, setUserForm] = useState({ name: '', email: '', phone: '', role: 'RECEPTIONIST', active: true, permissions: {} as Record<string, boolean> })
+  // Bloco separado para troca de senha (admin pode alterar a senha de
+  // qualquer usuário interno). Vazio = não alterar.
+  const [userPassword, setUserPassword] = useState('')
+  const [userPasswordConfirm, setUserPasswordConfirm] = useState('')
+  const [userPasswordError, setUserPasswordError] = useState('')
   const [userSaveMsg, setUserSaveMsg] = useState('')
 
   useEffect(() => {
@@ -348,13 +353,52 @@ export default function ConfiguracoesPage() {
   const handleSaveUser = async () => {
     if (!clinic) return
     setUserSaveMsg('')
-    if (editingUserId === 'new') {
-      const created = await createSystemUser.mutateAsync({ clinicId: clinic.id, name: userForm.name, email: userForm.email, role: userForm.role, permissions: userForm.permissions })
-      setUserSaveMsg(created.generatedPassword ? `Usuário criado. Senha padrão: ${created.generatedPassword}` : 'Usuário criado com sucesso.')
-    } else if (editingUserId) {
-      await updateSystemUser.mutateAsync({ id: editingUserId, role: userForm.role, active: userForm.active, permissions: userForm.permissions })
-      setUserSaveMsg('Usuário atualizado com sucesso.')
+    setUserPasswordError('')
+
+    // Validação de senha (compartilhada entre criação e edição).
+    const wantsPasswordChange = !!userPassword.trim()
+    if (wantsPasswordChange) {
+      if (userPassword.trim().length < 6) {
+        setUserPasswordError('A senha deve ter ao menos 6 caracteres.')
+        return
+      }
+      if (userPassword !== userPasswordConfirm) {
+        setUserPasswordError('As senhas não coincidem.')
+        return
+      }
     }
+
+    if (editingUserId === 'new') {
+      const created = await createSystemUser.mutateAsync({
+        clinicId: clinic.id,
+        name: userForm.name,
+        email: userForm.email,
+        phone: userForm.phone || undefined,
+        role: userForm.role,
+        permissions: userForm.permissions,
+        password: wantsPasswordChange ? userPassword.trim() : undefined,
+      })
+      setUserSaveMsg(created.generatedPassword
+        ? `Usuário criado. Senha padrão: ${created.generatedPassword}`
+        : 'Usuário criado com sucesso.')
+    } else if (editingUserId) {
+      // Update agora envia também nome, e-mail, telefone e senha (se houver).
+      await updateSystemUser.mutateAsync({
+        id: editingUserId,
+        name: userForm.name,
+        email: userForm.email,
+        phone: userForm.phone || undefined,
+        role: userForm.role,
+        active: userForm.active,
+        permissions: userForm.permissions,
+        password: wantsPasswordChange ? userPassword.trim() : undefined,
+      })
+      setUserSaveMsg(wantsPasswordChange
+        ? 'Usuário atualizado e senha redefinida.'
+        : 'Usuário atualizado com sucesso.')
+    }
+    setUserPassword('')
+    setUserPasswordConfirm('')
     setEditingUserId(null)
   }
 
@@ -590,7 +634,7 @@ export default function ConfiguracoesPage() {
             <div>
               <div className="admin-responsive-header" style={{ marginBottom: 'var(--space-6)' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-section)' }}>Usuários do Sistema</h3>
-                <button className="btn btn-primary btn-sm" onClick={() => { setEditingUserId('new'); setUserForm({ name: '', email: '', role: 'RECEPTIONIST', active: true, permissions: {} }) }}>
+                <button className="btn btn-primary btn-sm" onClick={() => { setEditingUserId('new'); setUserForm({ name: '', email: '', phone: '', role: 'RECEPTIONIST', active: true, permissions: {} }); setUserPassword(''); setUserPasswordConfirm(''); setUserPasswordError('') }}>
                   <Plus size={14} /> Novo Usuário
                 </button>
               </div>
@@ -599,18 +643,21 @@ export default function ConfiguracoesPage() {
                 <div className="card" style={{ marginBottom: 'var(--space-6)', background: 'var(--color-bg-subtle)' }}>
                   <h4 style={{ marginBottom: 'var(--space-4)', fontSize: 14 }}>{editingUserId === 'new' ? 'Adicionar Usuário' : 'Editar Usuário'}</h4>
                   <div className="form-2col" style={{ marginBottom: 'var(--space-4)' }}>
-                    {editingUserId === 'new' && (
-                      <>
-                        <div className="input-group">
-                          <label className="input-label">Nome Completo</label>
-                          <input className="input-field" value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} />
-                        </div>
-                        <div className="input-group">
-                          <label className="input-label">E-mail (Login)</label>
-                          <input className="input-field" type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} />
-                        </div>
-                      </>
-                    )}
+                    {/* Nome / E-mail / Telefone agora ficam visíveis também
+                        no modo edição — admin pode alterar qualquer dado
+                        cadastral do usuário interno. */}
+                    <div className="input-group">
+                      <label className="input-label">Nome Completo</label>
+                      <input className="input-field" value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">E-mail (Login)</label>
+                      <input className="input-field" type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Telefone</label>
+                      <input className="input-field" value={userForm.phone} onChange={e => setUserForm({ ...userForm, phone: e.target.value })} placeholder="(00) 00000-0000" />
+                    </div>
                     <div className="input-group">
                       <label className="input-label">Perfil de Acesso</label>
                       <select className="input-field" value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })}>
@@ -624,6 +671,47 @@ export default function ConfiguracoesPage() {
                         <label className="input-label" style={{ marginBottom: 0 }}>Usuário Ativo (Pode acessar o sistema)</label>
                       </div>
                     )}
+                  </div>
+
+                  {/* Bloco de senha — admin pode definir/redefinir a senha
+                      do usuário interno. Em "Editar", deixar em branco mantém
+                      a senha atual. */}
+                  <div style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-4)', borderRadius: 8, border: '1px dashed var(--color-border-default)' }}>
+                    <label className="input-label" style={{ marginBottom: 'var(--space-3)' }}>
+                      {editingUserId === 'new' ? 'Senha (opcional)' : 'Alterar senha (opcional)'}
+                    </label>
+                    <div className="form-2col">
+                      <div className="input-group">
+                        <label className="input-label">Nova senha</label>
+                        <input
+                          className="input-field"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="Mínimo 6 caracteres"
+                          value={userPassword}
+                          onChange={e => setUserPassword(e.target.value)}
+                        />
+                      </div>
+                      <div className="input-group">
+                        <label className="input-label">Confirmar senha</label>
+                        <input
+                          className="input-field"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="Repita a senha"
+                          value={userPasswordConfirm}
+                          onChange={e => setUserPasswordConfirm(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {userPasswordError && (
+                      <p style={{ color: 'var(--color-accent-danger)', fontSize: 12, marginTop: 6 }}>{userPasswordError}</p>
+                    )}
+                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 6 }}>
+                      {editingUserId === 'new'
+                        ? 'Se vazio, a senha padrão "123456" será definida.'
+                        : 'Deixe em branco para manter a senha atual.'}
+                    </p>
                   </div>
 
                   <div style={{ marginBottom: 'var(--space-6)' }}>
@@ -674,7 +762,7 @@ export default function ConfiguracoesPage() {
                       </td>
                       <td>
                         <div className="row-actions">
-                          <button className="btn btn-icon btn-sm" onClick={() => { setEditingUserId(su.id); setUserForm({ name: su.user.name, email: su.user.email, role: su.role, active: su.active, permissions: (su.permissions as Record<string, boolean>) || {} }) }}><Edit size={14} /></button>
+                          <button className="btn btn-icon btn-sm" onClick={() => { setEditingUserId(su.id); setUserForm({ name: su.user.name, email: su.user.email, phone: su.user.phone || '', role: su.role, active: su.active, permissions: (su.permissions as Record<string, boolean>) || {} }); setUserPassword(''); setUserPasswordConfirm(''); setUserPasswordError('') }}><Edit size={14} /></button>
                           <button className="btn btn-icon btn-sm" onClick={() => askDelete(`Remover acesso do usuário "${su.user?.name || su.id}"?`, () => deleteSystemUser.mutateAsync(su.id))}><Trash2 size={14} color="var(--color-accent-danger)" /></button>
                         </div>
                       </td>

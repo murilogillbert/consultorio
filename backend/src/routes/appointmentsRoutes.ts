@@ -13,5 +13,6 @@ r.patch('/:id/confirmation', ensureAuthenticated, appointmentsController.updateC
 r.patch('/:id/cancel', ensureAuthenticated, appointmentsController.cancel)
 r.patch('/:id/cancel-future', ensureAuthenticated, appointmentsController.cancelFuture)
 r.delete('/:id/permanent', ensureAuthenticated, appointmentsController.deletePermanent)
+r.delete('/:id/permanent-future', ensureAuthenticated, appointmentsController.deletePermanentFuture)
 
 export default r

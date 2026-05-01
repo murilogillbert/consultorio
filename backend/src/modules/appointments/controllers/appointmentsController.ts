@@ -4,6 +4,7 @@ import { AppointmentsRepository } from '../../patients/repositories/PatientsRepo
 import { prisma } from '../../../config/database'
 import { AppError } from '../../../shared/errors/AppError'
 import { cancelFutureAppointmentsService } from '../services/cancelFutureAppointmentsService'
+import { deleteFutureAppointmentsService } from '../services/deleteFutureAppointmentsService'
 
 export class AppointmentsController {
   async index(req: Request, res: Response, next: NextFunction) {
@@ -139,6 +140,21 @@ export class AppointmentsController {
       })
 
       res.status(200).json({ message: 'Agendamento excluído permanentemente.' })
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  // DELETE /appointments/:id/permanent-future
+  // Exclui PERMANENTEMENTE este agendamento e todos os futuros da mesma
+  // série de recorrência (a partir do startTime selecionado). Não toca
+  // em consultas passadas. Diferente do cancel-future (mantém em cinza),
+  // aqui os registros somem do banco.
+  async deletePermanentFuture(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params as { id: string }
+      const result = await deleteFutureAppointmentsService(id)
+      res.status(200).json(result)
     } catch (err) {
       next(err)
     }

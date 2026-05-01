@@ -1,15 +1,14 @@
 import { useState, useMemo, useRef } from 'react'
-import { ChevronLeft, ChevronRight, X, MessageSquare, Search, Loader2, Plus, XCircle, DollarSign, Calendar, CalendarRange, Edit2, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, MessageSquare, Search, Loader2, Plus, DollarSign, Calendar, CalendarRange, Edit2, Trash2 } from 'lucide-react'
 import {
   useAppointments,
   useCreateAppointment,
-  useCancelAppointment,
   useUpdateAppointmentStatus,
   useCreateRecurringAppointments,
   useUpdateAppointment,
   useUpdatePatientConfirmation,
-  useCancelFutureAppointments,
   useDeleteAppointmentPermanent,
+  useDeleteFutureAppointments,
 } from '../../hooks/useAppointments'
 import { useProfessionals } from '../../hooks/useProfessionals'
 import { useServices } from '../../hooks/useServices'
@@ -24,13 +23,15 @@ const timeSlots = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:3
 // Status disponíveis no seletor (ordem de exibição).
 // "Desmarcado pelo paciente" (NO_SHOW) mantém o horário ocupado — o paciente
 // não compareceu/desmarcou, mas o slot aconteceu e fica registrado no histórico.
+// O status "Cancelado" foi removido do fluxo: para liberar/remover um
+// agendamento usa-se a ação de Excluir (apaga do banco) em vez de cancelar
+// (que mantinha em cinza). Isso evita confusão entre "cancelar" e "excluir".
 const STATUS_OPTIONS: { value: string; label: string; tone: string }[] = [
   { value: 'SCHEDULED',   label: 'Agendado',                  tone: 'gold' },
   { value: 'CONFIRMED',   label: 'Confirmado',                tone: 'emerald' },
   { value: 'IN_PROGRESS', label: 'Em Atendimento',            tone: 'emerald' },
   { value: 'COMPLETED',   label: 'Realizado',                 tone: 'emerald' },
   { value: 'NO_SHOW',     label: 'Desmarcado pelo paciente',  tone: 'muted' },
-  { value: 'CANCELLED',   label: 'Cancelado',                 tone: 'danger' },
 ]
 
 const STATUS_LABEL: Record<string, string> = Object.fromEntries(
@@ -89,10 +90,12 @@ export default function AgendaPage() {
   const [profFilter, setProfFilter] = useState('')
   const [showFormModal, setShowFormModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [cancelChoice, setCancelChoice] = useState<'one' | 'future' | null>(null)
-  const [showCancelModal, setShowCancelModal] = useState(false)
+  // Estados do modal de exclusão. "deleteScope" é a escolha entre apagar
+  // só este agendamento ou ele e todos os futuros da mesma série de
+  // recorrência. Para agendamentos sem recurrenceGroupId, deleteScope
+  // sempre fica como 'one'.
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteScope, setDeleteScope] = useState<'one' | 'future'>('one')
   const [formError, setFormError] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [drawerMsg, setDrawerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -134,8 +137,7 @@ export default function AgendaPage() {
 
   const createAppointment = useCreateAppointment()
   const updateAppointment = useUpdateAppointment()
-  const cancelAppointment = useCancelAppointment()
-  const cancelFuture = useCancelFutureAppointments()
+  const deleteFuture = useDeleteFutureAppointments()
   const deleteAppointment = useDeleteAppointmentPermanent()
   const updateStatus = useUpdateAppointmentStatus()
   const updateConfirmation = useUpdatePatientConfirmation()
@@ -157,6 +159,9 @@ export default function AgendaPage() {
   const calendarMinWidth = Math.max(720, 60 + calendarColumnCount * 180)
   const selectedPaymentStatus = selectedAppointment?.paymentStatus
   const selectedIsPaid = selectedPaymentStatus === 'PAID'
+  // Mantém a exibição de etiqueta para registros legados (CANCELLED ainda
+  // pode aparecer em dados históricos, mesmo após a remoção do fluxo de
+  // cancelamento da UI).
   const selectedIsCancelled = selectedAppointment?.status === 'CANCELLED'
   const cancellationLabel = selectedIsCancelled
     ? (selectedAppointment?.cancellationSource === 'PATIENT'
@@ -287,46 +292,28 @@ export default function AgendaPage() {
     }
   }
 
-  const handleDeletePermanent = async () => {
+  // Exclui o agendamento. Se selectedAppointment tem recurrenceGroupId e o
+  // usuário escolheu 'future', apaga este e todos os futuros da série.
+  // Caso contrário, apaga apenas este. Em ambos os casos é um DELETE real
+  // no banco (não cancelamento).
+  const handleDeleteConfirmed = async () => {
     if (!selectedAppointment) return
-    try {
-      await deleteAppointment.mutateAsync(selectedAppointment.id)
-      setShowDeleteConfirm(false)
-      setSelectedAppointment(null)
-      setDrawerMsg(null)
-    } catch (err: any) {
-      setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao excluir agendamento.' })
-    }
-  }
-
-  const handleConfirmCancel = async () => {
-    if (!selectedAppointment || !cancelChoice) return
     setDrawerMsg(null)
     try {
-      if (cancelChoice === 'future') {
-        const result = await cancelFuture.mutateAsync({
-          id: selectedAppointment.id,
-          reason: cancelReason || undefined,
-          source: 'RECEPTION',
-        })
-        setShowCancelModal(false)
+      if (deleteScope === 'future' && selectedAppointment.recurrenceGroupId) {
+        const result = await deleteFuture.mutateAsync(selectedAppointment.id)
+        setShowDeleteConfirm(false)
         setSelectedAppointment(null)
-        setCancelReason('')
-        setCancelChoice(null)
+        setDeleteScope('one')
         setDrawerMsg({ type: 'success', text: result.message })
         return
       }
-      await cancelAppointment.mutateAsync({
-        id: selectedAppointment.id,
-        reason: cancelReason || 'Cancelado pela recepção',
-        source: 'RECEPTION',
-      })
-      setShowCancelModal(false)
-      setCancelReason('')
-      setCancelChoice(null)
+      await deleteAppointment.mutateAsync(selectedAppointment.id)
+      setShowDeleteConfirm(false)
       setSelectedAppointment(null)
+      setDeleteScope('one')
     } catch (err: any) {
-      setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao cancelar.' })
+      setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao excluir agendamento.' })
     }
   }
 
@@ -631,39 +618,33 @@ export default function AgendaPage() {
                 <MessageSquare size={16} /> {notifyStaff.isPending ? 'Avisando...' : 'Avisar Funcionário'}
               </button>
 
-              {!selectedIsCancelled && selectedAppointment.status !== 'COMPLETED' && (
+              {/* Excluir = remoção real do banco (cancelamento foi removido
+                  do fluxo). Para séries de recorrência o usuário escolhe
+                  no próprio modal se apaga só este ou todos os futuros. */}
+              {selectedAppointment.status !== 'COMPLETED' && (
                 <button
                   className="btn btn-ghost btn-sm"
                   style={{ color: 'var(--color-accent-danger)', marginTop: 8 }}
                   onClick={() => {
-                    setShowCancelModal(true)
-                    setCancelChoice(selectedAppointment.recurrenceGroupId ? null : 'one')
-                    setCancelReason('')
+                    setDeleteScope('one')
+                    setShowDeleteConfirm(true)
                   }}
                 >
-                  <XCircle size={14} /> Cancelar Agendamento
+                  <Trash2 size={14} /> Excluir Agendamento
                 </button>
               )}
-
-              {/* Excluir = remoção real do banco. Diferente do cancelamento
-                  (que mantém histórico em cinza), o registro deixa de existir. */}
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ color: 'var(--color-accent-danger)', opacity: 0.85 }}
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 size={14} /> Excluir Agendamento
-              </button>
             </div>
           </div>
           </>
         )}
       </div>
 
-      {/* Confirmação de exclusão permanente */}
+      {/* Confirmação de exclusão permanente — quando o agendamento faz
+          parte de uma recorrência, oferece a escolha "este apenas" vs
+          "este e todos os futuros". */}
       {showDeleteConfirm && selectedAppointment && (
         <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Trash2 size={18} color="var(--color-accent-danger)" /> Excluir Agendamento
@@ -671,86 +652,50 @@ export default function AgendaPage() {
               <button className="modal-close" onClick={() => setShowDeleteConfirm(false)}><X size={20} /></button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: 13, marginBottom: 8 }}>
+              {selectedAppointment.recurrenceGroupId && (
+                <>
+                  <p style={{ fontSize: 13, marginBottom: 12 }}>
+                    Este agendamento faz parte de uma recorrência. Como deseja excluir?
+                  </p>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 10, border: '1px solid var(--color-border-default)', borderRadius: 8, marginBottom: 8, cursor: 'pointer', background: deleteScope === 'one' ? 'rgba(45,106,79,0.05)' : 'transparent' }}>
+                    <input
+                      type="radio"
+                      checked={deleteScope === 'one'}
+                      onChange={() => setDeleteScope('one')}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>Excluir apenas este</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Mantém os demais agendamentos da série.</div>
+                    </div>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 10, border: '1px solid var(--color-border-default)', borderRadius: 8, marginBottom: 12, cursor: 'pointer', background: deleteScope === 'future' ? 'rgba(139,32,32,0.05)' : 'transparent' }}>
+                    <input
+                      type="radio"
+                      checked={deleteScope === 'future'}
+                      onChange={() => setDeleteScope('future')}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>Excluir este e todos os futuros</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Apaga todas as próximas ocorrências da série. Não afeta as passadas.</div>
+                    </div>
+                  </label>
+                </>
+              )}
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                 Esta ação <strong>não pode ser desfeita</strong>. O agendamento e seus registros relacionados
                 (cobrança, uso de equipamento) serão removidos do banco.
-              </p>
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                Para preservar o histórico, prefira <strong>Cancelar</strong> em vez de excluir.
               </p>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)}>Voltar</button>
               <button
                 className="btn btn-danger"
-                onClick={handleDeletePermanent}
-                disabled={deleteAppointment.isPending}
+                onClick={handleDeleteConfirmed}
+                disabled={deleteAppointment.isPending || deleteFuture.isPending}
               >
-                {deleteAppointment.isPending ? 'Excluindo...' : 'Excluir Permanentemente'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cancel modal: este apenas / este e futuros */}
-      {showCancelModal && selectedAppointment && (
-        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
-          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <XCircle size={20} color="var(--color-accent-danger)" /> Cancelar Agendamento
-              </h3>
-              <button className="modal-close" onClick={() => setShowCancelModal(false)}><X size={20} /></button>
-            </div>
-            <div className="modal-body">
-              {selectedAppointment.recurrenceGroupId && (
-                <>
-                  <p style={{ fontSize: 13, marginBottom: 12 }}>
-                    Este agendamento faz parte de uma recorrência. Como deseja cancelar?
-                  </p>
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 10, border: '1px solid var(--color-border-default)', borderRadius: 8, marginBottom: 8, cursor: 'pointer', background: cancelChoice === 'one' ? 'rgba(45,106,79,0.05)' : 'transparent' }}>
-                    <input
-                      type="radio"
-                      checked={cancelChoice === 'one'}
-                      onChange={() => setCancelChoice('one')}
-                      style={{ marginTop: 3 }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>Cancelar apenas este</div>
-                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Mantém os demais agendamentos da série.</div>
-                    </div>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 10, border: '1px solid var(--color-border-default)', borderRadius: 8, marginBottom: 12, cursor: 'pointer', background: cancelChoice === 'future' ? 'rgba(139,32,32,0.05)' : 'transparent' }}>
-                    <input
-                      type="radio"
-                      checked={cancelChoice === 'future'}
-                      onChange={() => setCancelChoice('future')}
-                      style={{ marginTop: 3 }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>Cancelar este e todos os futuros</div>
-                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Cancela todas as próximas ocorrências da série. Não afeta as passadas.</div>
-                    </div>
-                  </label>
-                </>
-              )}
-              <input
-                className="input-field"
-                placeholder="Motivo (opcional)"
-                value={cancelReason}
-                onChange={e => setCancelReason(e.target.value)}
-                style={{ fontSize: 13 }}
-              />
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowCancelModal(false)}>Voltar</button>
-              <button
-                className="btn btn-danger"
-                onClick={handleConfirmCancel}
-                disabled={!cancelChoice || cancelAppointment.isPending || cancelFuture.isPending}
-              >
-                {cancelAppointment.isPending || cancelFuture.isPending ? 'Cancelando...' : 'Confirmar Cancelamento'}
+                {(deleteAppointment.isPending || deleteFuture.isPending) ? 'Excluindo...' : 'Excluir Permanentemente'}
               </button>
             </div>
           </div>

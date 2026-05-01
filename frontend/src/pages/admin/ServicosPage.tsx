@@ -35,6 +35,7 @@ export default function ServicosPage() {
     duration: '',
     price: '',
     showPrice: true,
+    showDuration: true,
     preparation: '',
     onlineBooking: true,
     roomIds: [] as string[],
@@ -77,7 +78,7 @@ export default function ServicosPage() {
 
   const emptyForm = {
     name: '', category: '', shortDescription: '', description: '',
-    duration: '', price: '', showPrice: true, preparation: '', onlineBooking: true,
+    duration: '', price: '', showPrice: true, showDuration: true, preparation: '', onlineBooking: true,
     roomIds: [] as string[], equipmentIds: [] as string[],
     insuranceBindings: [] as Array<{ insuranceId: string; price: string; showPrice: boolean }>, professionalIds: [] as string[]
   }
@@ -95,6 +96,7 @@ export default function ServicosPage() {
         duration: parseInt(formData.duration) || 30,
         price: Math.round(parseFloat(priceRaw) * 100) || 0,
         showPrice: formData.showPrice,
+        showDuration: formData.showDuration,
         preparation: formData.preparation || undefined,
         onlineBooking: formData.onlineBooking,
         roomIds: formData.roomIds,
@@ -129,6 +131,7 @@ export default function ServicosPage() {
       duration: String(svc.duration),
       price: (svc.price / 100).toFixed(2).replace('.', ','),
       showPrice: svc.showPrice ?? true,
+      showDuration: (svc as any).showDuration ?? true,
       preparation: svc.preparation || '',
       onlineBooking: svc.onlineBooking,
       roomIds: svc.rooms?.map(r => r.id) || [],
@@ -545,6 +548,14 @@ export default function ServicosPage() {
                   value={formData.duration}
                   onChange={e => setFormData({ ...formData, duration: e.target.value })}
                 />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap', marginTop: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.showDuration}
+                    onChange={e => setFormData({ ...formData, showDuration: e.target.checked })}
+                  />
+                  Exibir duração para o cliente
+                </label>
               </div>
               <div className="input-group">
                 <label className="input-label">Valor (R$) <span className="required">*</span></label>

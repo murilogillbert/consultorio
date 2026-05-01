@@ -11,6 +11,7 @@ public class CreateServiceDto
     public int DurationMinutes { get; set; } = 60;
     public decimal Price { get; set; }
     public bool ShowPrice { get; set; } = true;
+    public bool ShowDuration { get; set; } = true;
     public string? Category { get; set; }
     public bool RequiresRoom { get; set; } = false;
     public Guid? DefaultRoomId { get; set; }
@@ -41,6 +42,7 @@ public class UpdateServiceDto
     public int? DurationMinutes { get; set; }
     public decimal? Price { get; set; }
     public bool? ShowPrice { get; set; }
+    public bool? ShowDuration { get; set; }
     public string? Category { get; set; }
     public bool? RequiresRoom { get; set; }
     public Guid? DefaultRoomId { get; set; }
@@ -96,6 +98,7 @@ public class ServiceResponseDto
     public int DurationMinutes { get; set; }
     public decimal Price { get; set; }
     public bool ShowPrice { get; set; } = true;
+    public bool ShowDuration { get; set; } = true;
     public string? Category { get; set; }
     public bool RequiresRoom { get; set; }
     public Guid? DefaultRoomId { get; set; }

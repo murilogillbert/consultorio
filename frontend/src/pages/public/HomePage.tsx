@@ -169,10 +169,12 @@ export default function HomePage() {
                     <Icon size={24} />
                   </div>
                   <h3>{service.name}</h3>
-                  <div className="duration">
-                    <Clock size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                    {formatDuration(service.duration)}
-                  </div>
+                  {service.showDuration && (
+                    <div className="duration">
+                      <Clock size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                      {formatDuration(service.duration)}
+                    </div>
+                  )}
                   {hasDisplayPrice(service.price, service.showPrice) && (
                     <div className="price">{formatPrice(service.price)}</div>
                   )}

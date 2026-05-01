@@ -269,3 +269,20 @@ export function useDeleteAppointmentPermanent() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
   })
 }
+
+// Exclui PERMANENTEMENTE este agendamento e todos os futuros que
+// pertencem à mesma série de recorrência. Não toca em consultas passadas.
+// Diferente de cancel-future (mantém em cinza), aqui o registro
+// some do banco.
+export function useDeleteFutureAppointments() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete<{ count: number; message: string }>(
+        `/appointments/${id}/permanent-future`
+      )
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  })
+}

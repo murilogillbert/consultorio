@@ -159,7 +159,10 @@ export class SchedulesService {
           availableSlots.push({ startTime: slotStart, endTime: slotEnd })
         }
 
-        currentMinutes += 30 // slots every 30 minutes
+        // Avança em passos iguais à duração do serviço, garantindo que
+        // serviços de 60/90/120 minutos não gerem slots sobrepostos e que
+        // serviços de 30 minutos continuem oferecendo slots a cada 30.
+        currentMinutes += durationMinutes
       }
     }
 

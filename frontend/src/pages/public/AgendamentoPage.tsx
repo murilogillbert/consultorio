@@ -172,7 +172,9 @@ export default function AgendamentoPage() {
                     style={{ accentColor: 'var(--color-accent-emerald)' }} />
                   <div style={{ flex: 1 }}>
                     <span style={{ fontWeight: 500 }}>{s.name}</span>
-                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{s.duration} min — {getServicePriceLabel(s.price, s.showPrice)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
+                      {s.showDuration ? `${s.duration} min — ` : ''}{getServicePriceLabel(s.price, s.showPrice)}
+                    </div>
                   </div>
                 </label>
               ))}

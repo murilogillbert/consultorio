@@ -35,6 +35,7 @@ public class ServicesController : ControllerBase
         DurationMinutes = s.DurationMinutes,
         Price          = s.Price,
         ShowPrice      = s.ShowPrice,
+        ShowDuration   = s.ShowDuration,
         Category       = s.Category,
         RequiresRoom   = s.RequiresRoom,
         DefaultRoomId  = s.DefaultRoomId,
@@ -125,6 +126,7 @@ public class ServicesController : ControllerBase
             DurationMinutes = dto.DurationMinutes,
             Price           = dto.Price,
             ShowPrice       = dto.ShowPrice,
+            ShowDuration    = dto.ShowDuration,
             Category        = dto.Category,
             RequiresRoom    = dto.RequiresRoom,
             DefaultRoomId   = dto.DefaultRoomId,
@@ -213,6 +215,7 @@ public class ServicesController : ControllerBase
         if (dto.DurationMinutes.HasValue) service.DurationMinutes = dto.DurationMinutes.Value;
         if (dto.Price.HasValue)          service.Price           = dto.Price.Value;
         if (dto.ShowPrice.HasValue)      service.ShowPrice       = dto.ShowPrice.Value;
+        if (dto.ShowDuration.HasValue)   service.ShowDuration    = dto.ShowDuration.Value;
         if (dto.Category        != null) service.Category        = dto.Category;
         if (dto.RequiresRoom.HasValue)   service.RequiresRoom    = dto.RequiresRoom.Value;
         if (dto.DefaultRoomId.HasValue)  service.DefaultRoomId   = dto.DefaultRoomId.Value;
