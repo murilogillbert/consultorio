@@ -73,6 +73,7 @@ interface FormState {
   patientId: string
   professionalId: string
   serviceId: string
+  insurancePlanId: string
   date: string
   startTime: string
   duration: string
@@ -105,6 +106,7 @@ export default function AgendaPage() {
     patientId: '',
     professionalId: '',
     serviceId: '',
+    insurancePlanId: '',
     date: selectedDate,
     startTime: '08:00',
     duration: '30',
@@ -194,6 +196,7 @@ export default function AgendaPage() {
       patientId: appt.patientId,
       professionalId: appt.professionalId,
       serviceId: appt.serviceId,
+      insurancePlanId: appt.insurancePlanId || '',
       date,
       startTime: time,
       duration,
@@ -224,6 +227,7 @@ export default function AgendaPage() {
           patientId: form.patientId,
           professionalId: form.professionalId,
           serviceId: form.serviceId,
+          insurancePlanId: form.insurancePlanId || null,
           startTime: startIso,
           notes: form.notes || undefined,
           appointmentType: form.appointmentType,
@@ -238,6 +242,7 @@ export default function AgendaPage() {
           patientId: form.patientId,
           professionalId: form.professionalId,
           serviceId: form.serviceId,
+          insurancePlanId: form.insurancePlanId || undefined,
           startTime: startIso,
           notes: form.notes || undefined,
           durationDays: 90,
@@ -253,6 +258,7 @@ export default function AgendaPage() {
           patientId: form.patientId,
           professionalId: form.professionalId,
           serviceId: form.serviceId,
+          insurancePlanId: form.insurancePlanId || undefined,
           startTime: startIso,
           endTime: startIso, // backend recalcula pelo serviço
           notes: form.notes || undefined,
@@ -277,6 +283,28 @@ export default function AgendaPage() {
       setDrawerMsg({ type: 'success', text: `Status atualizado para ${STATUS_LABEL[newStatus] || newStatus}.` })
     } catch (err: any) {
       setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao atualizar status.' })
+    }
+  }
+
+  // Convênios disponíveis para o serviço do agendamento selecionado no drawer.
+  const drawerServiceInsurances = useMemo(() => {
+    if (!selectedAppointment?.serviceId) return []
+    const svc = services.find(s => s.id === selectedAppointment.serviceId)
+    return svc?.insurances || []
+  }, [selectedAppointment?.serviceId, services])
+
+  const handleInsuranceChange = async (insurancePlanId: string) => {
+    if (!selectedAppointment) return
+    setDrawerMsg(null)
+    try {
+      const updated = await updateAppointment.mutateAsync({
+        id: selectedAppointment.id,
+        insurancePlanId: insurancePlanId || null,
+      })
+      setSelectedAppointment(updated)
+      setDrawerMsg({ type: 'success', text: insurancePlanId ? 'Convênio atualizado.' : 'Convênio removido.' })
+    } catch (err: any) {
+      setDrawerMsg({ type: 'error', text: err?.response?.data?.message || 'Erro ao atualizar convênio.' })
     }
   }
 
@@ -498,6 +526,38 @@ export default function AgendaPage() {
                 <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Serviço</span>
                 <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{selectedAppointment.service?.name || '—'}</p>
               </div>
+
+              {/* Convênio — editável inline se o serviço aceitar convênios */}
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Convênio</span>
+                {drawerServiceInsurances.length > 0 ? (
+                  <select
+                    className="input-field"
+                    style={{ marginTop: 4 }}
+                    value={selectedAppointment.insurancePlanId || ''}
+                    onChange={e => handleInsuranceChange(e.target.value)}
+                    disabled={updateAppointment.isPending}
+                  >
+                    <option value="">Particular (sem convênio)</option>
+                    {drawerServiceInsurances.map(i => (
+                      <option key={i.insurancePlan.id} value={i.insurancePlan.id}>
+                        {i.insurancePlan.name}
+                        {i.showPrice && i.price != null ? ` — R$ ${(Number(i.price)).toFixed(2).replace('.', ',')}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p style={{ fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
+                    {selectedAppointment.insurancePlan?.name || 'Particular'}
+                    {!selectedAppointment.insurancePlan && (
+                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: 6 }}>
+                        (serviço sem convênios cadastrados)
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Data/Hora</span>
@@ -751,7 +811,8 @@ export default function AgendaPage() {
                   <label className="input-label">Serviço <span className="required">*</span></label>
                   <select className="input-field" value={form.serviceId} onChange={e => {
                     const svc = services.find(s => s.id === e.target.value)
-                    setForm({ ...form, serviceId: e.target.value, duration: svc ? String(svc.duration) : form.duration })
+                    // Ao trocar o serviço, limpa o convênio pois os aceitos podem ser diferentes.
+                    setForm({ ...form, serviceId: e.target.value, insurancePlanId: '', duration: svc ? String(svc.duration) : form.duration })
                   }}>
                     <option value="">Selecione...</option>
                     {services.map(s => (
@@ -759,6 +820,30 @@ export default function AgendaPage() {
                     ))}
                   </select>
                 </div>
+                {/* Convênio — exibido apenas quando o serviço selecionado aceitar convênios */}
+                {(() => {
+                  const selectedService = services.find(s => s.id === form.serviceId)
+                  const insuranceOptions = selectedService?.insurances || []
+                  if (!form.serviceId || insuranceOptions.length === 0) return null
+                  return (
+                    <div className="input-group">
+                      <label className="input-label">Convênio</label>
+                      <select
+                        className="input-field"
+                        value={form.insurancePlanId}
+                        onChange={e => setForm({ ...form, insurancePlanId: e.target.value })}
+                      >
+                        <option value="">Particular (sem convênio)</option>
+                        {insuranceOptions.map(i => (
+                          <option key={i.insurancePlan.id} value={i.insurancePlan.id}>
+                            {i.insurancePlan.name}
+                            {i.showPrice && i.price != null ? ` — R$ ${(Number(i.price)).toFixed(2).replace('.', ',')}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )
+                })()}
                 <div className="input-group">
                   <label className="input-label">Tipo de atendimento</label>
                   <select className="input-field" value={form.appointmentType} onChange={e => setForm({ ...form, appointmentType: e.target.value as 'ONLINE' | 'IN_PERSON' })}>
