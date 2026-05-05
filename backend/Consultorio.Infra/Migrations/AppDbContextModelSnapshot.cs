@@ -578,6 +578,24 @@ namespace Consultorio.Infra.Migrations
                     b.Property<string>("WaWabaId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("SmtpConnected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SmtpFrom")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SmtpHost")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SmtpPassword")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SmtpPort")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SmtpUsername")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Website")
                         .HasColumnType("nvarchar(max)");
 

@@ -17,13 +17,15 @@ public class AuthController : ControllerBase
     private readonly TokenService _tokenService;
     private readonly GoogleOAuthService _googleOAuth;
     private readonly IEmailService _emailService;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(AppDbContext db, TokenService tokenService, GoogleOAuthService googleOAuth, IEmailService emailService)
+    public AuthController(AppDbContext db, TokenService tokenService, GoogleOAuthService googleOAuth, IEmailService emailService, ILogger<AuthController> logger)
     {
         _db = db;
         _tokenService = tokenService;
         _googleOAuth = googleOAuth;
         _emailService = emailService;
+        _logger = logger;
     }
 
     // ─── POST /api/auth/login ──────────────────────────────────────────
@@ -267,6 +269,8 @@ public class AuthController : ControllerBase
             return Ok(new { message = genericMessage });
 
         var users = await _db.Users
+            .Include(u => u.SystemUser)
+            .Include(u => u.Patient)
             .Where(u => u.Email == dto.Email && u.IsActive)
             .ToListAsync();
 
@@ -285,6 +289,28 @@ public class AuthController : ControllerBase
         }
         await _db.SaveChangesAsync();
 
+        // Resolve per-clinic SMTP override (SystemUser or Patient → ClinicId)
+        var clinicId = users
+            .Select(u => u.SystemUser?.ClinicId ?? u.Patient?.ClinicId)
+            .FirstOrDefault(id => id.HasValue);
+
+        SmtpOverride? smtpOverride = null;
+        if (clinicId.HasValue)
+        {
+            var clinic = await _db.Clinics.FindAsync(clinicId.Value);
+            if (clinic != null &&
+                !string.IsNullOrWhiteSpace(clinic.SmtpHost) &&
+                !string.IsNullOrWhiteSpace(clinic.SmtpPassword))
+            {
+                smtpOverride = new SmtpOverride(
+                    clinic.SmtpHost,
+                    clinic.SmtpPort ?? 587,
+                    clinic.SmtpUsername ?? "",
+                    clinic.SmtpPassword,
+                    clinic.SmtpFrom ?? clinic.SmtpUsername ?? "");
+            }
+        }
+
         var html = $@"
             <h2>Recuperação de acesso</h2>
             <p>Use o código abaixo para redefinir sua senha. Ele expira em 15 minutos.</p>
@@ -293,10 +319,11 @@ public class AuthController : ControllerBase
 
         try
         {
-            await _emailService.SendAsync(dto.Email, "Código de recuperação de acesso", html);
+            await _emailService.SendAsync(dto.Email, "Código de recuperação de acesso", html, smtpOverride);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Falha ao enviar e-mail de recuperação para {Email}", dto.Email);
             // Falha de envio não deve revelar nada ao cliente.
         }
 

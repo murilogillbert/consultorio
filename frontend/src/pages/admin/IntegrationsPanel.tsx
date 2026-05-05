@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import {
-  Mail, MessageCircle, CreditCard, Cloud,
+  Mail, MessageCircle, CreditCard, Cloud, Send,
   ChevronDown, Eye, EyeOff, Copy, Check, Loader2,
   AlertTriangle, Unplug, LogIn,
   Zap, Shield, Info
@@ -205,6 +205,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const gmailStatus: ConnectionStatus = existingSettings?.gmailConnected ? 'connected' : 'disconnected'
   const waStatus: ConnectionStatus = existingSettings?.waConnected ? 'connected' : 'disconnected'
   const mpStatus: ConnectionStatus = existingSettings?.connected ? 'connected' : 'disconnected'
+  const smtpStatus: ConnectionStatus = existingSettings?.smtpConnected
+    ? 'connected'
+    : existingSettings?.smtpHost || existingSettings?.smtpUsername
+      ? 'pending'
+      : 'disconnected'
   const pubsubStatus: ConnectionStatus = existingSettings?.pubsubConnected
     ? 'connected'
     : existingSettings?.pubsubServiceAccountConfigured || existingSettings?.pubsubProjectId || existingSettings?.pubsubTopicName
@@ -271,6 +276,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [pubsub, setPubsub] = useState({ projectId: '', topicName: '', serviceKey: '' })
   const [psErrors, setPsErrors] = useState<Record<string, string>>({})
 
+  /* SMTP state */
+  const [smtp, setSmtp] = useState({ host: '', port: '587', username: '', password: '', from: '' })
+  const [smtpErrors, setSmtpErrors] = useState<Record<string, string>>({})
+
   /* Handle initial data load */
   useEffect(() => {
     if (existingSettings) {
@@ -295,6 +304,13 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         projectId: existingSettings.pubsubProjectId || '',
         topicName: existingSettings.pubsubTopicName || '',
         serviceKey: existingSettings.pubsubServiceAccountMasked || existingSettings.pubsubServiceAccount || '',
+      })
+      setSmtp({
+        host:     existingSettings.smtpHost     || '',
+        port:     String(existingSettings.smtpPort ?? 587),
+        username: existingSettings.smtpUsername  || '',
+        password: existingSettings.smtpPasswordMasked || '',
+        from:     existingSettings.smtpFrom      || '',
       })
     }
   }, [existingSettings])
@@ -344,6 +360,25 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     return Object.keys(e).length === 0
   }
 
+  const validateSmtp = () => {
+    const e: Record<string, string> = {}
+    if (!smtp.host) e.host = 'Servidor SMTP é obrigatório'
+    if (!smtp.port || isNaN(Number(smtp.port))) e.port = 'Porta inválida'
+    if (!smtp.username) e.username = 'Usuário é obrigatório'
+    if (!smtp.password) e.password = 'Senha (App Password) é obrigatória'
+    if (!smtp.from) e.from = 'Remetente é obrigatório'
+    setSmtpErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const smtpPayload = {
+    smtpHost:     smtp.host     || null,
+    smtpPort:     smtp.port     ? Number(smtp.port) : null,
+    smtpUsername: smtp.username || null,
+    smtpPassword: isMaskedCredential(smtp.password) ? undefined : (smtp.password || null),
+    smtpFrom:     smtp.from     || null,
+  }
+
   const baseUrl = (api.defaults.baseURL || `${window.location.origin}/api`).replace(/\/$/, '')
   const isMaskedCredential = (value: string) => {
     const trimmed = value.trim()
@@ -370,7 +405,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <AlertTriangle size={18} />
         <div>
           <strong>Estado atual das integrações</strong>
-          <p>Hoje os e-mails automáticos do sistema usam SMTP ou Ethereal no backend. Gmail e Pub/Sub ainda estão em etapa parcial de construção.</p>
+          <p>Configure o SMTP na seção E-mail abaixo para ativar o envio de e-mails automáticos (recuperação de senha, etc). Gmail OAuth e Pub/Sub ainda estão em etapa parcial de construção.</p>
         </div>
       </div>
 
@@ -797,6 +832,113 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               }
             })
             await handleTest('pubsub')
+          }} />
+        </div>
+      </IntegrationSection>
+
+      {/* ═══════ SECTION 6: SMTP ═══════ */}
+      <IntegrationSection
+        icon={Send}
+        title="E-mail (SMTP)"
+        description="Configure o servidor de e-mail para envio de recuperação de senha e notificações"
+        status={smtpStatus}
+      >
+        <InstructionBox steps={[
+          'No Gmail, ative a verificação em duas etapas em myaccount.google.com',
+          'Em Segurança → Senhas de app, gere uma senha para "E-mail / Outro"',
+          'Use smtp.gmail.com como servidor, porta 587',
+          'O campo Usuário e Remetente devem ser o mesmo endereço Gmail',
+          'Cole a App Password (16 caracteres) no campo Senha',
+          'Salve e clique em Testar — um e-mail de verificação será enviado para o remetente',
+        ]} />
+
+        <div className="form-2col">
+          <SensitiveField
+            label="Servidor SMTP"
+            required
+            placeholder="smtp.gmail.com"
+            hint="Para Gmail use smtp.gmail.com · Para Outlook use smtp.office365.com"
+            mono
+            value={smtp.host}
+            saved={Boolean(existingSettings?.smtpHost) && smtp.host === (existingSettings?.smtpHost || '')}
+            onChange={v => { setSmtp(p => ({ ...p, host: v })); setSmtpErrors(p => ({ ...p, host: '' })) }}
+            error={smtpErrors.host}
+          />
+          <div className="input-group">
+            <label className="input-label">
+              Porta <span className="intg-required">*</span>
+            </label>
+            <input
+              className={`input-field${smtpErrors.port ? ' intg-error-border' : ''}`}
+              placeholder="587"
+              value={smtp.port}
+              onChange={e => { setSmtp(p => ({ ...p, port: e.target.value })); setSmtpErrors(p => ({ ...p, port: '' })) }}
+            />
+            {smtpErrors.port && <span className="intg-field-error">{smtpErrors.port}</span>}
+            <span className="intg-field-hint">587 (TLS/STARTTLS) · 465 (SSL) · 25 (sem criptografia)</span>
+          </div>
+          <SensitiveField
+            label="Usuário"
+            required
+            placeholder="psicologiaexistir@gmail.com"
+            hint="Geralmente é o próprio endereço de e-mail"
+            mono
+            value={smtp.username}
+            saved={Boolean(existingSettings?.smtpUsername) && smtp.username === (existingSettings?.smtpUsername || '')}
+            onChange={v => { setSmtp(p => ({ ...p, username: v })); setSmtpErrors(p => ({ ...p, username: '' })) }}
+            error={smtpErrors.username}
+          />
+          <SensitiveField
+            label="Remetente (From)"
+            required
+            placeholder="psicologiaexistir@gmail.com"
+            hint="Endereço que aparece como remetente nos e-mails — deve ser igual ao Usuário no Gmail"
+            mono
+            value={smtp.from}
+            saved={Boolean(existingSettings?.smtpFrom) && smtp.from === (existingSettings?.smtpFrom || '')}
+            onChange={v => { setSmtp(p => ({ ...p, from: v })); setSmtpErrors(p => ({ ...p, from: '' })) }}
+            error={smtpErrors.from}
+          />
+          <div className="input-group full-span">
+            <SensitiveField
+              label="Senha (App Password)"
+              required
+              placeholder="xxxx xxxx xxxx xxxx"
+              hint="⚠️ Use uma App Password do Google (16 chars) — a senha normal da conta não funciona desde 2022"
+              mono
+              value={smtp.password}
+              saved={Boolean(existingSettings?.smtpPasswordMasked)}
+              onChange={v => { setSmtp(p => ({ ...p, password: v })); setSmtpErrors(p => ({ ...p, password: '' })) }}
+              error={smtpErrors.password}
+            />
+          </div>
+        </div>
+
+        <div className="intg-actions">
+          <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+            if (!validateSmtp()) {
+              addToast('Preencha e salve todos os campos antes de testar', 'warning')
+              return
+            }
+            if (!clinicId) return
+            await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
+            await handleTest('smtp')
+          }} />
+          <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
+            if (!clinicId) return
+            await updateMutation.mutateAsync({ clinicId, data: { smtpConnected: false } as any })
+            addToast('SMTP desconectado', 'warning')
+          }} />
+          <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
+            const valid = validateSmtp()
+            if (!clinicId) return
+            await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
+            addToast(
+              valid
+                ? 'Configurações de e-mail salvas com sucesso'
+                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
+              valid ? 'success' : 'warning'
+            )
           }} />
         </div>
       </IntegrationSection>

@@ -46,6 +46,13 @@ public class IntegrationSettingsResponseDto
     public string? IgSendEndpoint          { get; set; }
     public string? IgSubscribeEndpoint     { get; set; }
     public string? IgConfirmEndpoint       { get; set; }
+    // SMTP per-clinic
+    public string? SmtpHost               { get; set; }
+    public int?    SmtpPort               { get; set; }
+    public string? SmtpUsername           { get; set; }
+    public string? SmtpPasswordMasked     { get; set; }
+    public string? SmtpFrom               { get; set; }
+    public bool    SmtpConnected          { get; set; }
 }
 
 public class UpdateIntegrationSettingsDto
@@ -80,6 +87,13 @@ public class UpdateIntegrationSettingsDto
     public string? IgAppSecret        { get; set; }
     public string? IgVerifyToken      { get; set; }
     public bool?   IgConnected        { get; set; }
+    // SMTP per-clinic
+    public string? SmtpHost           { get; set; }
+    public int?    SmtpPort           { get; set; }
+    public string? SmtpUsername       { get; set; }
+    public string? SmtpPassword       { get; set; }
+    public string? SmtpFrom           { get; set; }
+    public bool?   SmtpConnected      { get; set; }
 }
 
 

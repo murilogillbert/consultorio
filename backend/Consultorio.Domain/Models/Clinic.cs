@@ -60,6 +60,14 @@ public class Clinic
     public string? WaAppSecret     { get; set; }
     public bool    WaConnected     { get; set; } = false;
 
+    // SMTP credentials per clinic (overrides appsettings when set)
+    public string? SmtpHost     { get; set; }
+    public int?    SmtpPort     { get; set; }
+    public string? SmtpUsername { get; set; }
+    public string? SmtpPassword { get; set; }
+    public string? SmtpFrom     { get; set; }
+    public bool    SmtpConnected { get; set; } = false;
+
     // Instagram Direct API credentials per clinic
     public string? IgAccountId    { get; set; }
     public string? IgPageId       { get; set; }

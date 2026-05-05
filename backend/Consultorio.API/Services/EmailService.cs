@@ -3,9 +3,11 @@ using System.Net.Mail;
 
 namespace Consultorio.API.Services;
 
+public record SmtpOverride(string Host, int Port, string Username, string Password, string From);
+
 public interface IEmailService
 {
-    Task SendAsync(string toEmail, string subject, string htmlBody);
+    Task SendAsync(string toEmail, string subject, string htmlBody, SmtpOverride? smtp = null);
 }
 
 public class EmailService : IEmailService
@@ -19,19 +21,20 @@ public class EmailService : IEmailService
         _logger = logger;
     }
 
-    public async Task SendAsync(string toEmail, string subject, string htmlBody)
+    public async Task SendAsync(string toEmail, string subject, string htmlBody, SmtpOverride? smtp = null)
     {
-        var host = _config["Smtp:Host"];
-        var port = int.TryParse(_config["Smtp:Port"], out var p) ? p : 587;
-        var username = _config["Smtp:Username"];
-        var password = _config["Smtp:Password"];
-        var from = _config["Smtp:From"] ?? username;
+        // Per-clinic DB settings take priority; fall back to appsettings
+        var host     = smtp?.Host     ?? _config["Smtp:Host"];
+        var port     = smtp?.Port     ?? (int.TryParse(_config["Smtp:Port"], out var p) ? p : 587);
+        var username = smtp?.Username ?? _config["Smtp:Username"];
+        var password = smtp?.Password ?? _config["Smtp:Password"];
+        var from     = smtp?.From     ?? _config["Smtp:From"] ?? username;
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(from))
-            throw new InvalidOperationException("SMTP não configurado. Defina Smtp:Host, Smtp:Username e Smtp:From no servidor.");
+            throw new InvalidOperationException("SMTP não configurado. Configure em Integrações ou defina Smtp:Host, Smtp:Username e Smtp:From no servidor.");
 
         if (string.IsNullOrWhiteSpace(password))
-            throw new InvalidOperationException("SMTP sem senha configurada. Gere um App Password do Gmail e defina em Smtp:Password no servidor.");
+            throw new InvalidOperationException("SMTP sem senha configurada. Configure em Integrações > E-mail (SMTP) ou defina Smtp:Password no servidor.");
 
         using var client = new SmtpClient(host, port)
         {

@@ -54,6 +54,15 @@ export interface IntegrationSettings {
   igSendEndpoint?: string
   igSubscribeEndpoint?: string
   igConfirmEndpoint?: string
+
+  // ── SMTP per-clinic ──
+  smtpHost?: string
+  smtpPort?: number
+  smtpUsername?: string
+  smtpPasswordMasked?: string  // leitura: retornado mascarado pelo backend
+  smtpPassword?: string        // escrita: enviado ao backend (plain ou masked)
+  smtpFrom?: string
+  smtpConnected?: boolean
 }
 
 export function useIntegrations(clinicId?: string) {

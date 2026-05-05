@@ -248,6 +248,12 @@ public class ClinicsController : ControllerBase
             IgSendEndpoint     = hasOwner ? _instagram.Client.SendEndpoint(mode, ownerId) : null,
             IgSubscribeEndpoint= hasOwner ? _instagram.Client.SubscribeEndpoint(mode, ownerId) : null,
             IgConfirmEndpoint  = hasOwner ? _instagram.Client.ConfirmSubscribedAppsEndpoint(mode, ownerId) : null,
+            SmtpHost           = clinic.SmtpHost,
+            SmtpPort           = clinic.SmtpPort,
+            SmtpUsername       = clinic.SmtpUsername,
+            SmtpPasswordMasked = MaskSafe(clinic.SmtpPassword),
+            SmtpFrom           = clinic.SmtpFrom,
+            SmtpConnected      = clinic.SmtpConnected,
         };
     }
 
@@ -440,6 +446,14 @@ public class ClinicsController : ControllerBase
             clinic.IgVerifyToken = WhatsAppCloudService.SanitizeSecret(dto.IgVerifyToken);
         if (dto.IgConnected.HasValue) clinic.IgConnected = dto.IgConnected.Value;
 
+        if (dto.SmtpHost     != null) clinic.SmtpHost     = EmptyToNull(dto.SmtpHost);
+        if (dto.SmtpPort.HasValue)    clinic.SmtpPort     = dto.SmtpPort;
+        if (dto.SmtpUsername != null) clinic.SmtpUsername = EmptyToNull(dto.SmtpUsername);
+        if (dto.SmtpPassword != null && !IsMasked(dto.SmtpPassword))
+            clinic.SmtpPassword = EmptyToNull(dto.SmtpPassword);
+        if (dto.SmtpFrom     != null) clinic.SmtpFrom     = EmptyToNull(dto.SmtpFrom);
+        if (dto.SmtpConnected.HasValue) clinic.SmtpConnected = dto.SmtpConnected.Value;
+
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -579,6 +593,52 @@ public class ClinicsController : ControllerBase
         {
             clinic.MpConnected = false;
             clinic.UpdatedAt   = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
+    // ─── POST /api/clinics/{id}/settings/integrations/smtp/test ──────────────
+    [HttpPost("{id}/settings/integrations/smtp/test")]
+    [Authorize]
+    public async Task<ActionResult> TestSmtp(Guid id)
+    {
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+            return NotFound(new { message = "Clínica não encontrada." });
+
+        if (string.IsNullOrWhiteSpace(clinic.SmtpHost) ||
+            string.IsNullOrWhiteSpace(clinic.SmtpUsername) ||
+            string.IsNullOrWhiteSpace(clinic.SmtpPassword) ||
+            string.IsNullOrWhiteSpace(clinic.SmtpFrom))
+            return Ok(new { ok = false, message = "Preencha e salve Host, Usuário, Senha e Remetente antes de testar." });
+
+        try
+        {
+            var smtpOverride = new SmtpOverride(
+                clinic.SmtpHost,
+                clinic.SmtpPort ?? 587,
+                clinic.SmtpUsername,
+                clinic.SmtpPassword,
+                clinic.SmtpFrom);
+
+            await _emailService.SendAsync(
+                clinic.SmtpFrom,
+                "Teste de e-mail — Consultório",
+                "<p>Configuração SMTP funcionando corretamente.</p>",
+                smtpOverride);
+
+            clinic.SmtpConnected = true;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { ok = true, message = "E-mail de teste enviado com sucesso", detail = clinic.SmtpFrom });
+        }
+        catch (Exception ex)
+        {
+            clinic.SmtpConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
             return Ok(new { ok = false, message = ex.Message });
