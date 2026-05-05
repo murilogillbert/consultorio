@@ -77,12 +77,14 @@ export function useUpdatePatient() {
     mutationFn: async ({ id, ...data }: Partial<Patient> & { id: string }) => {
       // Omit fields that are empty string to avoid backend parse errors (e.g. birthDate: "")
       const payload: any = {}
-      if (data.user?.name) payload.name = data.user.name
-      if (data.cpf) payload.cpf = data.cpf
-      if (data.phone) payload.phone = data.phone
-      if (data.birthDate) payload.birthDate = data.birthDate
-      if (data.address) payload.address = data.address
-      if (data.notes) payload.notes = data.notes
+      if (data.user?.name)  payload.name      = data.user.name
+      // Email só é enviado quando explicitamente fornecido (campo editável na UI).
+      if (data.user?.email) payload.email     = data.user.email
+      if (data.cpf)         payload.cpf       = data.cpf
+      if (data.phone)       payload.phone     = data.phone
+      if (data.birthDate)   payload.birthDate = data.birthDate
+      if (data.address)     payload.address   = data.address
+      if (data.notes)       payload.notes     = data.notes
       const { data: result } = await api.put<PatientRaw>(`/patients/${id}`, payload)
       return mapPatient(result)
     },

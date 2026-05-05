@@ -14,6 +14,12 @@ public class CreatePatientDto
 public class UpdatePatientDto
 {
     public string? Name { get; set; }
+    /// <summary>
+    /// Novo e-mail do paciente. Opcional — enviado apenas quando a recepção
+    /// altera explicitamente o campo. O backend valida unicidade contra
+    /// staff/profissionais ativos antes de persistir.
+    /// </summary>
+    public string? Email { get; set; }
     public string? CPF { get; set; }
     public string? Phone { get; set; }
     public DateTime? BirthDate { get; set; }

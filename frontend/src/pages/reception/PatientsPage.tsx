@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Plus, Edit, Trash2, X, AlertTriangle } from 'lucide-react'
+import { Search, Plus, Edit, Trash2, X, AlertTriangle, Mail } from 'lucide-react'
 import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient } from '../../hooks/usePatients'
 
 // Normaliza um identificador (CPF/telefone) removendo qualquer não-dígito
@@ -23,6 +23,9 @@ export default function PatientsPage() {
   // Quando há candidatos potencialmente duplicados, abrimos um diálogo
   // listando os existentes antes de prosseguir com a criação.
   const [duplicateMatches, setDuplicateMatches] = useState<any[] | null>(null)
+
+  // Confirmação antes de salvar quando o e-mail foi alterado na edição.
+  const [emailChangeConfirm, setEmailChangeConfirm] = useState(false)
 
   const createPatient = useCreatePatient()
   const updatePatient = useUpdatePatient()
@@ -76,14 +79,22 @@ export default function PatientsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Antes de criar, verifica duplicidade (CPF/email/telefone). Edição
-    // não passa por essa checagem.
-    if (!editingPatient) {
-      const matches = findDuplicates(formData)
-      if (matches.length > 0) {
-        setDuplicateMatches(matches)
+    if (editingPatient) {
+      // Na edição, se o e-mail mudou exige confirmação explícita antes de prosseguir.
+      const originalEmail = (editingPatient.user?.email || '').trim().toLowerCase()
+      const newEmail = formData.email.trim().toLowerCase()
+      if (newEmail !== originalEmail) {
+        setEmailChangeConfirm(true)
         return
       }
+      await persistPatient()
+      return
+    }
+    // Criação: verifica duplicidade (CPF/email/telefone).
+    const matches = findDuplicates(formData)
+    if (matches.length > 0) {
+      setDuplicateMatches(matches)
+      return
     }
     await persistPatient()
   }
@@ -96,7 +107,7 @@ export default function PatientsPage() {
       if (editingPatient) {
         await updatePatient.mutateAsync({
           id: editingPatient.id,
-          user: { id: editingPatient.userId, name: formData.name, email: editingPatient.user?.email || '' },
+          user: { id: editingPatient.userId, name: formData.name, email: formData.email.trim() },
           cpf: formData.cpf || undefined,
           phone: formData.phone || undefined,
           birthDate: formData.birthDate || undefined,
@@ -342,6 +353,55 @@ export default function PatientsPage() {
         </div>
       )}
 
+      {/* Confirmação de troca de e-mail */}
+      {emailChangeConfirm && editingPatient && (
+        <div className="modal-overlay" onClick={() => setEmailChangeConfirm(false)}>
+          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Mail size={18} color="var(--color-accent-warning)" />
+                Confirmar alteração de e-mail
+              </h3>
+              <button className="modal-close" onClick={() => setEmailChangeConfirm(false)}><X size={20} /></button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ padding: '10px 14px', background: 'rgba(234,179,8,0.08)', border: '1px solid var(--color-accent-warning)', borderRadius: 8, fontSize: 13 }}>
+                <strong>⚠️ Atenção:</strong> ao alterar o e-mail, o paciente perderá o acesso ao portal
+                com o e-mail atual e precisará usar o novo e-mail para entrar.
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                <div style={{ marginBottom: 4 }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>E-mail atual:</span>{' '}
+                  <strong>{editingPatient.user?.email}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Novo e-mail:</span>{' '}
+                  <strong style={{ color: 'var(--color-accent-emerald)' }}>{formData.email.trim()}</strong>
+                </div>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: 0 }}>
+                Informe o novo e-mail ao paciente para que ele possa continuar acessando o portal.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setEmailChangeConfirm(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  setEmailChangeConfirm(false)
+                  await persistPatient()
+                }}
+                disabled={updatePatient.isPending}
+              >
+                {updatePatient.isPending ? 'Salvando...' : 'Confirmar e salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create/Edit modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => { setShowModal(false); setCreatedPassword('') }}>
@@ -357,20 +417,31 @@ export default function PatientsPage() {
                     <label className="input-label">Nome Completo <span className="required">*</span></label>
                     <input className="input-field" placeholder="Nome do paciente" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                   </div>
-                  {!editingPatient ? (
-                    <div className="input-group">
-                      <label className="input-label">E-mail do paciente ou responsável <span className="required">*</span></label>
-                      <input className="input-field" type="email" placeholder="email@exemplo.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                  <div className="input-group">
+                    <label className="input-label">
+                      E-mail {!editingPatient && <span className="required">*</span>}
+                    </label>
+                    <input
+                      className="input-field"
+                      type="email"
+                      placeholder="email@exemplo.com"
+                      required={!editingPatient}
+                      value={formData.email}
+                      onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    />
+                    {/* Aviso visual quando o e-mail foi alterado durante edição */}
+                    {editingPatient && formData.email.trim().toLowerCase() !== (editingPatient.user?.email || '').trim().toLowerCase() && (
+                      <span style={{ fontSize: 11, color: 'var(--color-accent-warning)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <AlertTriangle size={11} />
+                        Alterar o e-mail desconectará o paciente do portal. Será pedida confirmação ao salvar.
+                      </span>
+                    )}
+                    {!editingPatient && (
                       <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 3, display: 'block' }}>
                         Para dependentes, pode-se usar o e-mail do responsável.
                       </span>
-                    </div>
-                  ) : (
-                    <div className="input-group">
-                      <label className="input-label">E-mail</label>
-                      <input className="input-field" value={formData.email} disabled style={{ opacity: 0.6 }} />
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <div className="input-group">
                     <label className="input-label">CPF</label>
                     <input className="input-field" value={formData.cpf} onChange={e => setFormData({ ...formData, cpf: e.target.value })} placeholder="000.000.000-00" />

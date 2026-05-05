@@ -182,6 +182,28 @@ public class PatientsController : ControllerBase
             return NotFound(new { message = "Paciente não encontrado." });
 
         if (dto.Name != null) patient.User.Name = dto.Name;
+
+        // Atualização de e-mail: enviado apenas quando a recepção altera
+        // explicitamente. Valida unicidade somente contra staff/profissional
+        // ativo — pacientes podem compartilhar e-mail (dependentes).
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var newEmail = dto.Email.Trim().ToLowerInvariant();
+            if (newEmail != patient.User.Email.Trim().ToLowerInvariant())
+            {
+                var emailTakenByStaff = await _db.Users
+                    .AnyAsync(u => u.Id != patient.UserId
+                                && u.Email.ToLower() == newEmail
+                                && u.IsActive
+                                && (u.SystemUser != null || u.Professional != null));
+                if (emailTakenByStaff)
+                    return Conflict(new { message = "Este e-mail já está em uso por um profissional ou funcionário ativo." });
+
+                patient.User.Email = newEmail;
+                patient.User.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
         if (dto.CPF != null) patient.CPF = dto.CPF;
         if (dto.Phone != null) patient.Phone = dto.Phone;
         if (dto.BirthDate.HasValue) patient.BirthDate = dto.BirthDate.Value;
