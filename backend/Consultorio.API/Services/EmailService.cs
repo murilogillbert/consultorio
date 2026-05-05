@@ -28,10 +28,10 @@ public class EmailService : IEmailService
         var from = _config["Smtp:From"] ?? username;
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(from))
-        {
-            _logger.LogWarning("SMTP not configured; skipping email to {Email}", toEmail);
-            return;
-        }
+            throw new InvalidOperationException("SMTP não configurado. Defina Smtp:Host, Smtp:Username e Smtp:From no servidor.");
+
+        if (string.IsNullOrWhiteSpace(password))
+            throw new InvalidOperationException("SMTP sem senha configurada. Gere um App Password do Gmail e defina em Smtp:Password no servidor.");
 
         using var client = new SmtpClient(host, port)
         {
