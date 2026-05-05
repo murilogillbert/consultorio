@@ -380,6 +380,40 @@ function PromotePatientModal({
   )
 }
 
+// ── Chat date/time helpers ────────────────────────────────────────────────────
+function formatChatTime(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const hhmm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === now.toDateString()) return hhmm
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return `Ontem ${hhmm}`
+  const diffDays = (now.getTime() - d.getTime()) / 86_400_000
+  if (diffDays < 7) {
+    const wd = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')
+    return `${wd} ${hhmm}`
+  }
+  const ddMM = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  if (d.getFullYear() === now.getFullYear()) return `${ddMM} ${hhmm}`
+  const yy = String(d.getFullYear()).slice(-2)
+  return `${ddMM}/${yy} ${hhmm}`
+}
+
+function dateDividerLabel(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) return 'Hoje'
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Ontem'
+  const diffDays = (now.getTime() - d.getTime()) / 86_400_000
+  if (diffDays < 7) return d.toLocaleDateString('pt-BR', { weekday: 'long' })
+  if (d.getFullYear() === now.getFullYear())
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function MensagensPage() {
   const { user } = useAuth()
@@ -534,9 +568,7 @@ export default function MensagensPage() {
               )}
               {filteredConversations.map((c) => {
                 const initials = c.patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-                const timeLabel = c.lastMessageAt
-                  ? new Date(c.lastMessageAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                  : ''
+                const timeLabel = c.lastMessageAt ? formatChatTime(c.lastMessageAt) : ''
                 return (
                   <div
                     key={c.patientId}
@@ -709,20 +741,27 @@ export default function MensagensPage() {
             )}
 
             {/* INTERNAL MESSAGES */}
-            {activeTab === 'internal' && !loadingMsgs && internalMessages.map((msg) => {
+            {activeTab === 'internal' && !loadingMsgs && internalMessages.map((msg, idx) => {
               const isMe = msg.sender?.id === myUserId
               const senderName = msg.sender?.name || 'Usuário'
-              const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              const timeLabel = formatChatTime(msg.createdAt)
+              const prevMsg = internalMessages[idx - 1]
+              const showDivider = !prevMsg || new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString()
               return (
-                <div key={msg.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
-                  {!isMe && (
-                    <div style={{ fontSize: 11, color: 'var(--color-accent-emerald)', marginBottom: 2, fontWeight: 500 }}>
-                      {senderName}
-                    </div>
+                <div key={msg.id} style={{ display: 'contents' }}>
+                  {showDivider && (
+                    <div className="chat-date-divider">{dateDividerLabel(msg.createdAt)}</div>
                   )}
-                  <div className={`message-bubble ${isMe ? 'outgoing' : 'incoming'}`}>
-                    {msg.content}
-                    <div className="time">{timeLabel}</div>
+                  <div style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
+                    {!isMe && (
+                      <div style={{ fontSize: 11, color: 'var(--color-accent-emerald)', marginBottom: 2, fontWeight: 500 }}>
+                        {senderName}
+                      </div>
+                    )}
+                    <div className={`message-bubble ${isMe ? 'outgoing' : 'incoming'}`}>
+                      {msg.content}
+                      <div className="time">{timeLabel}</div>
+                    </div>
                   </div>
                 </div>
               )
@@ -734,19 +773,26 @@ export default function MensagensPage() {
             )}
 
             {/* PATIENT CONVERSATION MESSAGES */}
-            {activeTab === 'patients' && !loadingExtMsgs && externalMessages.map((msg) => {
+            {activeTab === 'patients' && !loadingExtMsgs && externalMessages.map((msg, idx) => {
               const isOut = msg.direction === 'OUT'
-              const timeLabel = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              const timeLabel = formatChatTime(msg.createdAt)
+              const prevMsg = externalMessages[idx - 1]
+              const showDivider = !prevMsg || new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString()
               return (
-                <div key={msg.id} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
-                  {!isOut && (
-                    <div style={{ fontSize: 11, color: 'var(--color-accent-brand)', marginBottom: 2, fontWeight: 500 }}>
-                      {selectedConvo?.patientName || convDetail?.patient?.name || 'Paciente'}
-                    </div>
+                <div key={msg.id} style={{ display: 'contents' }}>
+                  {showDivider && (
+                    <div className="chat-date-divider">{dateDividerLabel(msg.createdAt)}</div>
                   )}
-                  <div className={`message-bubble ${isOut ? 'outgoing' : 'incoming'}`}>
-                    {msg.content}
-                    <div className="time">{timeLabel}</div>
+                  <div style={{ alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
+                    {!isOut && (
+                      <div style={{ fontSize: 11, color: 'var(--color-accent-brand)', marginBottom: 2, fontWeight: 500 }}>
+                        {selectedConvo?.patientName || convDetail?.patient?.name || 'Paciente'}
+                      </div>
+                    )}
+                    <div className={`message-bubble ${isOut ? 'outgoing' : 'incoming'}`}>
+                      {msg.content}
+                      <div className="time">{timeLabel}</div>
+                    </div>
                   </div>
                 </div>
               )
