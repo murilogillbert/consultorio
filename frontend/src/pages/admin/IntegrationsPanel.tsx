@@ -371,14 +371,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     return Object.keys(e).length === 0
   }
 
-  const smtpPayload = {
-    smtpHost:     smtp.host     || null,
-    smtpPort:     smtp.port     ? Number(smtp.port) : null,
-    smtpUsername: smtp.username || null,
-    smtpPassword: isMaskedCredential(smtp.password) ? undefined : (smtp.password || null),
-    smtpFrom:     smtp.from     || null,
-  }
-
   const baseUrl = (api.defaults.baseURL || `${window.location.origin}/api`).replace(/\/$/, '')
   const isMaskedCredential = (value: string) => {
     const trimmed = value.trim()
@@ -394,6 +386,13 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     ...(mp.sandboxToken && !isMaskedCredentialSafe(mp.sandboxToken) ? { accessTokenSandbox: sanitizeMpToken(mp.sandboxToken) } : {}),
     publicKey: mp.publicKey?.trim() || null,
     sandboxMode: mp.sandboxMode,
+  }
+  const smtpPayload = {
+    smtpHost:     smtp.host     || null,
+    smtpPort:     smtp.port     ? Number(smtp.port) : null,
+    smtpUsername: smtp.username || null,
+    smtpPassword: isMaskedCredential(smtp.password) ? undefined : (smtp.password || null),
+    smtpFrom:     smtp.from     || null,
   }
 
   return (
