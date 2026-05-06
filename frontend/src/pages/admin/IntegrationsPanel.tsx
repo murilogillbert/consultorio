@@ -277,7 +277,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [psErrors, setPsErrors] = useState<Record<string, string>>({})
 
   /* SMTP state */
-  const [smtp, setSmtp] = useState({ host: '', port: '587', username: '', password: '', from: '' })
+  const [smtp, setSmtp] = useState({ host: '', port: '587', username: '', password: '' })
   const [smtpErrors, setSmtpErrors] = useState<Record<string, string>>({})
 
   /* Handle initial data load */
@@ -310,7 +310,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         port:     String(existingSettings.smtpPort ?? 587),
         username: existingSettings.smtpUsername  || '',
         password: existingSettings.smtpPasswordMasked || '',
-        from:     existingSettings.smtpFrom      || '',
       })
     }
   }, [existingSettings])
@@ -366,7 +365,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!smtp.port || isNaN(Number(smtp.port))) e.port = 'Porta inválida'
     if (!smtp.username) e.username = 'Usuário é obrigatório'
     if (!smtp.password) e.password = 'Senha (App Password) é obrigatória'
-    if (!smtp.from) e.from = 'Remetente é obrigatório'
     setSmtpErrors(e)
     return Object.keys(e).length === 0
   }
@@ -392,7 +390,6 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     smtpPort:     smtp.port     ? Number(smtp.port) : null,
     smtpUsername: smtp.username || null,
     smtpPassword: isMaskedCredential(smtp.password) ? undefined : (smtp.password || null),
-    smtpFrom:     smtp.from     || null,
   }
 
   return (
@@ -846,9 +843,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           'No Gmail, ative a verificação em duas etapas em myaccount.google.com',
           'Em Segurança → Senhas de app, gere uma senha para "E-mail / Outro"',
           'Use smtp.gmail.com como servidor, porta 587',
-          'O campo Usuário e Remetente devem ser o mesmo endereço Gmail',
+          'O campo Usuário deve ser o endereço Gmail completo (será usado como remetente automaticamente)',
           'Cole a App Password (16 caracteres) no campo Senha',
-          'Salve e clique em Testar — um e-mail de verificação será enviado para o remetente',
+          'Salve e clique em Testar — um e-mail de verificação será enviado para o usuário configurado',
         ]} />
 
         <div className="form-2col">
@@ -880,23 +877,12 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             label="Usuário"
             required
             placeholder="psicologiaexistir@gmail.com"
-            hint="Geralmente é o próprio endereço de e-mail"
+            hint="Endereço de e-mail completo — usado também como remetente nos envios"
             mono
             value={smtp.username}
             saved={Boolean(existingSettings?.smtpUsername) && smtp.username === (existingSettings?.smtpUsername || '')}
             onChange={v => { setSmtp(p => ({ ...p, username: v })); setSmtpErrors(p => ({ ...p, username: '' })) }}
             error={smtpErrors.username}
-          />
-          <SensitiveField
-            label="Remetente (From)"
-            required
-            placeholder="psicologiaexistir@gmail.com"
-            hint="Endereço que aparece como remetente nos e-mails — deve ser igual ao Usuário no Gmail"
-            mono
-            value={smtp.from}
-            saved={Boolean(existingSettings?.smtpFrom) && smtp.from === (existingSettings?.smtpFrom || '')}
-            onChange={v => { setSmtp(p => ({ ...p, from: v })); setSmtpErrors(p => ({ ...p, from: '' })) }}
-            error={smtpErrors.from}
           />
           <div className="input-group full-span">
             <SensitiveField

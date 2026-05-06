@@ -612,21 +612,21 @@ public class ClinicsController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(clinic.SmtpHost) ||
             string.IsNullOrWhiteSpace(clinic.SmtpUsername) ||
-            string.IsNullOrWhiteSpace(clinic.SmtpPassword) ||
-            string.IsNullOrWhiteSpace(clinic.SmtpFrom))
-            return Ok(new { ok = false, message = "Preencha e salve Host, Usuário, Senha e Remetente antes de testar." });
+            string.IsNullOrWhiteSpace(clinic.SmtpPassword))
+            return Ok(new { ok = false, message = "Preencha e salve Host, Usuário e Senha antes de testar." });
 
         try
         {
+            var fromAddress = clinic.SmtpFrom ?? clinic.SmtpUsername;
             var smtpOverride = new SmtpOverride(
                 clinic.SmtpHost,
                 clinic.SmtpPort ?? 587,
                 clinic.SmtpUsername,
                 clinic.SmtpPassword,
-                clinic.SmtpFrom);
+                fromAddress);
 
             await _emailService.SendAsync(
-                clinic.SmtpFrom,
+                fromAddress,
                 "Teste de e-mail — Consultório",
                 "<p>Configuração SMTP funcionando corretamente.</p>",
                 smtpOverride);
@@ -635,7 +635,7 @@ public class ClinicsController : ControllerBase
             clinic.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            return Ok(new { ok = true, message = "E-mail de teste enviado com sucesso", detail = clinic.SmtpFrom });
+            return Ok(new { ok = true, message = "E-mail de teste enviado com sucesso", detail = fromAddress });
         }
         catch (Exception ex)
         {
