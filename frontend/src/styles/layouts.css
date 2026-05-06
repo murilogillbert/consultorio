@@ -227,6 +227,109 @@ body.mobile-menu-open {
   font-size: 9px;
 }
 
+/* ---- Topbar notifications ---- */
+.topbar-notifications {
+  position: relative;
+}
+
+.topbar-notifications-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - var(--space-4) * 2));
+  background: var(--color-bg-white);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
+  z-index: var(--z-dropdown);
+  animation: fadeInDown 150ms ease;
+  overflow: hidden;
+}
+
+.topbar-notifications-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.topbar-notifications-header span {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+}
+
+.topbar-notifications-header small,
+.topbar-notification-item small {
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+}
+
+.topbar-notifications-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.topbar-notification-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.topbar-notification-item:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.topbar-notification-item > span:not(.badge-count) {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topbar-notification-item strong,
+.topbar-notification-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-notification-item strong {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+
+.topbar-notification-item .badge-count {
+  min-width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+
+.topbar-notification-item--compact {
+  padding-left: var(--space-5);
+}
+
+.topbar-notifications-empty {
+  padding: var(--space-5) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 /* ---- Topbar user menu ---- */
 .topbar-user-menu {
   position: relative;

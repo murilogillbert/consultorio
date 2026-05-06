@@ -115,10 +115,13 @@ export function useSendConversationMessage() {
 export function useMarkConversationRead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (_conversationId: string) => {
-      // No-op: the backend marks messages read automatically when fetched
+    mutationFn: async (conversationId: string) => {
+      await api.post(`/patient-conversations/${conversationId}/read`)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
+    onSuccess: (_, conversationId) => {
+      queryClient.invalidateQueries({ queryKey: ['patient-conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-conversation-messages', conversationId] })
+    }
   })
 }
 

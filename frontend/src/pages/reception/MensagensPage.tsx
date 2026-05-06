@@ -17,6 +17,7 @@ import { usePatients, useLinkProvisionalPatient, usePromotePatient } from '../..
 import PatientChargesModal from '../../components/PatientChargesModal'
 import NewAppointmentModal from '../../components/NewAppointmentModal'
 import TemplatePickerModal from '../../components/TemplatePickerModal'
+import { useSearchParams } from 'react-router-dom'
 
 // ── Link Provisional Contact Modal ────────────────────────────────────────────
 function LinkProvisionalContactModal({
@@ -419,6 +420,7 @@ export default function MensagensPage() {
   const { user } = useAuth()
   const clinicId = user?.clinicId
   const myUserId = user?.id
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [activeTab, setActiveTab] = useState<'patients' | 'internal'>('patients')
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
@@ -434,6 +436,7 @@ export default function MensagensPage() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastMarkedReadRef = useRef<string | null>(null)
 
   // Internal channels
   const { data: channels = [], isLoading: loadingChannels } = useChannels(clinicId)
@@ -445,6 +448,7 @@ export default function MensagensPage() {
   const { data: convDetail, isLoading: loadingExtMsgs } = usePatientConversationDetail(selectedPatientId)
   const sendExternal = useSendConversationMessage()
   const markRead = useMarkConversationRead()
+  const patientIdFromQuery = searchParams.get('patientId')
   const filteredConversations = conversations.filter((c) => {
     if (patientChannelFilter === 'ALL') return true
     return (c.source || 'APP') === patientChannelFilter
@@ -457,6 +461,16 @@ export default function MensagensPage() {
   useEffect(() => {
     if (conversations.length > 0 && !selectedPatientId) setSelectedPatientId(conversations[0].patientId)
   }, [conversations])
+  useEffect(() => {
+    if (!patientIdFromQuery) return
+    if (!conversations.some(c => c.patientId === patientIdFromQuery)) return
+
+    setSelectedPatientId(patientIdFromQuery)
+    setActiveTab('patients')
+    setMobileView('chat')
+    markRead.mutate(patientIdFromQuery)
+    setSearchParams({}, { replace: true })
+  }, [conversations, markRead, patientIdFromQuery, setSearchParams])
   useEffect(() => {
     if (pendingLinkedPatientId) return
     if (filteredConversations.length > 0 && (!selectedPatientId || !filteredConversations.some(c => c.patientId === selectedPatientId))) {
@@ -498,6 +512,18 @@ export default function MensagensPage() {
   const isSelectedConvoProvisional = Boolean(selectedConvo?.isProvisional || convDetail?.patient?.isProvisional)
   const selectedChannel = channels.find(c => c.id === selectedChannelId)
   const externalMessages = convDetail?.messages || []
+
+  useEffect(() => {
+    if (!selectedPatientId || !convDetail) return
+    if ((selectedConvo?.unreadCount || 0) === 0) {
+      if (lastMarkedReadRef.current === selectedPatientId) lastMarkedReadRef.current = null
+      return
+    }
+    if (lastMarkedReadRef.current === selectedPatientId) return
+
+    lastMarkedReadRef.current = selectedPatientId
+    markRead.mutate(selectedPatientId)
+  }, [convDetail, markRead, selectedConvo?.unreadCount, selectedPatientId])
 
   const sourceLabel: Record<string, string> = {
     APP: 'Aplicação',

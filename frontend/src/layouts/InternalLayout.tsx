@@ -86,8 +86,10 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [alertsOpen, setAlertsOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const alertsRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null)
 
@@ -96,13 +98,17 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
   todayStart.setHours(0, 0, 0, 0)
   const todayEnd = new Date()
   todayEnd.setHours(23, 59, 59, 999)
-  const { data: conversations = [] } = useConversations()
+  const { data: conversations = [] } = useConversations(user?.clinicId)
   const { data: todayAppts = [] } = useAppointments(
     todayStart.toISOString(),
     todayEnd.toISOString()
   )
   const unreadMessages = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   const pendingAppts = todayAppts.filter(a => a.status === 'SCHEDULED').length
+  const alertCount = unreadMessages + pendingAppts
+  const unreadConversations = conversations
+    .filter(c => (c.unreadCount || 0) > 0)
+    .slice(0, 3)
 
   const pageTitle = routeLabels[location.pathname] || (environment === 'reception' ? 'Recepção' : 'Administração')
 
@@ -119,16 +125,24 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
     navigate('/login')
   }
 
+  const goToAlertsTarget = (path: string) => {
+    setAlertsOpen(false)
+    navigate(path)
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false)
       }
+      if (alertsRef.current && !alertsRef.current.contains(e.target as Node)) {
+        setAlertsOpen(false)
+      }
     }
-    if (userMenuOpen) document.addEventListener('mousedown', handleClick)
+    if (userMenuOpen || alertsOpen) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [userMenuOpen])
+  }, [alertsOpen, userMenuOpen])
 
   useEffect(() => {
     setMobileMenuOpen(false)
@@ -253,16 +267,81 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
               <Menu size={20} />
             </button>
 
-            {/* Pending appointments bell */}
-            <button className="topbar-icon-btn" title={`${pendingAppts} consulta(s) pendente(s) hoje`}
-              onClick={() => navigate(alertsPath)}
-              aria-label="Abrir alertas e agenda"
-            >
-              <Bell size={20} />
-              {pendingAppts > 0 && (
-                <span className="badge-count">{pendingAppts > 99 ? '99+' : pendingAppts}</span>
+            {/* Notifications */}
+            <div className="topbar-notifications" ref={alertsRef}>
+              <button
+                className="topbar-icon-btn"
+                title={`${alertCount} alerta(s) operacional(is)`}
+                onClick={() => setAlertsOpen(o => !o)}
+                aria-label="Abrir notificações"
+                aria-expanded={alertsOpen}
+              >
+                <Bell size={20} />
+                {alertCount > 0 && (
+                  <span className="badge-count">{alertCount > 99 ? '99+' : alertCount}</span>
+                )}
+              </button>
+
+              {alertsOpen && (
+                <div className="topbar-notifications-dropdown">
+                  <div className="topbar-notifications-header">
+                    <span>Notificações</span>
+                    <small>{alertCount > 0 ? `${alertCount} pendente(s)` : 'Tudo em dia'}</small>
+                  </div>
+
+                  <div className="topbar-notifications-list">
+                    {unreadMessages > 0 && (
+                      <button
+                        className="topbar-notification-item"
+                        onClick={() => goToAlertsTarget(messagesPath)}
+                      >
+                        <MessageCircle size={16} />
+                        <span>
+                          <strong>{unreadMessages} mensagem(ns) não lida(s)</strong>
+                          <small>Ir para conversas de pacientes</small>
+                        </span>
+                        <span className="badge-count">{unreadMessages > 99 ? '99+' : unreadMessages}</span>
+                      </button>
+                    )}
+
+                    {unreadConversations.map(c => (
+                      <button
+                        key={c.patientId}
+                        className="topbar-notification-item topbar-notification-item--compact"
+                        onClick={() => goToAlertsTarget(`${messagesPath}?patientId=${c.patientId}`)}
+                      >
+                        <MessageSquare size={15} />
+                        <span>
+                          <strong>{c.patientName}</strong>
+                          <small>{c.lastMessage || 'Nova mensagem'}</small>
+                        </span>
+                        <span className="badge-count">{c.unreadCount > 99 ? '99+' : c.unreadCount}</span>
+                      </button>
+                    ))}
+
+                    {pendingAppts > 0 && (
+                      <button
+                        className="topbar-notification-item"
+                        onClick={() => goToAlertsTarget(alertsPath)}
+                      >
+                        <CalendarDays size={16} />
+                        <span>
+                          <strong>{pendingAppts} consulta(s) agendada(s) hoje</strong>
+                          <small>Revisar agenda do dia</small>
+                        </span>
+                        <span className="badge-count">{pendingAppts > 99 ? '99+' : pendingAppts}</span>
+                      </button>
+                    )}
+
+                    {alertCount === 0 && (
+                      <div className="topbar-notifications-empty">
+                        Nenhuma pendência operacional agora.
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
 
             {/* Unread messages */}
             <button className="topbar-icon-btn" title={`${unreadMessages} mensagem(ns) não lida(s)`}

@@ -43,6 +43,18 @@ public class PatientConversationsController : ControllerBase
     private Guid GetUserId() =>
         Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : Guid.Empty;
 
+    private async Task<int> MarkIncomingMessagesReadAsync(Guid clinicId, Guid patientId)
+    {
+        var unread = await _db.PatientMessages
+            .Where(m => m.PatientId == patientId && m.ClinicId == clinicId && !m.IsRead && m.Direction == "IN")
+            .ToListAsync();
+
+        foreach (var m in unread) m.IsRead = true;
+        if (unread.Any()) await _db.SaveChangesAsync();
+
+        return unread.Count;
+    }
+
     // ─── GET /api/patient-conversations ──────────────────────────────────────
     // Lista todos os pacientes que enviaram ao menos uma mensagem, com a mais recente.
     [HttpGet]
@@ -129,12 +141,7 @@ public class PatientConversationsController : ControllerBase
             })
             .ToListAsync();
 
-        // Marca mensagens do paciente como lidas
-        var unread = await _db.PatientMessages
-            .Where(m => m.PatientId == patientId && m.ClinicId == clinicId && !m.IsRead && m.Direction == "IN")
-            .ToListAsync();
-        foreach (var m in unread) m.IsRead = true;
-        if (unread.Any()) await _db.SaveChangesAsync();
+        await MarkIncomingMessagesReadAsync(clinicId, patientId);
 
         // Info do paciente
         var patient = await _db.Patients.Include(p => p.User)
@@ -152,6 +159,22 @@ public class PatientConversationsController : ControllerBase
             },
             messages,
         });
+    }
+
+    // ─── POST /api/patient-conversations/{patientId}/read ───────────────────
+    [HttpPost("{patientId}/read")]
+    public async Task<ActionResult> MarkRead(Guid patientId)
+    {
+        var clinicId = GetClinicId();
+        if (clinicId == Guid.Empty)
+            return BadRequest(new { message = "Clínica não identificada." });
+
+        var exists = await _db.Patients.AnyAsync(p => p.Id == patientId && p.ClinicId == clinicId);
+        if (!exists)
+            return NotFound(new { message = "Paciente não encontrado." });
+
+        var updated = await MarkIncomingMessagesReadAsync(clinicId, patientId);
+        return Ok(new { patientId, updated });
     }
 
     // A patient is provisional when its User was auto-created by an inbound channel
