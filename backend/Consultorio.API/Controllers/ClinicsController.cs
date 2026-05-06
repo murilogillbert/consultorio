@@ -24,17 +24,19 @@ public class ClinicsController : ControllerBase
     private readonly GoogleOAuthService   _googleOAuth;
     private readonly WhatsAppCloudService _whatsApp;
     private readonly InstagramService     _instagram;
+    private readonly IEmailService        _emailService;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly HttpClient _pubSubHttp = new();
     private const string PubSubScope = "https://www.googleapis.com/auth/pubsub";
 
-    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp, InstagramService instagram)
+    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp, InstagramService instagram, IEmailService emailService)
     {
         _db = db;
         _mp = mp;
         _googleOAuth = googleOAuth;
         _whatsApp = whatsApp;
         _instagram = instagram;
+        _emailService = emailService;
     }
 
     private static string? Mask(string? token) =>
