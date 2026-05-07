@@ -39,7 +39,11 @@ public class EmailService : IEmailService
         using var client = new SmtpClient(host, port)
         {
             EnableSsl = true,
-            Credentials = new NetworkCredential(username, password)
+            Credentials = new NetworkCredential(username, password),
+            // Timeout default do .NET é 100s, o que deixa a UI parecendo travada.
+            // 15s é suficiente pra detectar host inacessível, porta bloqueada
+            // ou TLS falhando — sem prender o usuário esperando.
+            Timeout = 15000
         };
 
         using var msg = new MailMessage(from, toEmail, subject, htmlBody)

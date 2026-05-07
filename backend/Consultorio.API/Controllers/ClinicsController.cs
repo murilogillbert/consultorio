@@ -643,8 +643,72 @@ public class ClinicsController : ControllerBase
             clinic.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            return Ok(new { ok = false, message = ex.Message });
+            var (message, detail) = CategorizeSmtpError(ex, clinic.SmtpHost ?? "", clinic.SmtpPort ?? 587);
+            return Ok(new { ok = false, message, detail });
         }
+    }
+
+    // Traduz exceções genéricas do SmtpClient em mensagens acionáveis. O
+    // SmtpClient do .NET joga quase tudo em SmtpException com mensagem em
+    // inglês, sem categoria — então classificamos por substring + tipo.
+    private static (string message, string? detail) CategorizeSmtpError(Exception ex, string host, int port)
+    {
+        var msg = ex.Message ?? "";
+
+        // Connection refused, timeout, host unreachable, DNS failure
+        if (msg.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("Unable to connect", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("actively refused", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("could not be resolved", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("No such host", StringComparison.OrdinalIgnoreCase) ||
+            ex is System.Net.Sockets.SocketException ||
+            ex.InnerException is System.Net.Sockets.SocketException)
+        {
+            return (
+                $"Servidor SMTP inacessível ({host}:{port})",
+                "A porta SMTP está bloqueada saindo do servidor ou o host está incorreto. " +
+                $"Teste com: timeout 5 bash -c \"</dev/tcp/{host}/{port}\". " +
+                "Se falhar, abra ticket com sua hospedagem para liberar a porta, " +
+                "ou troque por um serviço HTTP (Resend/SendGrid/Mailgun) que usa porta 443."
+            );
+        }
+
+        // Authentication failures (5.7.x SMTP codes)
+        if (msg.Contains("5.7.8", StringComparison.Ordinal) ||
+            msg.Contains("5.7.0", StringComparison.Ordinal) ||
+            msg.Contains("Authentication", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("Username and Password not accepted", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("authentication failed", StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                "Credenciais rejeitadas pelo servidor SMTP",
+                "Para Gmail: ative verificação em duas etapas e gere uma App Password de 16 caracteres em myaccount.google.com/apppasswords. A senha normal da conta não funciona desde 2022."
+            );
+        }
+
+        // TLS/SSL handshake issues
+        if (msg.Contains("STARTTLS", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("SSL", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("TLS", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("secure connection", StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                "Falha na negociação TLS/SSL",
+                $"Verifique se a porta {port} suporta criptografia. Para Gmail, use 587 (STARTTLS)."
+            );
+        }
+
+        // Sender rejected
+        if (msg.Contains("5.7.1", StringComparison.Ordinal) ||
+            msg.Contains("not authorized", StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                "Remetente não autorizado",
+                "O endereço usado como Remetente não tem permissão para enviar pelo servidor SMTP. Use o mesmo e-mail do Usuário."
+            );
+        }
+
+        return (ex.Message ?? "Falha desconhecida no envio SMTP", null);
     }
 
     [HttpPost("{id}/settings/integrations/whatsapp/test")]
