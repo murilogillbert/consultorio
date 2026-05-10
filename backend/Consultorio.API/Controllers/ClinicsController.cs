@@ -25,11 +25,12 @@ public class ClinicsController : ControllerBase
     private readonly WhatsAppCloudService _whatsApp;
     private readonly InstagramService     _instagram;
     private readonly IEmailService        _emailService;
+    private readonly ILogger<ClinicsController> _logger;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly HttpClient _pubSubHttp = new();
     private const string PubSubScope = "https://www.googleapis.com/auth/pubsub";
 
-    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp, InstagramService instagram, IEmailService emailService)
+    public ClinicsController(AppDbContext db, MercadoPagoService mp, GoogleOAuthService googleOAuth, WhatsAppCloudService whatsApp, InstagramService instagram, IEmailService emailService, ILogger<ClinicsController> logger)
     {
         _db = db;
         _mp = mp;
@@ -37,6 +38,7 @@ public class ClinicsController : ControllerBase
         _whatsApp = whatsApp;
         _instagram = instagram;
         _emailService = emailService;
+        _logger = logger;
     }
 
     private static string? Mask(string? token) =>
@@ -606,14 +608,27 @@ public class ClinicsController : ControllerBase
     [Authorize]
     public async Task<ActionResult> TestSmtp(Guid id)
     {
+        _logger.LogInformation("SMTP test requested for clinic {ClinicId}", id);
+
         var clinic = await _db.Clinics.FindAsync(id);
         if (clinic == null)
+        {
+            _logger.LogWarning("SMTP test failed: clinic {ClinicId} not found", id);
             return NotFound(new { message = "Clínica não encontrada." });
+        }
 
         if (string.IsNullOrWhiteSpace(clinic.SmtpHost) ||
             string.IsNullOrWhiteSpace(clinic.SmtpUsername) ||
             string.IsNullOrWhiteSpace(clinic.SmtpPassword))
+        {
+            _logger.LogWarning(
+                "SMTP test skipped for clinic {ClinicId}: missing settings. HasHost={HasHost}, HasUsername={HasUsername}, HasPassword={HasPassword}",
+                id,
+                !string.IsNullOrWhiteSpace(clinic.SmtpHost),
+                !string.IsNullOrWhiteSpace(clinic.SmtpUsername),
+                !string.IsNullOrWhiteSpace(clinic.SmtpPassword));
             return Ok(new { ok = false, message = "Preencha e salve Host, Usuário e Senha antes de testar." });
+        }
 
         try
         {
@@ -623,6 +638,14 @@ public class ClinicsController : ControllerBase
                 clinic.SmtpPort ?? 587,
                 clinic.SmtpUsername,
                 clinic.SmtpPassword,
+                fromAddress);
+
+            _logger.LogInformation(
+                "SMTP test sending for clinic {ClinicId}. Host={Host}, Port={Port}, Username={Username}, From={From}",
+                id,
+                clinic.SmtpHost,
+                clinic.SmtpPort ?? 587,
+                clinic.SmtpUsername,
                 fromAddress);
 
             await _emailService.SendAsync(
@@ -635,6 +658,8 @@ public class ClinicsController : ControllerBase
             clinic.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
+            _logger.LogInformation("SMTP test succeeded for clinic {ClinicId}. From={From}", id, fromAddress);
+
             return Ok(new { ok = true, message = "E-mail de teste enviado com sucesso", detail = fromAddress });
         }
         catch (Exception ex)
@@ -644,6 +669,14 @@ public class ClinicsController : ControllerBase
             await _db.SaveChangesAsync();
 
             var (message, detail) = CategorizeSmtpError(ex, clinic.SmtpHost ?? "", clinic.SmtpPort ?? 587);
+            _logger.LogWarning(
+                ex,
+                "SMTP test failed for clinic {ClinicId}. Host={Host}, Port={Port}, Category={Category}, Detail={Detail}",
+                id,
+                clinic.SmtpHost,
+                clinic.SmtpPort ?? 587,
+                message,
+                detail);
             return Ok(new { ok = false, message, detail });
         }
     }

@@ -51,13 +51,37 @@ public class EmailService : IEmailService
             IsBodyHtml = true
         };
 
+        var startedAt = DateTime.UtcNow;
+        _logger.LogInformation(
+            "SMTP send starting. Host={Host}, Port={Port}, Username={Username}, From={From}, To={ToEmail}, TimeoutMs={TimeoutMs}",
+            host,
+            port,
+            username,
+            from,
+            toEmail,
+            client.Timeout);
+
         try
         {
             await client.SendMailAsync(msg);
+            _logger.LogInformation(
+                "SMTP send completed. Host={Host}, Port={Port}, To={ToEmail}, ElapsedMs={ElapsedMs}",
+                host,
+                port,
+                toEmail,
+                (int)(DateTime.UtcNow - startedAt).TotalMilliseconds);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email}", toEmail);
+            _logger.LogError(
+                ex,
+                "SMTP send failed. Host={Host}, Port={Port}, Username={Username}, From={From}, To={ToEmail}, ElapsedMs={ElapsedMs}",
+                host,
+                port,
+                username,
+                from,
+                toEmail,
+                (int)(DateTime.UtcNow - startedAt).TotalMilliseconds);
             throw;
         }
     }

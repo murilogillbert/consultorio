@@ -389,7 +389,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     smtpHost:     smtp.host     || null,
     smtpPort:     smtp.port     ? Number(smtp.port) : null,
     smtpUsername: smtp.username || null,
-    smtpPassword: isMaskedCredential(smtp.password) ? undefined : (smtp.password || null),
+    smtpPassword: isMaskedCredentialSafe(smtp.password) ? undefined : (smtp.password || null),
   }
 
   return (
@@ -906,8 +906,13 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
               return
             }
             if (!clinicId) return
-            await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
-            await handleTest('smtp')
+            try {
+              await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
+              await handleTest('smtp')
+            } catch (err: any) {
+              addToast(err?.response?.data?.message || err?.message || 'Falha ao salvar SMTP antes do teste', 'error')
+              throw err
+            }
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
             if (!clinicId) return
@@ -917,13 +922,18 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
           <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
             const valid = validateSmtp()
             if (!clinicId) return
-            await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
-            addToast(
-              valid
-                ? 'Configurações de e-mail salvas com sucesso'
-                : 'Dados salvos — campos obrigatórios destacados em vermelho ainda precisam ser preenchidos',
-              valid ? 'success' : 'warning'
-            )
+            try {
+              await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
+              addToast(
+                valid
+                  ? 'Configuracoes de e-mail salvas com sucesso'
+                  : 'Dados salvos - campos obrigatorios destacados em vermelho ainda precisam ser preenchidos',
+                valid ? 'success' : 'warning'
+              )
+            } catch (err: any) {
+              addToast(err?.response?.data?.message || err?.message || 'Falha ao salvar configuracoes de e-mail', 'error')
+              throw err
+            }
           }} />
         </div>
       </IntegrationSection>
