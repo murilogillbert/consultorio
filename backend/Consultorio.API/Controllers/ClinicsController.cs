@@ -258,6 +258,11 @@ public class ClinicsController : ControllerBase
             SmtpPasswordMasked = MaskSafe(clinic.SmtpPassword),
             SmtpFrom           = clinic.SmtpFrom,
             SmtpConnected      = clinic.SmtpConnected,
+            ResendApiKeyMasked = MaskSafe(clinic.ResendApiKey),
+            ResendApiKeyConfigured = !string.IsNullOrWhiteSpace(clinic.ResendApiKey),
+            ResendFromEmail    = clinic.ResendFromEmail,
+            ResendFromName     = clinic.ResendFromName,
+            ResendConnected    = clinic.ResendConnected,
         };
     }
 
@@ -458,6 +463,37 @@ public class ClinicsController : ControllerBase
         if (dto.SmtpFrom     != null) clinic.SmtpFrom     = EmptyToNull(dto.SmtpFrom);
         if (dto.SmtpConnected.HasValue) clinic.SmtpConnected = dto.SmtpConnected.Value;
 
+        var resendSettingsChanged = false;
+        if (dto.ResendApiKey != null && !IsMasked(dto.ResendApiKey))
+        {
+            var value = SanitizeToken(dto.ResendApiKey);
+            if (!string.Equals(clinic.ResendApiKey, value, StringComparison.Ordinal))
+            {
+                clinic.ResendApiKey = value;
+                resendSettingsChanged = true;
+            }
+        }
+        if (dto.ResendFromEmail != null)
+        {
+            var value = EmptyToNull(dto.ResendFromEmail);
+            if (!string.Equals(clinic.ResendFromEmail, value, StringComparison.Ordinal))
+            {
+                clinic.ResendFromEmail = value;
+                resendSettingsChanged = true;
+            }
+        }
+        if (dto.ResendFromName != null)
+        {
+            var value = EmptyToNull(dto.ResendFromName);
+            if (!string.Equals(clinic.ResendFromName, value, StringComparison.Ordinal))
+            {
+                clinic.ResendFromName = value;
+                resendSettingsChanged = true;
+            }
+        }
+        if (dto.ResendConnected.HasValue) clinic.ResendConnected = dto.ResendConnected.Value;
+        else if (resendSettingsChanged) clinic.ResendConnected = false;
+
         clinic.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -603,7 +639,73 @@ public class ClinicsController : ControllerBase
         }
     }
 
-    // ─── POST /api/clinics/{id}/settings/integrations/smtp/test ──────────────
+    // POST /api/clinics/{id}/settings/integrations/resend/test
+    [HttpPost("{id}/settings/integrations/resend/test")]
+    [Authorize]
+    public async Task<ActionResult> TestResend(Guid id)
+    {
+        _logger.LogInformation("Resend test requested for clinic {ClinicId}", id);
+
+        var clinic = await _db.Clinics.FindAsync(id);
+        if (clinic == null)
+        {
+            _logger.LogWarning("Resend test failed: clinic {ClinicId} not found", id);
+            return NotFound(new { message = "Clinica nao encontrada." });
+        }
+
+        if (string.IsNullOrWhiteSpace(clinic.ResendApiKey) ||
+            string.IsNullOrWhiteSpace(clinic.ResendFromEmail))
+        {
+            _logger.LogWarning(
+                "Resend test skipped for clinic {ClinicId}: missing settings. HasApiKey={HasApiKey}, HasFromEmail={HasFromEmail}",
+                id,
+                !string.IsNullOrWhiteSpace(clinic.ResendApiKey),
+                !string.IsNullOrWhiteSpace(clinic.ResendFromEmail));
+            return Ok(new { ok = false, message = "Preencha e salve API Key e e-mail remetente antes de testar." });
+        }
+
+        try
+        {
+            var resendOverride = new ResendOverride(
+                clinic.ResendApiKey,
+                clinic.ResendFromEmail,
+                clinic.ResendFromName);
+
+            await _emailService.SendAsync(
+                clinic.ResendFromEmail,
+                "Teste de e-mail - Consultorio",
+                "<p>Configuracao Resend funcionando corretamente.</p>",
+                resend: resendOverride);
+
+            clinic.ResendConnected = true;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Resend test succeeded for clinic {ClinicId}. From={From}",
+                id,
+                clinic.ResendFromEmail);
+
+            return Ok(new { ok = true, message = "E-mail de teste enviado com sucesso pelo Resend", detail = clinic.ResendFromEmail });
+        }
+        catch (Exception ex)
+        {
+            clinic.ResendConnected = false;
+            clinic.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var (message, detail) = CategorizeResendError(ex);
+            _logger.LogWarning(
+                ex,
+                "Resend test failed for clinic {ClinicId}. From={From}, Category={Category}, Detail={Detail}",
+                id,
+                clinic.ResendFromEmail,
+                message,
+                detail);
+            return Ok(new { ok = false, message, detail });
+        }
+    }
+
     [HttpPost("{id}/settings/integrations/smtp/test")]
     [Authorize]
     public async Task<ActionResult> TestSmtp(Guid id)
@@ -684,6 +786,55 @@ public class ClinicsController : ControllerBase
     // Traduz exceções genéricas do SmtpClient em mensagens acionáveis. O
     // SmtpClient do .NET joga quase tudo em SmtpException com mensagem em
     // inglês, sem categoria — então classificamos por substring + tipo.
+    private static (string message, string? detail) CategorizeResendError(Exception ex)
+    {
+        if (ex is ResendEmailException resendEx)
+        {
+            if (resendEx.StatusCode == StatusCodes.Status401Unauthorized ||
+                resendEx.StatusCode == StatusCodes.Status403Forbidden)
+            {
+                return (
+                    "API Key do Resend rejeitada",
+                    "Confirme se a chave comeca com re_, se esta ativa no painel do Resend e se foi colada sem espacos."
+                );
+            }
+
+            if (resendEx.StatusCode == StatusCodes.Status400BadRequest ||
+                resendEx.StatusCode == StatusCodes.Status422UnprocessableEntity)
+            {
+                return (
+                    "Resend recusou os dados do envio",
+                    "Verifique se o remetente pertence a um dominio verificado no Resend. Detalhe: " + resendEx.Message
+                );
+            }
+
+            if (resendEx.StatusCode == StatusCodes.Status429TooManyRequests)
+            {
+                return (
+                    "Limite do Resend atingido",
+                    "O plano gratuito possui limite diario/mensal. Aguarde a janela de limite ou ajuste o plano no Resend."
+                );
+            }
+
+            return ($"Resend retornou erro HTTP {resendEx.StatusCode}", resendEx.Message);
+        }
+
+        var resendMessage = ex.Message ?? "";
+        if (resendMessage.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
+            resendMessage.Contains("No such host", StringComparison.OrdinalIgnoreCase) ||
+            resendMessage.Contains("could not be resolved", StringComparison.OrdinalIgnoreCase) ||
+            ex is System.Net.Sockets.SocketException ||
+            ex.InnerException is System.Net.Sockets.SocketException)
+        {
+            return (
+                "API do Resend inacessivel",
+                "O servidor nao conseguiu acessar https://api.resend.com pela porta 443. Verifique DNS, firewall e conectividade HTTPS do droplet."
+            );
+        }
+
+        return (ex.Message ?? "Falha desconhecida no Resend", null);
+    }
+
     private static (string message, string? detail) CategorizeSmtpError(Exception ex, string host, int port)
     {
         var msg = ex.Message ?? "";

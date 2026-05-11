@@ -63,6 +63,14 @@ export interface IntegrationSettings {
   smtpPassword?: string        // escrita: enviado ao backend (plain ou masked)
   smtpFrom?: string
   smtpConnected?: boolean
+
+  // Resend per-clinic
+  resendApiKeyMasked?: string
+  resendApiKeyConfigured?: boolean
+  resendApiKey?: string
+  resendFromEmail?: string
+  resendFromName?: string
+  resendConnected?: boolean
 }
 
 export function useIntegrations(clinicId?: string) {

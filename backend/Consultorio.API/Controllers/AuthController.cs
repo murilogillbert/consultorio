@@ -295,10 +295,20 @@ public class AuthController : ControllerBase
             .FirstOrDefault(id => id.HasValue);
 
         SmtpOverride? smtpOverride = null;
+        ResendOverride? resendOverride = null;
         if (clinicId.HasValue)
         {
             var clinic = await _db.Clinics.FindAsync(clinicId.Value);
             if (clinic != null &&
+                !string.IsNullOrWhiteSpace(clinic.ResendApiKey) &&
+                !string.IsNullOrWhiteSpace(clinic.ResendFromEmail))
+            {
+                resendOverride = new ResendOverride(
+                    clinic.ResendApiKey,
+                    clinic.ResendFromEmail,
+                    clinic.ResendFromName);
+            }
+            else if (clinic != null &&
                 !string.IsNullOrWhiteSpace(clinic.SmtpHost) &&
                 !string.IsNullOrWhiteSpace(clinic.SmtpPassword))
             {
@@ -319,7 +329,7 @@ public class AuthController : ControllerBase
 
         try
         {
-            await _emailService.SendAsync(dto.Email, "Código de recuperação de acesso", html, smtpOverride);
+            await _emailService.SendAsync(dto.Email, "Código de recuperação de acesso", html, smtpOverride, resendOverride);
         }
         catch (Exception ex)
         {

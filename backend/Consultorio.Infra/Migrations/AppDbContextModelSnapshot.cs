@@ -578,6 +578,18 @@ namespace Consultorio.Infra.Migrations
                     b.Property<string>("WaWabaId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ResendApiKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ResendConnected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ResendFromEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResendFromName")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("SmtpConnected")
                         .HasColumnType("bit");
 

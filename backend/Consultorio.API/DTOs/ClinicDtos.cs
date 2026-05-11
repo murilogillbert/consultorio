@@ -53,6 +53,12 @@ public class IntegrationSettingsResponseDto
     public string? SmtpPasswordMasked     { get; set; }
     public string? SmtpFrom               { get; set; }
     public bool    SmtpConnected          { get; set; }
+    // Resend per-clinic
+    public string? ResendApiKeyMasked     { get; set; }
+    public bool    ResendApiKeyConfigured { get; set; }
+    public string? ResendFromEmail        { get; set; }
+    public string? ResendFromName         { get; set; }
+    public bool    ResendConnected        { get; set; }
 }
 
 public class UpdateIntegrationSettingsDto
@@ -94,6 +100,11 @@ public class UpdateIntegrationSettingsDto
     public string? SmtpPassword       { get; set; }
     public string? SmtpFrom           { get; set; }
     public bool?   SmtpConnected      { get; set; }
+    // Resend per-clinic
+    public string? ResendApiKey        { get; set; }
+    public string? ResendFromEmail     { get; set; }
+    public string? ResendFromName      { get; set; }
+    public bool?   ResendConnected     { get; set; }
 }
 
 

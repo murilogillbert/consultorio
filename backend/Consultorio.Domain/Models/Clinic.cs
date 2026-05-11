@@ -68,6 +68,12 @@ public class Clinic
     public string? SmtpFrom     { get; set; }
     public bool    SmtpConnected { get; set; } = false;
 
+    // Resend Email API credentials per clinic
+    public string? ResendApiKey    { get; set; }
+    public string? ResendFromEmail { get; set; }
+    public string? ResendFromName  { get; set; }
+    public bool    ResendConnected { get; set; } = false;
+
     // Instagram Direct API credentials per clinic
     public string? IgAccountId    { get; set; }
     public string? IgPageId       { get; set; }

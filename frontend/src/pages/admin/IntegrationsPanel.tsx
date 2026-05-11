@@ -204,9 +204,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const gmailStatus: ConnectionStatus = existingSettings?.gmailConnected ? 'connected' : 'disconnected'
   const waStatus: ConnectionStatus = existingSettings?.waConnected ? 'connected' : 'disconnected'
   const mpStatus: ConnectionStatus = existingSettings?.connected ? 'connected' : 'disconnected'
-  const smtpStatus: ConnectionStatus = existingSettings?.smtpConnected
+  const resendStatus: ConnectionStatus = existingSettings?.resendConnected
     ? 'connected'
-    : existingSettings?.smtpHost || existingSettings?.smtpUsername
+    : existingSettings?.resendApiKeyConfigured || existingSettings?.resendFromEmail
       ? 'pending'
       : 'disconnected'
   const pubsubStatus: ConnectionStatus = existingSettings?.pubsubConnected
@@ -278,9 +278,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [pubsub, setPubsub] = useState({ projectId: '', topicName: '', serviceKey: '' })
   const [psErrors, setPsErrors] = useState<Record<string, string>>({})
 
-  /* SMTP state */
-  const [smtp, setSmtp] = useState({ host: '', port: '587', username: '', password: '' })
-  const [smtpErrors, setSmtpErrors] = useState<Record<string, string>>({})
+  /* Resend state */
+  const [resend, setResend] = useState({ apiKey: '', fromEmail: '', fromName: 'Consultorio' })
+  const [resendErrors, setResendErrors] = useState<Record<string, string>>({})
 
   /* Handle initial data load */
   useEffect(() => {
@@ -309,11 +309,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         topicName: existingSettings.pubsubTopicName || '',
         serviceKey: existingSettings.pubsubServiceAccountMasked || existingSettings.pubsubServiceAccount || '',
       })
-      setSmtp({
-        host:     existingSettings.smtpHost     || '',
-        port:     String(existingSettings.smtpPort ?? 587),
-        username: existingSettings.smtpUsername  || '',
-        password: existingSettings.smtpPasswordMasked || '',
+      setResend({
+        apiKey: existingSettings.resendApiKeyMasked || '',
+        fromEmail: existingSettings.resendFromEmail || '',
+        fromName: existingSettings.resendFromName || 'Consultorio',
       })
     }, 0)
 
@@ -365,16 +364,14 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     return Object.keys(e).length === 0
   }
 
-  const validateSmtp = () => {
+  const validateResend = () => {
     const e: Record<string, string> = {}
-    if (!smtp.host) e.host = 'Servidor SMTP é obrigatório'
-    if (!smtp.port || isNaN(Number(smtp.port))) e.port = 'Porta inválida'
-    if (!smtp.username) e.username = 'Usuário é obrigatório'
-    if (!smtp.password) e.password = 'Senha (App Password) é obrigatória'
-    setSmtpErrors(e)
+    if (!resend.apiKey) e.apiKey = 'API Key do Resend e obrigatoria'
+    if (!resend.fromEmail) e.fromEmail = 'E-mail remetente e obrigatorio'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resend.fromEmail)) e.fromEmail = 'E-mail remetente invalido'
+    setResendErrors(e)
     return Object.keys(e).length === 0
   }
-
   const baseUrl = (api.defaults.baseURL || `${window.location.origin}/api`).replace(/\/$/, '')
   const isMaskedCredential = (value: string) => {
     const trimmed = value.trim()
@@ -391,13 +388,11 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     publicKey: mp.publicKey?.trim() || null,
     sandboxMode: mp.sandboxMode,
   }
-  const smtpPayload = {
-    smtpHost:     smtp.host     || null,
-    smtpPort:     smtp.port     ? Number(smtp.port) : null,
-    smtpUsername: smtp.username || null,
-    smtpPassword: isMaskedCredentialSafe(smtp.password) ? undefined : (smtp.password || null),
+  const resendPayload = {
+    resendApiKey: isMaskedCredentialSafe(resend.apiKey) ? undefined : (resend.apiKey || null),
+    resendFromEmail: resend.fromEmail?.trim() || null,
+    resendFromName: resend.fromName?.trim() || null,
   }
-
   return (
     <div className="intg-panel">
       {/* Page Title */}
@@ -407,7 +402,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         <AlertTriangle size={18} />
         <div>
           <strong>Estado atual das integrações</strong>
-          <p>Configure o SMTP na seção E-mail abaixo para ativar o envio de e-mails automáticos (recuperação de senha, etc). Gmail OAuth e Pub/Sub ainda estão em etapa parcial de construção.</p>
+          <p>Configure o Resend na secao E-mail abaixo para ativar o envio de e-mails automaticos, incluindo recuperacao de senha. O SMTP antigo fica apenas como fallback tecnico.</p>
         </div>
       </div>
 
@@ -415,7 +410,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
       <IntegrationSection
         icon={Mail}
         title="Gmail OAuth"
-        description="Prepara a futura integração com caixa de entrada Gmail; o envio atual continua por SMTP"
+        description="Prepara a futura integracao com caixa de entrada Gmail; o envio transacional usa Resend"
         status={gmailStatus}
         defaultOpen
       >
@@ -838,112 +833,96 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         </div>
       </IntegrationSection>
 
-      {/* ═══════ SECTION 6: SMTP ═══════ */}
+      {/* SECTION 6: RESEND */}
       <IntegrationSection
         icon={Send}
-        title="E-mail (SMTP)"
-        description="Configure o servidor de e-mail para envio de recuperação de senha e notificações"
-        status={smtpStatus}
+        title="E-mail (Resend)"
+        description="Envio de recuperacao de senha por API HTTPS, sem depender das portas SMTP do droplet"
+        status={resendStatus}
       >
         <InstructionBox steps={[
-          'No Gmail, ative a verificação em duas etapas em myaccount.google.com',
-          'Em Segurança → Senhas de app, gere uma senha para "E-mail / Outro"',
-          'Use smtp.gmail.com como servidor, porta 587',
-          'O campo Usuário deve ser o endereço Gmail completo (será usado como remetente automaticamente)',
-          'Cole a App Password (16 caracteres) no campo Senha',
-          'Salve e clique em Testar — um e-mail de verificação será enviado para o usuário configurado',
+          'No Resend, crie uma API Key em API Keys',
+          'Verifique um dominio em Domains e configure SPF/DKIM conforme o painel',
+          'Use um remetente desse dominio verificado, por exemplo contato@seudominio.com.br',
+          'Cole a API Key abaixo, salve e clique em Testar Conexao',
+          'O teste envia um e-mail para o proprio remetente configurado',
         ]} />
 
         <div className="form-2col">
-          <SensitiveField
-            label="Servidor SMTP"
-            required
-            placeholder="smtp.gmail.com"
-            hint="Para Gmail use smtp.gmail.com · Para Outlook use smtp.office365.com"
-            mono
-            value={smtp.host}
-            saved={Boolean(existingSettings?.smtpHost) && smtp.host === (existingSettings?.smtpHost || '')}
-            onChange={v => { setSmtp(p => ({ ...p, host: v })); setSmtpErrors(p => ({ ...p, host: '' })) }}
-            error={smtpErrors.host}
-          />
-          <div className="input-group">
-            <label className="input-label">
-              Porta <span className="intg-required">*</span>
-            </label>
-            <input
-              className={`input-field${smtpErrors.port ? ' intg-error-border' : ''}`}
-              placeholder="587"
-              value={smtp.port}
-              onChange={e => { setSmtp(p => ({ ...p, port: e.target.value })); setSmtpErrors(p => ({ ...p, port: '' })) }}
-            />
-            {smtpErrors.port && <span className="intg-field-error">{smtpErrors.port}</span>}
-            <span className="intg-field-hint">587 (TLS/STARTTLS) · 465 (SSL) · 25 (sem criptografia)</span>
-          </div>
-          <SensitiveField
-            label="Usuário"
-            required
-            placeholder="psicologiaexistir@gmail.com"
-            hint="Endereço de e-mail completo — usado também como remetente nos envios"
-            mono
-            value={smtp.username}
-            saved={Boolean(existingSettings?.smtpUsername) && smtp.username === (existingSettings?.smtpUsername || '')}
-            onChange={v => { setSmtp(p => ({ ...p, username: v })); setSmtpErrors(p => ({ ...p, username: '' })) }}
-            error={smtpErrors.username}
-          />
           <div className="input-group full-span">
             <SensitiveField
-              label="Senha (App Password)"
+              label="API Key do Resend"
               required
-              placeholder="xxxx xxxx xxxx xxxx"
-              hint="⚠️ Use uma App Password do Google (16 chars) — a senha normal da conta não funciona desde 2022"
+              placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              hint="Criada no painel do Resend em API Keys. Ela sera salva mascarada no sistema."
               mono
-              value={smtp.password}
-              saved={Boolean(existingSettings?.smtpPasswordMasked)}
-              onChange={v => { setSmtp(p => ({ ...p, password: v })); setSmtpErrors(p => ({ ...p, password: '' })) }}
-              error={smtpErrors.password}
+              value={resend.apiKey}
+              saved={Boolean(existingSettings?.resendApiKeyConfigured)}
+              onChange={v => { setResend(p => ({ ...p, apiKey: v })); setResendErrors(p => ({ ...p, apiKey: '' })) }}
+              error={resendErrors.apiKey}
             />
+          </div>
+          <SensitiveField
+            label="E-mail remetente"
+            required
+            placeholder="contato@seudominio.com.br"
+            hint="Precisa pertencer a um dominio verificado no Resend."
+            mono
+            value={resend.fromEmail}
+            saved={Boolean(existingSettings?.resendFromEmail) && resend.fromEmail === (existingSettings?.resendFromEmail || '')}
+            onChange={v => { setResend(p => ({ ...p, fromEmail: v })); setResendErrors(p => ({ ...p, fromEmail: '' })) }}
+            error={resendErrors.fromEmail}
+          />
+          <div className="input-group">
+            <label className="input-label">Nome do remetente</label>
+            <input
+              className="input-field"
+              placeholder="Consultorio"
+              value={resend.fromName}
+              onChange={e => setResend(p => ({ ...p, fromName: e.target.value }))}
+            />
+            <span className="intg-field-hint">Aparece como nome do remetente na caixa de entrada.</span>
           </div>
         </div>
 
         <div className="intg-actions">
-          <SaveButton label="Testar Conexão" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            if (!validateSmtp()) {
-              addToast('Preencha e salve todos os campos antes de testar', 'warning')
+          <SaveButton label="Testar Conexao" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
+            if (!validateResend()) {
+              addToast('Preencha API Key e e-mail remetente antes de testar', 'warning')
               return
             }
             if (!clinicId) return
             try {
-              await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
-              await handleTest('smtp')
+              await updateMutation.mutateAsync({ clinicId, data: resendPayload as any })
+              await handleTest('resend')
             } catch (err: any) {
-              addToast(err?.response?.data?.message || err?.message || 'Falha ao salvar SMTP antes do teste', 'error')
+              addToast(err?.response?.data?.message || err?.message || 'Falha ao salvar Resend antes do teste', 'error')
               throw err
             }
           }} />
           <SaveButton label="Desconectar" icon={<Unplug size={14} />} variant="danger" onClick={async () => {
             if (!clinicId) return
-            await updateMutation.mutateAsync({ clinicId, data: { smtpConnected: false } as any })
-            addToast('SMTP desconectado', 'warning')
+            await updateMutation.mutateAsync({ clinicId, data: { resendConnected: false } as any })
+            addToast('Resend desconectado', 'warning')
           }} />
-          <SaveButton label="Salvar Alterações" icon={<Shield size={14} />} onClick={async () => {
-            const valid = validateSmtp()
+          <SaveButton label="Salvar Configuracoes" icon={<Shield size={14} />} onClick={async () => {
+            const valid = validateResend()
             if (!clinicId) return
             try {
-              await updateMutation.mutateAsync({ clinicId, data: smtpPayload as any })
+              await updateMutation.mutateAsync({ clinicId, data: resendPayload as any })
               addToast(
                 valid
-                  ? 'Configuracoes de e-mail salvas com sucesso'
+                  ? 'Configuracoes do Resend salvas com sucesso'
                   : 'Dados salvos - campos obrigatorios destacados em vermelho ainda precisam ser preenchidos',
                 valid ? 'success' : 'warning'
               )
             } catch (err: any) {
-              addToast(err?.response?.data?.message || err?.message || 'Falha ao salvar configuracoes de e-mail', 'error')
+              addToast(err?.response?.data?.message || err?.message || 'Falha ao salvar configuracoes do Resend', 'error')
               throw err
             }
           }} />
         </div>
       </IntegrationSection>
-
       {/* Toast Container */}
       <div className="intg-toast-container">
         {toasts.map(t => (
