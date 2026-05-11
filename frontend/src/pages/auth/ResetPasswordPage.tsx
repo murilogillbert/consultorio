@@ -86,33 +86,35 @@ export default function ResetPasswordPage() {
           {error && <div className="login-error">{error}</div>}
           {info && <div className="login-success">{info}</div>}
 
-          <div className="input-group login-field">
-            <label className="input-label">E-mail</label>
-            <input
-              className="input-field"
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError('') }}
-              disabled={step === 'password'}
-              style={{ width: '100%' }}
-            />
-          </div>
+          {step === 'code' && (
+            <>
+              <div className="input-group login-field">
+                <label className="input-label">E-mail</label>
+                <input
+                  className="input-field"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setError('') }}
+                  style={{ width: '100%' }}
+                />
+              </div>
 
-          <div className="input-group login-field">
-            <label className="input-label">Codigo (6 digitos)</label>
-            <input
-              className="input-field"
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="000000"
-              value={code}
-              onChange={e => { setCode(e.target.value.replace(/\D/g, '')); setError('') }}
-              disabled={step === 'password'}
-              style={{ width: '100%', letterSpacing: 4 }}
-            />
-          </div>
+              <div className="input-group login-field">
+                <label className="input-label">Codigo (6 digitos)</label>
+                <input
+                  className="input-field"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={code}
+                  onChange={e => { setCode(e.target.value.replace(/\D/g, '')); setError('') }}
+                  style={{ width: '100%', letterSpacing: 4 }}
+                />
+              </div>
+            </>
+          )}
 
           {step === 'password' && (
             <>

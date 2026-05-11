@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePublicClinic } from '../../hooks/useClinics'
+import { clearPatient } from '../../hooks/usePatientPortal'
 
 function ClinicLogo({ logoUrl, name }: { logoUrl?: string; name?: string }) {
   if (logoUrl) {
@@ -30,8 +31,13 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
-  const { signIn } = useAuth()
+  const { signIn, signOut } = useAuth()
   const { data: clinic } = usePublicClinic()
+
+  const handlePatientRegisterClick = () => {
+    clearPatient()
+    signOut()
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,7 +132,11 @@ export default function LoginPage() {
           </div>
 
           <div className="login-forgot">
-            <Link to="/minhas-consultas?screen=register" className="btn btn-secondary btn-sm">
+            <Link
+              to="/minhas-consultas?screen=register"
+              className="btn btn-secondary btn-sm"
+              onClick={handlePatientRegisterClick}
+            >
               Criar conta de paciente
             </Link>
           </div>

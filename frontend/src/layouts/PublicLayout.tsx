@@ -3,6 +3,7 @@ import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom'
 import { Menu, X, MessageCircle, Phone, ExternalLink, LogIn, LogOut, CheckCircle, User, UserPlus } from 'lucide-react'
 import { usePublicClinic } from '../hooks/useClinics'
 import { useAuth } from '../contexts/AuthContext'
+import { clearPatient } from '../hooks/usePatientPortal'
 
 function ClinicLogo({ logoUrl }: { logoUrl?: string | null }) {
   if (logoUrl) {
@@ -49,8 +50,14 @@ export default function PublicLayout() {
   }, [clinic?.logoUrl, clinicName])
 
   const handleSignOut = () => {
+    clearPatient()
     signOut()
     navigate('/')
+    setMobileOpen(false)
+  }
+
+  const handleRegisterIntent = () => {
+    clearPatient()
     setMobileOpen(false)
   }
 
@@ -145,7 +152,11 @@ export default function PublicLayout() {
                   <LogIn size={15} />
                   Entrar
                 </Link>
-                <Link to="/minhas-consultas?screen=register" className="btn btn-outline btn-sm navbar-login-btn">
+                <Link
+                  to="/minhas-consultas?screen=register"
+                  className="btn btn-outline btn-sm navbar-login-btn"
+                  onClick={handleRegisterIntent}
+                >
                   <UserPlus size={15} />
                   Criar conta
                 </Link>
@@ -242,7 +253,7 @@ export default function PublicLayout() {
               <Link
                 to="/minhas-consultas?screen=register"
                 className="btn btn-outline btn-lg"
-                onClick={() => setMobileOpen(false)}
+                onClick={handleRegisterIntent}
               >
                 <UserPlus size={16} />
                 Criar conta
