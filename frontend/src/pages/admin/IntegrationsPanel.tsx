@@ -243,10 +243,10 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   }, [addToast])
 
   /* Helper para chamar endpoint de teste */
-  const handleTest = useCallback(async (type: string) => {
+  const handleTest = useCallback(async (type: string, payload?: Record<string, unknown>) => {
     if (!clinicId) return
     try {
-      const result = await testMutation.mutateAsync({ clinicId, type })
+      const result = await testMutation.mutateAsync({ clinicId, type, payload })
       const detail = (result as any).detail as string | undefined
       if (!result.ok) {
         // Na falha, concatenamos detail também — ele traz a razão exata (ex: subscrição,
@@ -279,7 +279,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
   const [psErrors, setPsErrors] = useState<Record<string, string>>({})
 
   /* Resend state */
-  const [resend, setResend] = useState({ apiKey: '', fromEmail: '', fromName: 'Consultorio' })
+  const [resend, setResend] = useState({ apiKey: '', fromEmail: '', fromName: 'Consultorio', testEmail: '' })
   const [resendErrors, setResendErrors] = useState<Record<string, string>>({})
 
   /* Handle initial data load */
@@ -313,6 +313,7 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         apiKey: existingSettings.resendApiKeyMasked || '',
         fromEmail: existingSettings.resendFromEmail || '',
         fromName: existingSettings.resendFromName || 'Consultorio',
+        testEmail: '',
       })
     }, 0)
 
@@ -370,6 +371,14 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     if (!resend.fromEmail) e.fromEmail = 'E-mail remetente e obrigatorio'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resend.fromEmail)) e.fromEmail = 'E-mail remetente invalido'
     setResendErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const validateResendTestEmail = () => {
+    const e: Record<string, string> = {}
+    if (!resend.testEmail) e.testEmail = 'E-mail para teste e obrigatorio'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resend.testEmail)) e.testEmail = 'E-mail para teste invalido'
+    setResendErrors(prev => ({ ...prev, ...e }))
     return Object.keys(e).length === 0
   }
   const baseUrl = (api.defaults.baseURL || `${window.location.origin}/api`).replace(/\/$/, '')
@@ -883,18 +892,33 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
             />
             <span className="intg-field-hint">Aparece como nome do remetente na caixa de entrada.</span>
           </div>
+          <div className="input-group full-span">
+            <label className="input-label">
+              E-mail para teste <span className="intg-required">*</span>
+            </label>
+            <input
+              className={`input-field${resendErrors.testEmail ? ' intg-error-border' : ''}`}
+              placeholder="seuemail@gmail.com"
+              value={resend.testEmail}
+              onChange={e => { setResend(p => ({ ...p, testEmail: e.target.value })); setResendErrors(p => ({ ...p, testEmail: '' })) }}
+            />
+            {resendErrors.testEmail && <span className="intg-field-error">{resendErrors.testEmail}</span>}
+            <span className="intg-field-hint">Usado apenas pelo botao de teste. Nao altera o remetente nem fica salvo na integracao.</span>
+          </div>
         </div>
 
         <div className="intg-actions">
           <SaveButton label="Testar Conexao" icon={<Zap size={14} />} variant="secondary" onClick={async () => {
-            if (!validateResend()) {
-              addToast('Preencha API Key e e-mail remetente antes de testar', 'warning')
+            const validSettings = validateResend()
+            const validTestEmail = validateResendTestEmail()
+            if (!validSettings || !validTestEmail) {
+              addToast('Preencha API Key, remetente e e-mail para teste antes de testar', 'warning')
               return
             }
             if (!clinicId) return
             try {
               await updateMutation.mutateAsync({ clinicId, data: resendPayload as any })
-              await handleTest('resend')
+              await handleTest('resend', { testEmail: resend.testEmail.trim() })
             } catch (err: any) {
               addToast(err?.response?.data?.message || err?.message || 'Falha ao salvar Resend antes do teste', 'error')
               throw err

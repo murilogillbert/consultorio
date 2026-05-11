@@ -107,6 +107,11 @@ public class UpdateIntegrationSettingsDto
     public bool?   ResendConnected     { get; set; }
 }
 
+public class TestIntegrationRequestDto
+{
+    public string? TestEmail { get; set; }
+}
+
 
 public class MilestoneDto
 {

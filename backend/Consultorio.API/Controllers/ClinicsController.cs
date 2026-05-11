@@ -642,7 +642,7 @@ public class ClinicsController : ControllerBase
     // POST /api/clinics/{id}/settings/integrations/resend/test
     [HttpPost("{id}/settings/integrations/resend/test")]
     [Authorize]
-    public async Task<ActionResult> TestResend(Guid id)
+    public async Task<ActionResult> TestResend(Guid id, [FromBody] TestIntegrationRequestDto? request)
     {
         _logger.LogInformation("Resend test requested for clinic {ClinicId}", id);
 
@@ -664,6 +664,10 @@ public class ClinicsController : ControllerBase
             return Ok(new { ok = false, message = "Preencha e salve API Key e e-mail remetente antes de testar." });
         }
 
+        var testEmail = EmptyToNull(request?.TestEmail) ?? clinic.ResendFromEmail;
+        if (!IsValidEmail(testEmail))
+            return Ok(new { ok = false, message = "Informe um e-mail de teste valido." });
+
         try
         {
             var resendOverride = new ResendOverride(
@@ -672,7 +676,7 @@ public class ClinicsController : ControllerBase
                 clinic.ResendFromName);
 
             await _emailService.SendAsync(
-                clinic.ResendFromEmail,
+                testEmail,
                 "Teste de e-mail - Consultorio",
                 "<p>Configuracao Resend funcionando corretamente.</p>",
                 resend: resendOverride);
@@ -682,11 +686,12 @@ public class ClinicsController : ControllerBase
             await _db.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Resend test succeeded for clinic {ClinicId}. From={From}",
+                "Resend test succeeded for clinic {ClinicId}. From={From}, To={To}",
                 id,
-                clinic.ResendFromEmail);
+                clinic.ResendFromEmail,
+                testEmail);
 
-            return Ok(new { ok = true, message = "E-mail de teste enviado com sucesso pelo Resend", detail = clinic.ResendFromEmail });
+            return Ok(new { ok = true, message = "E-mail de teste enviado com sucesso pelo Resend", detail = testEmail });
         }
         catch (Exception ex)
         {
@@ -697,12 +702,29 @@ public class ClinicsController : ControllerBase
             var (message, detail) = CategorizeResendError(ex);
             _logger.LogWarning(
                 ex,
-                "Resend test failed for clinic {ClinicId}. From={From}, Category={Category}, Detail={Detail}",
+                "Resend test failed for clinic {ClinicId}. From={From}, To={To}, Category={Category}, Detail={Detail}",
                 id,
                 clinic.ResendFromEmail,
+                testEmail,
                 message,
                 detail);
             return Ok(new { ok = false, message, detail });
+        }
+    }
+
+    private static bool IsValidEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            _ = new System.Net.Mail.MailAddress(email);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 

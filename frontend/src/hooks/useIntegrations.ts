@@ -113,15 +113,17 @@ export function useTestIntegration() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ clinicId, type }: { clinicId: string; type: string }) => {
-      const { data } = await api.post<{ ok: boolean; message: string; detail?: string }>(
+    mutationFn: async ({ clinicId, type, payload }: { clinicId: string; type: string; payload?: Record<string, unknown> }) => {
+      const { data: result } = await api.post<{ ok: boolean; message: string; detail?: string }>(
         `/clinics/${clinicId}/settings/integrations/${type}/test`,
-        {}
+        payload || {}
       )
-      return data
+      return result
     },
     onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['integrations', variables.clinicId] })
+      if (variables?.clinicId) {
+        queryClient.invalidateQueries({ queryKey: ['integrations', variables.clinicId] })
+      }
     },
   })
 }
