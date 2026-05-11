@@ -22,6 +22,12 @@ public class ResetPasswordDto
     public string NewPassword { get; set; } = null!;
 }
 
+public class VerifyResetCodeDto
+{
+    public string Email { get; set; } = null!;
+    public string Code { get; set; } = null!;
+}
+
 // DTO para registro de usuário do sistema (admin/recepcionista)
 public class RegisterDto
 {

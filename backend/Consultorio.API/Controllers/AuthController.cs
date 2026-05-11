@@ -263,7 +263,7 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
     {
-        const string genericMessage = "Se o e-mail estiver cadastrado, enviaremos um código de recuperação.";
+        const string genericMessage = "Se houver uma conta com esse e-mail, enviaremos um codigo de recuperacao.";
 
         if (string.IsNullOrWhiteSpace(dto.Email))
             return Ok(new { message = genericMessage });
@@ -340,7 +340,23 @@ public class AuthController : ControllerBase
         return Ok(new { message = genericMessage });
     }
 
-    // ─── POST /api/auth/reset-password ─────────────────────────────────
+    // Validates the recovery code before showing the password fields in the UI.
+    [HttpPost("verify-reset-code")]
+    [AllowAnonymous]
+    public async Task<ActionResult> VerifyResetCode([FromBody] VerifyResetCodeDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Code))
+            return BadRequest(new { message = "Informe e-mail e codigo." });
+
+        var hasValidCode = await _db.Users
+            .AnyAsync(u => u.Email == dto.Email && u.IsActive && u.OtpCode == dto.Code && u.OtpExpiry > DateTime.UtcNow);
+
+        if (!hasValidCode)
+            return BadRequest(new { message = "Codigo invalido ou expirado." });
+
+        return Ok(new { ok = true, message = "Codigo confirmado." });
+    }
+
     // Validates the code, updates the password, and clears the OTP fields.
     [HttpPost("reset-password")]
     [AllowAnonymous]

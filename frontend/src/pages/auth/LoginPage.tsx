@@ -73,7 +73,7 @@ export default function LoginPage() {
             <ClinicLogo logoUrl={clinic?.logoUrl} name={clinic?.name} />
           </div>
           <h1>{clinic?.name || 'Carregando...'}</h1>
-          <p>Acesse o painel de gestão</p>
+          <p>Acesse sua conta ou painel</p>
         </div>
 
         <form onSubmit={handleLogin}>
@@ -122,6 +122,12 @@ export default function LoginPage() {
           <div className="login-forgot">
             <Link to="/esqueci-senha" className="btn btn-ghost btn-sm">
               Esqueci minha senha
+            </Link>
+          </div>
+
+          <div className="login-forgot">
+            <Link to="/minhas-consultas?screen=register" className="btn btn-secondary btn-sm">
+              Criar conta de paciente
             </Link>
           </div>
         </form>

@@ -599,6 +599,10 @@ export default function MinhasConsultasPage() {
     }
     const token = localStorage.getItem('patient_token')
     const user  = localStorage.getItem('patient_user')
+    if (!(token && user) && typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('screen') === 'register') return 'register'
+    }
     return token && user ? 'dashboard' : 'login'
   })
 

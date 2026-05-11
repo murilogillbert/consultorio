@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom'
-import { Menu, X, MessageCircle, Phone, ExternalLink, LogIn, LogOut, CheckCircle, User } from 'lucide-react'
+import { Menu, X, MessageCircle, Phone, ExternalLink, LogIn, LogOut, CheckCircle, User, UserPlus } from 'lucide-react'
 import { usePublicClinic } from '../hooks/useClinics'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -140,10 +140,16 @@ export default function PublicLayout() {
                 </button>
               </div>
             ) : (
-              <Link to="/login" className="btn btn-outline btn-sm navbar-login-btn">
-                <LogIn size={15} />
-                Login / Cadastro
-              </Link>
+              <>
+                <Link to="/login" className="btn btn-outline btn-sm navbar-login-btn">
+                  <LogIn size={15} />
+                  Entrar
+                </Link>
+                <Link to="/minhas-consultas?screen=register" className="btn btn-outline btn-sm navbar-login-btn">
+                  <UserPlus size={15} />
+                  Criar conta
+                </Link>
+              </>
             )}
           </div>
 
@@ -224,14 +230,24 @@ export default function PublicLayout() {
               Sair
             </button>
           ) : (
-            <Link
-              to="/login"
-              className="btn btn-outline btn-lg"
-              onClick={() => setMobileOpen(false)}
-            >
-              <LogIn size={16} />
-              Login / Cadastro
-            </Link>
+            <>
+              <Link
+                to="/login"
+                className="btn btn-outline btn-lg"
+                onClick={() => setMobileOpen(false)}
+              >
+                <LogIn size={16} />
+                Entrar
+              </Link>
+              <Link
+                to="/minhas-consultas?screen=register"
+                className="btn btn-outline btn-lg"
+                onClick={() => setMobileOpen(false)}
+              >
+                <UserPlus size={16} />
+                Criar conta
+              </Link>
+            </>
           )}
         </div>
       )}
