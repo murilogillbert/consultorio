@@ -37,7 +37,6 @@ public static class InstagramWebhookPayloadParser
     /// </summary>
     public static InstagramEventDiagnostics Diagnose(JsonElement evt, string? entryId = null, string? rootObject = null)
     {
-        bool has(string n)         => evt.TryGetProperty(n, out _);
         bool hasObj(string n)      => evt.TryGetProperty(n, out var e) && e.ValueKind == JsonValueKind.Object;
 
         string? extractId(string property)

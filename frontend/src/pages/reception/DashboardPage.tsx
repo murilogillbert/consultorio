@@ -11,7 +11,7 @@ const URGENCY_CSS: Record<string, string> = { NORMAL: 'normal', IMPORTANT: 'impo
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const clinicId = (user as any)?.systemUsers?.[0]?.clinicId
+  const clinicId = user?.clinicId
   const [showChargeSelector, setShowChargeSelector] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedChargeAppointment, setSelectedChargeAppointment] = useState<Appointment | null>(null)
@@ -35,7 +35,7 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     .slice(0, 5)
 
-  const waitMinutes = (appt: typeof appointments[0]) => {
+  const waitMinutes = (appt: Appointment) => {
     const diff = Math.floor((now.getTime() - new Date(appt.startTime).getTime()) / 60000)
     return diff > 0 ? `${diff} min` : 'Agora'
   }
@@ -61,7 +61,7 @@ export default function DashboardPage() {
           </div>
         )}
         {announcements.map((a) => {
-          const userId = (user as any)?.id
+          const userId = user?.id
           const alreadyRead = a.reads?.some(r => r.userId === userId)
           const dateLabel = new Date(a.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
           return (

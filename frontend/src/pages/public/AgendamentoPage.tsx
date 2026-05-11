@@ -31,14 +31,17 @@ export default function AgendamentoPage() {
     const token = getPatientToken()
     const user = getPatientUser()
     if (token && user) {
-      setIsLoggedIn(true)
-      setFormData(prev => ({
-        ...prev,
-        name: prev.name || user.name || '',
-        email: prev.email || user.email || '',
-        password: 'already-set',
-        confirmPassword: 'already-set',
-      }))
+      const timer = window.setTimeout(() => {
+        setIsLoggedIn(true)
+        setFormData(prev => ({
+          ...prev,
+          name: prev.name || user.name || '',
+          email: prev.email || user.email || '',
+          password: 'already-set',
+          confirmPassword: 'already-set',
+        }))
+      }, 0)
+      return () => window.clearTimeout(timer)
     }
   }, [])
 
@@ -50,15 +53,18 @@ export default function AgendamentoPage() {
   useEffect(() => {
     if (!formData.professionalId) return
     if (!professionals.some(p => p.id === formData.professionalId)) {
-      setFormData(prev => ({
-        ...prev,
-        professional: '',
-        professionalId: '',
-        date: '',
-        time: '',
-        startTime: '',
-        endTime: '',
-      }))
+      const timer = window.setTimeout(() => {
+        setFormData(prev => ({
+          ...prev,
+          professional: '',
+          professionalId: '',
+          date: '',
+          time: '',
+          startTime: '',
+          endTime: '',
+        }))
+      }, 0)
+      return () => window.clearTimeout(timer)
     }
   }, [professionals, formData.professionalId])
 

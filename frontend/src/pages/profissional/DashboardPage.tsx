@@ -69,8 +69,10 @@ function Stars({ rating }: { rating: number }) {
 
 // ─── Alerts Panel ────────────────────────────────────────────────────────────
 function AlertsPanel({ alerts, isLoading }: { alerts?: AlertMessage[]; isLoading: boolean }) {
+  const now = Date.now()
+
   function timeAgo(dateStr: string) {
-    const diff = Date.now() - new Date(dateStr).getTime()
+    const diff = now - new Date(dateStr).getTime()
     const mins = Math.floor(diff / 60000)
     if (mins < 1) return 'agora'
     if (mins < 60) return `${mins}min atrás`

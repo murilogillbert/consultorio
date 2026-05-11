@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Mail, MessageCircle, CreditCard, Cloud, Send,
   ChevronDown, Eye, EyeOff, Copy, Check, Loader2,
@@ -168,7 +168,6 @@ function IntegrationSection({
   status: ConnectionStatus; children: React.ReactNode; defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen || false)
-  const bodyRef = useRef<HTMLDivElement>(null)
 
   return (
     <div className={`intg-section${open ? ' open' : ''}`}>
@@ -183,8 +182,8 @@ function IntegrationSection({
         <StatusBadge status={status} />
         <ChevronDown size={18} className={`intg-chevron${open ? ' rotated' : ''}`} />
       </button>
-      <div className="intg-section-body-wrap" style={{ maxHeight: open ? bodyRef.current?.scrollHeight ?? 2000 : 0 }}>
-        <div className="intg-section-body" ref={bodyRef}>
+      <div className="intg-section-body-wrap" style={{ maxHeight: open ? 2000 : 0 }}>
+        <div className="intg-section-body">
           {children}
         </div>
       </div>
@@ -229,15 +228,18 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
     const gmailOAuth = params.get('gmail_oauth')
     if (!gmailOAuth) return
 
-    addToast(
-      params.get('gmail_message') || (gmailOAuth === 'success' ? 'Conta Google conectada com sucesso' : 'Falha ao conectar a conta Google'),
-      gmailOAuth === 'success' ? 'success' : 'error',
-    )
+    const timer = window.setTimeout(() => {
+      addToast(
+        params.get('gmail_message') || (gmailOAuth === 'success' ? 'Conta Google conectada com sucesso' : 'Falha ao conectar a conta Google'),
+        gmailOAuth === 'success' ? 'success' : 'error',
+      )
+    }, 0)
 
     const url = new URL(window.location.href)
     url.searchParams.delete('gmail_oauth')
     url.searchParams.delete('gmail_message')
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    return () => window.clearTimeout(timer)
   }, [addToast])
 
   /* Helper para chamar endpoint de teste */
@@ -282,7 +284,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
 
   /* Handle initial data load */
   useEffect(() => {
-    if (existingSettings) {
+    if (!existingSettings) return
+
+    const timer = window.setTimeout(() => {
       setGmail({
         clientId: existingSettings.gmailClientId || '',
         clientSecret: existingSettings.gmailClientSecret || '',
@@ -311,7 +315,9 @@ export default function IntegrationsPanel({ clinicId }: { clinicId?: string }) {
         username: existingSettings.smtpUsername  || '',
         password: existingSettings.smtpPasswordMasked || '',
       })
-    }
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [existingSettings])
 
   if (isLoading) {

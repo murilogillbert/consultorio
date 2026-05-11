@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import {
   Send, Paperclip, Smile, CreditCard, CalendarPlus, FileText,
   Hash, Lock, Loader2, MessageCircle, User, ChevronLeft, UserPlus, X, Search,
@@ -18,6 +18,11 @@ import PatientChargesModal from '../../components/PatientChargesModal'
 import NewAppointmentModal from '../../components/NewAppointmentModal'
 import TemplatePickerModal from '../../components/TemplatePickerModal'
 import { useSearchParams } from 'react-router-dom'
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const maybeApiError = error as { response?: { data?: { message?: string } } }
+  return maybeApiError.response?.data?.message || fallback
+}
 
 // ── Link Provisional Contact Modal ────────────────────────────────────────────
 function LinkProvisionalContactModal({
@@ -300,8 +305,8 @@ function PromotePatientModal({
       })
       onPromoted()
       onClose()
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Falha ao cadastrar paciente.')
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Falha ao cadastrar paciente.'))
     }
   }
 
@@ -449,43 +454,55 @@ export default function MensagensPage() {
   const sendExternal = useSendConversationMessage()
   const markRead = useMarkConversationRead()
   const patientIdFromQuery = searchParams.get('patientId')
-  const filteredConversations = conversations.filter((c) => {
+  const filteredConversations = useMemo(() => conversations.filter((c) => {
     if (patientChannelFilter === 'ALL') return true
     return (c.source || 'APP') === patientChannelFilter
-  })
+  }), [conversations, patientChannelFilter])
 
   // Auto-select first channel / conversation
   useEffect(() => {
-    if (channels.length > 0 && !selectedChannelId) setSelectedChannelId(channels[0].id)
-  }, [channels])
+    if (channels.length === 0 || selectedChannelId) return
+    const timer = window.setTimeout(() => setSelectedChannelId(channels[0].id), 0)
+    return () => window.clearTimeout(timer)
+  }, [channels, selectedChannelId])
   useEffect(() => {
-    if (conversations.length > 0 && !selectedPatientId) setSelectedPatientId(conversations[0].patientId)
-  }, [conversations])
+    if (conversations.length === 0 || selectedPatientId) return
+    const timer = window.setTimeout(() => setSelectedPatientId(conversations[0].patientId), 0)
+    return () => window.clearTimeout(timer)
+  }, [conversations, selectedPatientId])
   useEffect(() => {
     if (!patientIdFromQuery) return
     if (!conversations.some(c => c.patientId === patientIdFromQuery)) return
 
-    setSelectedPatientId(patientIdFromQuery)
-    setActiveTab('patients')
-    setMobileView('chat')
-    markRead.mutate(patientIdFromQuery)
-    setSearchParams({}, { replace: true })
+    const timer = window.setTimeout(() => {
+      setSelectedPatientId(patientIdFromQuery)
+      setActiveTab('patients')
+      setMobileView('chat')
+      markRead.mutate(patientIdFromQuery)
+      setSearchParams({}, { replace: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [conversations, markRead, patientIdFromQuery, setSearchParams])
   useEffect(() => {
     if (pendingLinkedPatientId) return
-    if (filteredConversations.length > 0 && (!selectedPatientId || !filteredConversations.some(c => c.patientId === selectedPatientId))) {
-      setSelectedPatientId(filteredConversations[0].patientId)
-    }
+    if (filteredConversations.length === 0) return
+    if (selectedPatientId && filteredConversations.some(c => c.patientId === selectedPatientId)) return
+
+    const timer = window.setTimeout(() => setSelectedPatientId(filteredConversations[0].patientId), 0)
+    return () => window.clearTimeout(timer)
   }, [filteredConversations, pendingLinkedPatientId, selectedPatientId])
 
   useEffect(() => {
     if (!pendingLinkedPatientId) return
     if (!filteredConversations.some(c => c.patientId === pendingLinkedPatientId)) return
 
-    setSelectedPatientId(pendingLinkedPatientId)
-    setPendingLinkedPatientId(null)
-    setActiveTab('patients')
-    setMobileView('chat')
+    const timer = window.setTimeout(() => {
+      setSelectedPatientId(pendingLinkedPatientId)
+      setPendingLinkedPatientId(null)
+      setActiveTab('patients')
+      setMobileView('chat')
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [filteredConversations, pendingLinkedPatientId])
 
   // Scroll to bottom on new messages

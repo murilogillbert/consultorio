@@ -5,6 +5,7 @@ import {
   Settings, BarChart3, TrendingUp, DollarSign, Megaphone, Activity, Receipt,
   LogOut, Bell, MessageCircle, Shield, ChevronDown, Menu, X
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMyClinic } from '../hooks/useClinics'
 import { useConversations } from '../hooks/useConversations'
@@ -13,6 +14,19 @@ import { useAppointments } from '../hooks/useAppointments'
 interface InternalLayoutProps {
   environment: 'reception' | 'admin'
 }
+
+type NavLinkItem = {
+  to: string
+  icon: LucideIcon
+  label: string
+  end?: boolean
+}
+
+type NavSectionItem = {
+  section: string
+}
+
+type InternalNavItem = NavLinkItem | NavSectionItem
 
 function ClinicLogoMini({ logoUrl }: { logoUrl?: string | null }) {
   if (logoUrl) {
@@ -26,7 +40,7 @@ function ClinicLogoMini({ logoUrl }: { logoUrl?: string | null }) {
   )
 }
 
-const receptionLinks = [
+const receptionLinks: NavLinkItem[] = [
   { to: '/recepcao', icon: LayoutDashboard, label: 'Visão Geral', end: true },
   { to: '/recepcao/agenda', icon: CalendarDays, label: 'Agenda' },
   { to: '/recepcao/mensagens', icon: MessageSquare, label: 'Mensagens' },
@@ -35,7 +49,7 @@ const receptionLinks = [
   { to: '/recepcao/servicos', icon: Stethoscope, label: 'Serviços' },
 ]
 
-const adminLinks = [
+const adminLinks: InternalNavItem[] = [
   { section: 'PRINCIPAL' },
   { to: '/admin', icon: LayoutDashboard, label: 'Visão Geral', end: true },
   { section: 'GERENCIAR' },
@@ -145,10 +159,6 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
   }, [alertsOpen, userMenuOpen])
 
   useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
     if (!mobileMenuOpen) {
       document.body.classList.remove('mobile-menu-open')
       return
@@ -210,7 +220,7 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
                 </div>
               )
             }
-            const navItem = item as any
+            const navItem = item
             const Icon = navItem.icon
             return (
               <NavLink
@@ -423,7 +433,7 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
                 if ('section' in item) {
                   return <div key={i} className="sidebar-section-title" style={{ color: 'var(--color-text-muted)' }}>{item.section}</div>
                 }
-                const navItem = item as any
+                const navItem = item
                 const Icon = navItem.icon
                 return (
                   <NavLink
@@ -431,7 +441,10 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
                     to={navItem.to}
                     end={navItem.end}
                     className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      mobileMenuTriggerRef.current?.focus()
+                    }}
                   >
                     <Icon size={18} />
                     <span>{navItem.label}</span>
@@ -448,9 +461,7 @@ export default function InternalLayout({ environment }: InternalLayoutProps) {
 
       {/* Mobile bottom bar */}
       <div className="mobile-bottombar">
-        {(environment === 'reception' ? receptionLinks : adminLinks.filter(l => 'to' in l).slice(0, 5)).map((item) => {
-          const navItem = item as any
-          if (navItem.section) return null
+        {(environment === 'reception' ? receptionLinks : adminLinks.filter((l): l is NavLinkItem => 'to' in l).slice(0, 5)).map((navItem) => {
           const Icon = navItem.icon
           return (
             <NavLink

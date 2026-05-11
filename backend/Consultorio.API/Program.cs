@@ -91,9 +91,20 @@ var app = builder.Build();
 // ───── SEED ─────
 using (var scope = app.Services.CreateScope())
 {
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-    await SeedData.Initialize(db);
+    var applyMigrations = builder.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true);
+
+    if (applyMigrations)
+    {
+        logger.LogInformation("Applying pending database migrations on startup.");
+        db.Database.Migrate();
+        await SeedData.Initialize(db);
+    }
+    else
+    {
+        logger.LogInformation("Skipping database migrations on startup because Database:ApplyMigrationsOnStartup is false.");
+    }
 }
 
 // ───── MIDDLEWARE ─────

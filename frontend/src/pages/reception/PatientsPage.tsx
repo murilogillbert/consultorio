@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Search, Plus, Edit, Trash2, X, AlertTriangle, Mail } from 'lucide-react'
-import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient } from '../../hooks/usePatients'
+import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, type Patient } from '../../hooks/usePatients'
 
 // Normaliza um identificador (CPF/telefone) removendo qualquer não-dígito
 // para comparar valores formatados ou não. Retorna string vazia se input
@@ -9,20 +9,25 @@ function digits(value: string | null | undefined): string {
   return (value || '').replace(/\D/g, '')
 }
 
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const maybeApiError = error as { response?: { data?: { message?: string } } }
+  return maybeApiError.response?.data?.message || fallback
+}
+
 export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const { data: patients = [], isLoading } = usePatients(searchTerm)
   // Lista completa (sem filtro) usada para detectar duplicidade na criação.
   const { data: allPatients = [] } = usePatients('')
   const [showModal, setShowModal] = useState(false)
-  const [editingPatient, setEditingPatient] = useState<any | null>(null)
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
   const [deleteError, setDeleteError] = useState('')
   const [createdPassword, setCreatedPassword] = useState('')
 
   // Quando há candidatos potencialmente duplicados, abrimos um diálogo
   // listando os existentes antes de prosseguir com a criação.
-  const [duplicateMatches, setDuplicateMatches] = useState<any[] | null>(null)
+  const [duplicateMatches, setDuplicateMatches] = useState<Patient[] | null>(null)
 
   // Confirmação antes de salvar quando o e-mail foi alterado na edição.
   const [emailChangeConfirm, setEmailChangeConfirm] = useState(false)
@@ -41,7 +46,7 @@ export default function PatientsPage() {
     notes: ''
   })
 
-  const handleEdit = (patient: any) => {
+  const handleEdit = (patient: Patient) => {
     setEditingPatient(patient)
     setFormData({
       name: patient.user?.name || '',
@@ -58,11 +63,11 @@ export default function PatientsPage() {
   // Procura pacientes existentes que combinem por CPF, e-mail ou telefone.
   // Ordem de prioridade: CPF > e-mail > telefone (o mais confiável primeiro).
   // Ignora o paciente em edição (não é duplicidade contra si próprio).
-  const findDuplicates = (form: typeof formData): any[] => {
+  const findDuplicates = (form: typeof formData): Patient[] => {
     const cpfDigits = digits(form.cpf)
     const phoneDigits = digits(form.phone)
     const email = form.email.trim().toLowerCase()
-    const matches: any[] = []
+    const matches: Patient[] = []
     const seen = new Set<string>()
     for (const p of allPatients) {
       if (editingPatient && p.id === editingPatient.id) continue
@@ -130,8 +135,8 @@ export default function PatientsPage() {
       setEditingPatient(null)
       setDuplicateMatches(null)
       setFormData({ name: '', email: '', cpf: '', phone: '', birthDate: '', address: '', notes: '' })
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Erro ao salvar paciente.')
+    } catch (err: unknown) {
+      alert(getApiErrorMessage(err, 'Erro ao salvar paciente.'))
     }
   }
 
@@ -141,8 +146,8 @@ export default function PatientsPage() {
     try {
       await deletePatient.mutateAsync(deleteConfirm.id)
       setDeleteConfirm(null)
-    } catch (err: any) {
-      setDeleteError(err?.response?.data?.message || 'Erro ao remover paciente.')
+    } catch (err: unknown) {
+      setDeleteError(getApiErrorMessage(err, 'Erro ao remover paciente.'))
     }
   }
 

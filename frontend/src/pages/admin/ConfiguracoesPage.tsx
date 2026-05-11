@@ -1549,14 +1549,17 @@ function TemplatesSection() {
 
   useEffect(() => {
     if (templates) {
-      // Sync drafts: keep user-edited values; otherwise mirror the server.
-      setDrafts(prev => {
-        const next: Record<string, string> = {}
-        templates.forEach(t => {
-          next[t.kind] = prev[t.kind] !== undefined ? prev[t.kind] : t.body
+      const timer = window.setTimeout(() => {
+        // Sync drafts: keep user-edited values; otherwise mirror the server.
+        setDrafts(prev => {
+          const next: Record<string, string> = {}
+          templates.forEach(t => {
+            next[t.kind] = prev[t.kind] !== undefined ? prev[t.kind] : t.body
+          })
+          return next
         })
-        return next
-      })
+      }, 0)
+      return () => window.clearTimeout(timer)
     }
   }, [templates])
 

@@ -291,7 +291,7 @@ export default function AgendaPage() {
     if (!selectedAppointment?.serviceId) return []
     const svc = services.find(s => s.id === selectedAppointment.serviceId)
     return svc?.insurances || []
-  }, [selectedAppointment?.serviceId, services])
+  }, [selectedAppointment, services])
 
   const handleInsuranceChange = async (insurancePlanId: string) => {
     if (!selectedAppointment) return

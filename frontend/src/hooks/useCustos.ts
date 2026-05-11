@@ -32,7 +32,7 @@ export interface CreateCustoInput {
   observacoes?: string | null
 }
 
-export interface UpdateCustoInput extends Partial<CreateCustoInput> {}
+export type UpdateCustoInput = Partial<CreateCustoInput>
 
 export interface CustoFilters {
   period?: string
