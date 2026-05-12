@@ -21,6 +21,7 @@ const RecMensagens = lazy(() => import('./pages/reception/MensagensPage'))
 const RecProfissionais = lazy(() => import('./pages/reception/ProfissionaisPage'))
 const RecServicos = lazy(() => import('./pages/reception/ServicosPage'))
 const RecPatients = lazy(() => import('./pages/reception/PatientsPage'))
+const RecProntuarioResumo = lazy(() => import('./pages/reception/ProntuarioResumoPage'))
 const AdminDashboard = lazy(() => import('./pages/admin/DashboardPage'))
 const AdminProfissionais = lazy(() => import('./pages/admin/ProfissionaisPage'))
 const AdminServicos = lazy(() => import('./pages/admin/ServicosPage'))
@@ -36,6 +37,8 @@ const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'))
 const ProfissionalDashboard = lazy(() => import('./pages/profissional/DashboardPage'))
+const ProfProntuario = lazy(() => import('./pages/profissional/ProntuarioPage'))
+const ProfEvolucao = lazy(() => import('./pages/profissional/EvolucaoEditorPage'))
 
 export default function App() {
   return (
@@ -71,6 +74,7 @@ export default function App() {
           <Route path="/recepcao/profissionais" element={<RecProfissionais />} />
           <Route path="/recepcao/servicos" element={<RecServicos />} />
           <Route path="/recepcao/pacientes" element={<RecPatients />} />
+          <Route path="/recepcao/pacientes/:patientId/prontuario" element={<RecProntuarioResumo />} />
         </Route>
       </Route>
 
@@ -95,6 +99,8 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['PROFESSIONAL']} />}>
         <Route element={<PublicLayout />}>
           <Route path="/profissional" element={<ProfissionalDashboard />} />
+          <Route path="/profissional/pacientes/:patientId/prontuario" element={<ProfProntuario />} />
+          <Route path="/profissional/consulta/:appointmentId/evolucao" element={<ProfEvolucao />} />
         </Route>
       </Route>
 

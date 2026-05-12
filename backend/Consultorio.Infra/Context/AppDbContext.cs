@@ -36,6 +36,10 @@ public class AppDbContext : DbContext
     public DbSet<MessageTemplate> MessageTemplates { get; set; } = null!;
     public DbSet<Custo> Custos { get; set; } = null!;
     public DbSet<Category> Categories { get; set; } = null!;
+    public DbSet<MedicalRecord> MedicalRecords { get; set; } = null!;
+    public DbSet<SessionNote> SessionNotes { get; set; } = null!;
+    public DbSet<MedicalAttachment> MedicalAttachments { get; set; } = null!;
+    public DbSet<MedicalRecordAudit> MedicalRecordAudits { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -439,5 +443,120 @@ public class AppDbContext : DbContext
             .HasForeignKey(pm => pm.SentByUserId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // ───── MEDICAL RECORD ─────
+        modelBuilder.Entity<MedicalRecord>()
+            .HasKey(m => m.Id);
+        modelBuilder.Entity<MedicalRecord>()
+            .Property(m => m.HeightCm)
+            .HasPrecision(5, 2);
+        modelBuilder.Entity<MedicalRecord>()
+            .Property(m => m.WeightKg)
+            .HasPrecision(6, 2);
+        modelBuilder.Entity<MedicalRecord>()
+            .HasOne(m => m.Patient)
+            .WithOne(p => p.MedicalRecord)
+            .HasForeignKey<MedicalRecord>(m => m.PatientId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MedicalRecord>()
+            .HasOne(m => m.Clinic)
+            .WithMany()
+            .HasForeignKey(m => m.ClinicId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalRecord>()
+            .HasOne(m => m.UpdatedBy)
+            .WithMany()
+            .HasForeignKey(m => m.UpdatedById)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalRecord>()
+            .HasIndex(m => new { m.ClinicId, m.PatientId });
+
+        // ───── SESSION NOTE ─────
+        modelBuilder.Entity<SessionNote>()
+            .HasKey(s => s.Id);
+        modelBuilder.Entity<SessionNote>()
+            .HasOne(s => s.MedicalRecord)
+            .WithMany(m => m.SessionNotes)
+            .HasForeignKey(s => s.MedicalRecordId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SessionNote>()
+            .HasOne(s => s.Appointment)
+            .WithMany()
+            .HasForeignKey(s => s.AppointmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SessionNote>()
+            .HasOne(s => s.Patient)
+            .WithMany()
+            .HasForeignKey(s => s.PatientId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<SessionNote>()
+            .HasOne(s => s.Professional)
+            .WithMany()
+            .HasForeignKey(s => s.ProfessionalId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<SessionNote>()
+            .HasOne(s => s.Clinic)
+            .WithMany()
+            .HasForeignKey(s => s.ClinicId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<SessionNote>()
+            .HasIndex(s => s.AppointmentId)
+            .IsUnique();
+        modelBuilder.Entity<SessionNote>()
+            .HasIndex(s => new { s.PatientId, s.CreatedAt });
+
+        // ───── MEDICAL ATTACHMENT ─────
+        modelBuilder.Entity<MedicalAttachment>()
+            .HasKey(a => a.Id);
+        modelBuilder.Entity<MedicalAttachment>()
+            .HasOne(a => a.MedicalRecord)
+            .WithMany(m => m.Attachments)
+            .HasForeignKey(a => a.MedicalRecordId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MedicalAttachment>()
+            .HasOne(a => a.SessionNote)
+            .WithMany()
+            .HasForeignKey(a => a.SessionNoteId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalAttachment>()
+            .HasOne(a => a.Patient)
+            .WithMany()
+            .HasForeignKey(a => a.PatientId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalAttachment>()
+            .HasOne(a => a.Clinic)
+            .WithMany()
+            .HasForeignKey(a => a.ClinicId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalAttachment>()
+            .HasOne(a => a.UploadedBy)
+            .WithMany()
+            .HasForeignKey(a => a.UploadedById)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalAttachment>()
+            .HasIndex(a => new { a.PatientId, a.UploadedAt });
+
+        // ───── MEDICAL RECORD AUDIT ─────
+        modelBuilder.Entity<MedicalRecordAudit>()
+            .HasKey(a => a.Id);
+        modelBuilder.Entity<MedicalRecordAudit>()
+            .HasOne(a => a.Patient)
+            .WithMany()
+            .HasForeignKey(a => a.PatientId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalRecordAudit>()
+            .HasOne(a => a.Clinic)
+            .WithMany()
+            .HasForeignKey(a => a.ClinicId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalRecordAudit>()
+            .HasOne(a => a.User)
+            .WithMany()
+            .HasForeignKey(a => a.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MedicalRecordAudit>()
+            .HasIndex(a => new { a.PatientId, a.Timestamp });
     }
 }

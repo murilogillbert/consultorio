@@ -23,4 +23,5 @@ public class Patient
     public Clinic Clinic { get; set; } = null!;
     public User User { get; set; } = null!;
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
+    public MedicalRecord? MedicalRecord { get; set; }
 }

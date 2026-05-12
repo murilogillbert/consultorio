@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Search, Plus, Edit, Trash2, X, AlertTriangle, Mail } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, Plus, Edit, Trash2, X, AlertTriangle, Mail, FileText } from 'lucide-react'
 import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, type Patient } from '../../hooks/usePatients'
 
 // Normaliza um identificador (CPF/telefone) removendo qualquer não-dígito
@@ -15,6 +16,7 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function PatientsPage() {
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const { data: patients = [], isLoading } = usePatients(searchTerm)
   // Lista completa (sem filtro) usada para detectar duplicidade na criação.
@@ -221,6 +223,13 @@ export default function PatientsPage() {
                     <td style={{ fontSize: 13 }}>—</td>
                     <td>
                       <div className="row-actions">
+                        <button
+                          className="btn btn-icon btn-sm"
+                          onClick={() => navigate(`/recepcao/pacientes/${p.id}/prontuario`)}
+                          title="Abrir prontuário"
+                        >
+                          <FileText size={14} />
+                        </button>
                         <button className="btn btn-icon btn-sm" onClick={() => handleEdit(p)} title="Editar"><Edit size={14} /></button>
                         <button className="btn btn-icon btn-sm" title="Remover"
                           onClick={() => { setDeleteConfirm({ id: p.id, name: p.user?.name || 'este paciente' }); setDeleteError('') }}>
@@ -250,6 +259,13 @@ export default function PatientsPage() {
                     </div>
                   </div>
                   <div className="patient-card-actions">
+                    <button
+                      className="btn btn-icon btn-sm"
+                      onClick={() => navigate(`/recepcao/pacientes/${p.id}/prontuario`)}
+                      title="Abrir prontuário"
+                    >
+                      <FileText size={15} />
+                    </button>
                     <button className="btn btn-icon btn-sm" onClick={() => handleEdit(p)} title="Editar"><Edit size={15} /></button>
                     <button className="btn btn-icon btn-sm" title="Remover"
                       onClick={() => { setDeleteConfirm({ id: p.id, name: p.user?.name || 'este paciente' }); setDeleteError('') }}>

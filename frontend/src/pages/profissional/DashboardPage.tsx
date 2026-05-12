@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   CalendarDays, Star, Shield, DollarSign, ChevronLeft, ChevronRight,
-  Clock, User, CheckCircle, XCircle, AlertCircle, TrendingUp, Award, Bell
+  Clock, User, CheckCircle, XCircle, AlertCircle, TrendingUp, Award, Bell,
+  FileText, Stethoscope
 } from 'lucide-react'
 import {
   useProfessionalAgenda,
@@ -117,6 +119,7 @@ function AlertsPanel({ alerts, isLoading }: { alerts?: AlertMessage[]; isLoading
 
 // ─── Tab: Agenda ─────────────────────────────────────────────────────────────
 function AgendaTab() {
+  const navigate = useNavigate()
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek())
   const { data, isLoading } = useProfessionalAgenda(weekStart)
   const { data: alerts, isLoading: alertsLoading } = useProfessionalAlerts()
@@ -235,6 +238,22 @@ function AgendaTab() {
                               {formatMoney(appt.service.price)}
                             </div>
                           )}
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              className="btn btn-icon btn-sm"
+                              title="Ver prontuário"
+                              onClick={() => navigate(`/profissional/pacientes/${appt.patient.id}/prontuario`)}
+                            >
+                              <FileText size={14} />
+                            </button>
+                            <button
+                              className="btn btn-icon btn-sm"
+                              title={appt.status === 'COMPLETED' ? 'Ver evolução' : 'Iniciar atendimento'}
+                              onClick={() => navigate(`/profissional/consulta/${appt.id}/evolucao`)}
+                            >
+                              <Stethoscope size={14} />
+                            </button>
+                          </div>
                         </div>
                       )
                     })}
