@@ -19,8 +19,6 @@ public class AppointmentReminderService : IAppointmentReminderService
     private readonly IEmailService _emailService;
     private readonly ILogger<AppointmentReminderService> _logger;
 
-    private static readonly TimeZoneInfo BrazilTimeZone = ResolveBrazilTimeZone();
-
     public AppointmentReminderService(
         AppDbContext db,
         IEmailService emailService,
@@ -148,12 +146,11 @@ public class AppointmentReminderService : IAppointmentReminderService
 
     private static string BuildHtml(Appointment appointment)
     {
-        var local = TimeZoneInfo.ConvertTimeFromUtc(
-            DateTime.SpecifyKind(appointment.StartTime, DateTimeKind.Utc),
-            BrazilTimeZone);
+        // Appointment.StartTime já é armazenado no fuso local da clínica
+        // (mesmo valor que a agenda exibe), então não convertemos.
         var ptBr = CultureInfo.GetCultureInfo("pt-BR");
-        var dateStr = local.ToString("dd/MM/yyyy", ptBr);
-        var timeStr = local.ToString("HH:mm", ptBr);
+        var dateStr = appointment.StartTime.ToString("dd/MM/yyyy", ptBr);
+        var timeStr = appointment.StartTime.ToString("HH:mm", ptBr);
 
         var patientFirstName = FirstName(appointment.Patient.User.Name);
         var professionalName = appointment.Professional.User?.Name ?? "";
@@ -167,7 +164,7 @@ public class AppointmentReminderService : IAppointmentReminderService
             <p>Este é um lembrete da sua consulta agendada para <strong>amanhã</strong>:</p>
             <ul>
               <li><strong>Data:</strong> {dateStr}</li>
-              <li><strong>Horário:</strong> {timeStr} (horário de Brasília)</li>
+              <li><strong>Horário:</strong> {timeStr}</li>
               <li><strong>Profissional:</strong> {System.Net.WebUtility.HtmlEncode(professionalName)}</li>
               <li><strong>Serviço:</strong> {System.Net.WebUtility.HtmlEncode(serviceName)}</li>
               <li><strong>Modalidade:</strong> {modality}</li>
@@ -181,16 +178,5 @@ public class AppointmentReminderService : IAppointmentReminderService
         if (string.IsNullOrWhiteSpace(fullName)) return "";
         var space = fullName.IndexOf(' ');
         return space > 0 ? fullName[..space] : fullName;
-    }
-
-    private static TimeZoneInfo ResolveBrazilTimeZone()
-    {
-        // Windows usa "E. South America Standard Time"; Linux/macOS usam IANA "America/Sao_Paulo".
-        foreach (var id in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
-        {
-            if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz))
-                return tz;
-        }
-        return TimeZoneInfo.CreateCustomTimeZone("BRT-Fallback", TimeSpan.FromHours(-3), "BRT", "BRT");
     }
 }
