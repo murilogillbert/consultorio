@@ -74,6 +74,9 @@ public class Clinic
     public string? ResendFromName  { get; set; }
     public bool    ResendConnected { get; set; } = false;
 
+    // Quando true, o job de lembretes automáticos envia e-mail 24h antes da consulta.
+    public bool RemindersEnabled { get; set; } = true;
+
     // Instagram Direct API credentials per clinic
     public string? IgAccountId    { get; set; }
     public string? IgPageId       { get; set; }

@@ -83,6 +83,8 @@ builder.Services.AddHttpClient<MetaInstagramMessagingClient>();
 builder.Services.AddScoped<InstagramService>();
 builder.Services.AddScoped<MessageTemplateRenderer>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IAppointmentReminderService, AppointmentReminderService>();
+builder.Services.AddHostedService<AppointmentReminderJob>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 

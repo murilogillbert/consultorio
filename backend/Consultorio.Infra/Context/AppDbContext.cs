@@ -40,6 +40,7 @@ public class AppDbContext : DbContext
     public DbSet<SessionNote> SessionNotes { get; set; } = null!;
     public DbSet<MedicalAttachment> MedicalAttachments { get; set; } = null!;
     public DbSet<MedicalRecordAudit> MedicalRecordAudits { get; set; } = null!;
+    public DbSet<AppointmentReminderLog> AppointmentReminderLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -558,5 +559,33 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<MedicalRecordAudit>()
             .HasIndex(a => new { a.PatientId, a.Timestamp });
+
+        // ───── APPOINTMENT REMINDER LOG ─────
+        modelBuilder.Entity<AppointmentReminderLog>()
+            .HasKey(r => r.Id);
+        modelBuilder.Entity<AppointmentReminderLog>()
+            .Property(r => r.Channel)
+            .HasMaxLength(20)
+            .IsRequired();
+        modelBuilder.Entity<AppointmentReminderLog>()
+            .Property(r => r.ReminderType)
+            .HasMaxLength(20)
+            .IsRequired();
+        modelBuilder.Entity<AppointmentReminderLog>()
+            .Property(r => r.Status)
+            .HasMaxLength(20)
+            .IsRequired();
+        modelBuilder.Entity<AppointmentReminderLog>()
+            .HasOne(r => r.Appointment)
+            .WithMany()
+            .HasForeignKey(r => r.AppointmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<AppointmentReminderLog>()
+            .HasOne(r => r.Clinic)
+            .WithMany()
+            .HasForeignKey(r => r.ClinicId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<AppointmentReminderLog>()
+            .HasIndex(r => new { r.AppointmentId, r.ReminderType, r.Status });
     }
 }
